@@ -38,7 +38,7 @@ const Sidebar = ({
 
 			<div className="sidebar-section">
 				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-					<h3 className="sidebar-title">Filtres sélectionnés</h3>
+					<h3 className="sidebar-title">Groupe sélectionnés</h3>
 					<button
 						className="btn-icon"
 						style={{ padding: '4px', width: '24px', height: '24px', fontSize: '0.9rem' }}
@@ -47,13 +47,13 @@ const Sidebar = ({
 						+
 					</button>
 				</div>
-				<div className="filter-list">
+				<div className="group-list">
 					{selectedGroups.map((id) => {
 						const group = groups.find((g) => g.id === id);
 						return (
-							<div key={id} className="filter-item active" onClick={() => toggleGroup(id)}>
+							<div key={id} className="group-item active" onClick={() => toggleGroup(id)}>
 								<div
-									className="filter-checkbox"
+									className="group-checkbox"
 									style={{ borderColor: group?.color || 'var(--text-secondary)', backgroundColor: group?.color || 'transparent' }}></div>
 								<span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group ? group.name : id}</span>
 							</div>
