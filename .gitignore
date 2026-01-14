@@ -1,0 +1,78 @@
+# ===== Environment Variables =====
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.development
+
+# ===== Dependencies =====
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ===== Build Output =====
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# ===== Logs =====
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ===== IDE & Editor =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+*.sublime-project
+*.sublime-workspace
+.vim
+.emacs
+*.code-workspace
+
+# ===== OS =====
+Thumbs.db
+.Thumbs.db
+.env.local.swp
+.history/
+
+# ===== Testing =====
+coverage/
+.nyc_output/
+cypress/screenshots/
+cypress/videos/
+__tests__/
+
+# ===== IDE Specific =====
+.eslintcache
+.stylelintcache
+
+# ===== Misc =====
+.cache/
+temp/
+tmp/
+*.bak
+*.tmp
+
+# ===== Docker =====
+docker-compose.override.yml
+
+# ===== Git =====
+.git/
+.gitmodules
+
+# ===== Project Specific =====
+.vite/
+.turbo/
+dist-ssr/
+*.local
