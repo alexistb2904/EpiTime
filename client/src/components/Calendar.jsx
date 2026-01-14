@@ -169,7 +169,7 @@ const Calendar = () => {
 				end: end.toISOString(),
 			});
 
-			if (scheduleContext.type === 'group') {
+			if (scheduleContext.type === 'group' || scheduleContext.type === 'single-group') {
 				scheduleContext.ids.forEach((id) => params.append('groups', id));
 			} else if (scheduleContext.type === 'teacher') {
 				scheduleContext.ids.forEach((id) => params.append('teachers', id));
@@ -425,7 +425,8 @@ const Calendar = () => {
 	};
 
 	const handleContextSwitch = (type, id, label) => {
-		setScheduleContext({ type, ids: [id], label });
+		const contextType = type === 'group' ? 'single-group' : type;
+		setScheduleContext({ type: contextType, ids: [id], label });
 		setSelectedEvent(null);
 	};
 

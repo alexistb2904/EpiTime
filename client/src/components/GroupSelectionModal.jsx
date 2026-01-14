@@ -43,7 +43,7 @@ const GroupSelectionModal = ({ show, onClose, filteredGroupTree, selectedGroups,
 						✕
 					</button>
 				</div>
-				<div>
+				<div style={{ padding: '0 2%' }}>
 					<input
 						style={{ marginBottom: '0' }}
 						className="search-input"

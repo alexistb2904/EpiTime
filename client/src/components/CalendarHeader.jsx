@@ -26,7 +26,7 @@ const CalendarHeader = ({ currentDate, setCurrentDate, handleNav, viewMode, setV
 			<div className="header-section header-center">
 				{scheduleContext.type !== 'group' && (
 					<div className="context-badge">
-						<span className="context-icon">📅</span>
+						<span className="context-icon">{scheduleContext.type === 'single-group' ? '👥' : '📅'}</span>
 						<span className="context-label">{scheduleContext.label}</span>
 						<button className="context-close" onClick={resetContext} title="Retour à mes groupes">
 							×

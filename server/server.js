@@ -52,9 +52,8 @@ const cacheEvents = (events, groups) => {
 	const now = Date.now();
 
 	if (groups && groups.length > 0) {
-		console.log(`Mise en cache de ${events.length} événements pour les groupes: ${groups.join(', ')}`);
 		groups.forEach((groupId) => {
-			// Convertir en string pour la clé
+			// Convertir en string pour la clé ( sinon compare un int avec un string )
 			const cacheKey = String(groupId);
 			const existing = eventsCache.get(cacheKey) || { events: [], lastUpdate: now };
 
