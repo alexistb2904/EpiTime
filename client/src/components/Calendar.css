@@ -826,7 +826,7 @@
 	border-radius: 12px;
 	box-shadow: 0 20px 25px -5px #0000001a, 0 10px 10px -5px #0000000a;
 	display: flex;
-	width: 80%;
+	width: 60%;
 	max-width: 80%;
 	gap: 2rem;
 	flex-direction: column;

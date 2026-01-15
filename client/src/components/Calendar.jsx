@@ -610,6 +610,9 @@ const Calendar = () => {
 			}
 			datesMap.get(dateKey).events.push(ev);
 		});
+		datesMap.forEach((dateEntry) => {
+			dateEntry.events.sort((a, b) => a.startObj - b.startObj);
+		});
 
 		const sortedDates = Array.from(datesMap.values()).sort((a, b) => a.dateObj - b.dateObj);
 
