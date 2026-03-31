@@ -68,7 +68,8 @@ const Login = () => {
 				</div>
 
 				<footer className="login-footer">
-					<p className="footer-disclaimer">⚠️ Projet open-source étudiant indépendant • Non affilié à Zeus, IONIS ou EPITA</p>
+					<p className="footer-disclaimer">⚠️ Projet open-source étudiant indépendant • Non affilié à Zeus, IONIS ou EPITA  • <a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">Voir sur GitHub</a></p>
+					<p className="footer-contact">📬 Contact : <a href="mailto:alexistb2904@gmail.com">alexistb2904@gmail.com</a> ou alexistb2904 sur Discord</p>
 				</footer>
 			</div>
 		</div>

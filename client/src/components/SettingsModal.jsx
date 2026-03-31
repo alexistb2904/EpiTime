@@ -57,10 +57,10 @@ const SettingsModal = ({ show, onClose }) => {
 						<h3 className="settings-section-title">🔒 Confidentialité & Données</h3>
 						<div className="privacy-box">
 							<p className="settings-text">
-								✅ <strong>Aucune donnée n'est collectée</strong>
-								<br />✅ <strong>Aucune base de données</strong>
-								<br />✅ <strong>Authentification via Microsoft (EPITA)</strong>
-								<br />✅ <strong>Données stockées localement (navigateur uniquement)</strong>
+								<strong>Aucune donnée n'est collectée</strong>
+								<br /><strong>Aucune base de données</strong>
+								<br /><strong>Authentification via Microsoft (EPITA)</strong>
+								<br /><strong>Données stockées localement (navigateur uniquement)</strong>
 							</p>
 							<p className="settings-text muted">Vos préférences (groupes sélectionnés, thème) sont stockées uniquement dans votre navigateur via localStorage.</p>
 						</div>
@@ -69,7 +69,7 @@ const SettingsModal = ({ show, onClose }) => {
 					<div className="settings-divider"></div>
 
 					<div className="settings-footer">
-						<p className="settings-text muted small">Version 1.0.0 • Code source disponible sur GitHub</p>
+						<p className="settings-text muted small">Version 1.0.0 • Code source disponible sur <a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">GitHub</a></p>
 					</div>
 				</div>
 			</div>
