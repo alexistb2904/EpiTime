@@ -1,0 +1,27 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: epitime
+        expose:
+            - '3001'
+        environment:
+            NODE_ENV: ${NODE_ENV:-production}
+            PORT: 3001
+            ZEUS_BASE: ${ZEUS_BASE:-https://zeus.ionis-it.com}
+            ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-http://localhost:3001}
+            VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+            VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+        restart: unless-stopped
+        healthcheck:
+            test: ['CMD', 'node', '-e', "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 5s
+        logging:
+            driver: 'json-file'
+            options:
+                max-size: '10m'
+                max-file: '3'
