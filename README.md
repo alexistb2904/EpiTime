@@ -82,4 +82,5 @@ Le projet est en aucun cas affilié avec IONIS GROUP, Zeus ou Epita il s'agit si
 
 ## License
 
-Libre usage dans le cadre du projet.
+MIT License
+Copyright (c) 2026 alexistb2904
