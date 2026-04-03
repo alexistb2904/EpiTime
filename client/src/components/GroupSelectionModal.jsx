@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
 
 const getExpandableIdsFromTree = (nodes) => {
 	const ids = [];
@@ -21,11 +21,11 @@ const GroupTreeItem = ({ group, selectedGroups, onToggle, depth = 0, expandedNod
 
 	return (
 		<div className="group-tree-node" style={{ marginLeft: `${depth * 20}px` }}>
-			<div className={`group-checkbox-row ${isSelected ? 'selected' : ''}`} style={{ '--group-color': group.color || '#ccc' }}>
+			<div className={`group-checkbox-row ${isSelected ? "selected" : ""}`} style={{ "--group-color": group.color || "#ccc" }}>
 				{hasChildren ? (
 					<button
 						type="button"
-						className={`group-expand-toggle ${isExpanded ? 'expanded' : ''}`}
+						className={`group-expand-toggle ${isExpanded ? "expanded" : ""}`}
 						onClick={(e) => {
 							e.preventDefault();
 							e.stopPropagation();
@@ -116,9 +116,9 @@ const GroupSelectionModal = ({ show, onClose, filteredGroupTree, selectedGroups,
 						✕
 					</button>
 				</div>
-				<div style={{ padding: '0 2%' }}>
+				<div style={{ padding: "0 2%" }}>
 					<input
-						style={{ marginBottom: '0' }}
+						style={{ marginBottom: "0" }}
 						className="search-input"
 						placeholder="Rechercher un groupe..."
 						value={groupSearch}

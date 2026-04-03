@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { useNotification } from '../context/NotificationContext';
-import { usePushNotifications } from '../hooks/usePushNotifications';
-import Sidebar from './Sidebar';
-import CalendarHeader from './CalendarHeader';
-import GroupSelectionModal from './GroupSelectionModal';
-import EventDetailsModal from './EventDetailsModal';
-import SettingsModal from './SettingsModal';
-import { NotificationSettings } from './NotificationSettings';
-import './Calendar.css';
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import { useNotification } from "../context/NotificationContext";
+import { usePushNotifications } from "../hooks/usePushNotifications";
+import Sidebar from "./Sidebar";
+import CalendarHeader from "./CalendarHeader";
+import GroupSelectionModal from "./GroupSelectionModal";
+import EventDetailsModal from "./EventDetailsModal";
+import SettingsModal from "./SettingsModal";
+import { NotificationSettings } from "./NotificationSettings";
+import "./Calendar.css";
 
 const generatePastelColor = (str) => {
-	if (!str) return '#a5b4fc';
+	if (!str) return "#a5b4fc";
 
 	let hash = 0;
 	for (let i = 0; i < str.length; i++) {
@@ -33,18 +33,18 @@ const Calendar = () => {
 
 	const [currentDate, setCurrentDate] = useState(new Date());
 	const [viewMode, setViewMode] = useState(() => {
-		const savedViewMode = localStorage.getItem('zeus_view_mode');
-		return savedViewMode || 'week';
+		const savedViewMode = localStorage.getItem("zeus_view_mode");
+		return savedViewMode || "week";
 	});
 	const [events, setEvents] = useState([]);
 
-	const [selectedGroups, setSelectedGroups] = useState(JSON.parse(localStorage.getItem('zeus_selected_groups') || '[]'));
+	const [selectedGroups, setSelectedGroups] = useState(JSON.parse(localStorage.getItem("zeus_selected_groups") || "[]"));
 	const { checkNotifications, updateNotificationSettings } = usePushNotifications(user?.username, selectedGroups, notificationSettings);
 
-	const [scheduleContext, setScheduleContext] = useState({ type: 'group', ids: selectedGroups, label: 'Mes Groupes' });
+	const [scheduleContext, setScheduleContext] = useState({ type: "group", ids: selectedGroups, label: "Mes Groupes" });
 
 	const [groups, setGroups] = useState([]);
-	const [groupSearch, setGroupSearch] = useState('');
+	const [groupSearch, setGroupSearch] = useState("");
 	const [showGroupModal, setShowGroupModal] = useState(false);
 	const [selectedEvent, setSelectedEvent] = useState(null);
 	const [selectedEventLoading, setSelectedEventLoading] = useState(false);
@@ -71,8 +71,8 @@ const Calendar = () => {
 	}, [zeusToken]);
 
 	useEffect(() => {
-		if (scheduleContext.type === 'group') {
-			setScheduleContext((prev) => ({ ...prev, ids: selectedGroups, label: 'Mes Groupes' }));
+		if (scheduleContext.type === "group") {
+			setScheduleContext((prev) => ({ ...prev, ids: selectedGroups, label: "Mes Groupes" }));
 		}
 	}, [selectedGroups]);
 
@@ -107,9 +107,9 @@ const Calendar = () => {
 	}, [notificationSettings, selectedGroups, updateNotificationSettings]);
 
 	useEffect(() => {
-		if (viewMode === 'list' && todayRef.current) {
+		if (viewMode === "list" && todayRef.current) {
 			setTimeout(() => {
-				todayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				todayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 			}, 100);
 		}
 	}, [viewMode, events]);
@@ -117,31 +117,31 @@ const Calendar = () => {
 	const loadGroups = async () => {
 		try {
 			setLoading(true);
-			const res = await fetch('/api/groups', {
+			const res = await fetch("/api/groups", {
 				headers: { Authorization: `Bearer ${zeusToken}` },
 			});
 			const data = await res.json();
 
 			if (data.offline && data.cached === false) {
-				const cachedGroups = localStorage.getItem('zeus_cached_groups');
+				const cachedGroups = localStorage.getItem("zeus_cached_groups");
 				if (cachedGroups) {
 					setGroups(JSON.parse(cachedGroups));
-					console.log('📦 Groupes chargés depuis le cache local');
+					console.log("📦 Groupes chargés depuis le cache local");
 				} else {
-					setError('Aucune donnée en cache disponible');
+					setError("Aucune donnée en cache disponible");
 				}
 			} else {
 				setGroups(data);
-				localStorage.setItem('zeus_cached_groups', JSON.stringify(data));
+				localStorage.setItem("zeus_cached_groups", JSON.stringify(data));
 			}
 		} catch (err) {
 			console.error(err);
-			const cachedGroups = localStorage.getItem('zeus_cached_groups');
+			const cachedGroups = localStorage.getItem("zeus_cached_groups");
 			if (cachedGroups) {
 				setGroups(JSON.parse(cachedGroups));
-				console.log('📦 Groupes chargés depuis le cache local après erreur');
+				console.log("📦 Groupes chargés depuis le cache local après erreur");
 			} else {
-				setError('Erreur chargement groupes');
+				setError("Erreur chargement groupes");
 			}
 		} finally {
 			setLoading(false);
@@ -152,7 +152,7 @@ const Calendar = () => {
 		try {
 			setLoading(true);
 			let start, end;
-			if (viewMode === 'day') {
+			if (viewMode === "day") {
 				const d = new Date(currentDate);
 				d.setHours(0, 0, 0, 0);
 				start = d;
@@ -169,15 +169,15 @@ const Calendar = () => {
 				end: end.toISOString(),
 			});
 
-			if (scheduleContext.type === 'group' || scheduleContext.type === 'single-group') {
-				scheduleContext.ids.forEach((id) => params.append('groups', id));
-			} else if (scheduleContext.type === 'teacher') {
-				scheduleContext.ids.forEach((id) => params.append('teachers', id));
-			} else if (scheduleContext.type === 'room') {
-				scheduleContext.ids.forEach((id) => params.append('rooms', id));
+			if (scheduleContext.type === "group" || scheduleContext.type === "single-group") {
+				scheduleContext.ids.forEach((id) => params.append("groups", id));
+			} else if (scheduleContext.type === "teacher") {
+				scheduleContext.ids.forEach((id) => params.append("teachers", id));
+			} else if (scheduleContext.type === "room") {
+				scheduleContext.ids.forEach((id) => params.append("rooms", id));
 			}
 
-			const cacheKey = `zeus_events_${scheduleContext.type}_${scheduleContext.ids.join('_')}_${start.toISOString()}_${end.toISOString()}`;
+			const cacheKey = `zeus_events_${scheduleContext.type}_${scheduleContext.ids.join("_")}_${start.toISOString()}_${end.toISOString()}`;
 
 			const res = await fetch(`/api/events?${params.toString()}`, {
 				headers: { Authorization: `Bearer ${zeusToken}` },
@@ -188,23 +188,23 @@ const Calendar = () => {
 				const cachedEvents = localStorage.getItem(cacheKey);
 				if (cachedEvents) {
 					setEvents(JSON.parse(cachedEvents) || []);
-					console.log('📦 Événements chargés depuis le cache local');
+					console.log("📦 Événements chargés depuis le cache local");
 				} else {
 					setEvents([]);
-					setError('Aucune donnée en cache disponible pour cette période');
+					setError("Aucune donnée en cache disponible pour cette période");
 				}
 			} else {
 				setEvents(data || []);
 				localStorage.setItem(cacheKey, JSON.stringify(data || []));
 			}
 		} catch (err) {
-			const cacheKey = `zeus_events_${scheduleContext.type}_${scheduleContext.ids.join('_')}`;
+			const cacheKey = `zeus_events_${scheduleContext.type}_${scheduleContext.ids.join("_")}`;
 			const cachedEvents = localStorage.getItem(cacheKey);
 			if (cachedEvents) {
 				setEvents(JSON.parse(cachedEvents) || []);
-				console.log('📦 Événements chargés depuis le cache local après erreur');
+				console.log("📦 Événements chargés depuis le cache local après erreur");
 			} else {
-				setError('Erreur chargement événements: ' + err.message);
+				setError("Erreur chargement événements: " + err.message);
 			}
 		} finally {
 			setLoading(false);
@@ -232,7 +232,7 @@ const Calendar = () => {
 						courseTypeName = typeData.type;
 					}
 				} catch (err) {
-					console.error('Erreur chargement type de cours:', err);
+					console.error("Erreur chargement type de cours:", err);
 				}
 			}
 
@@ -246,7 +246,7 @@ const Calendar = () => {
 			};
 			setSelectedEvent(mergedEvent);
 		} catch (err) {
-			console.error('Erreur chargement détails réservation:', err);
+			console.error("Erreur chargement détails réservation:", err);
 			setSelectedEvent({ ...ev, loadingDetails: false });
 		} finally {
 			setSelectedEventLoading(false);
@@ -268,7 +268,7 @@ const Calendar = () => {
 			}
 		});
 
-		const toLower = (s) => s?.toLowerCase() || '';
+		const toLower = (s) => s?.toLowerCase() || "";
 		const term = toLower(groupSearch);
 
 		const filterNode = (node) => {
@@ -297,7 +297,7 @@ const Calendar = () => {
 			const start = new Date(ev.startDate);
 			const end = new Date(ev.endDate);
 
-			const courseName = ev.name || ev.typeName || '';
+			const courseName = ev.name || ev.typeName || "";
 			const courseColor = generatePastelColor(courseName);
 
 			const startDay = new Date(start);
@@ -411,7 +411,7 @@ const Calendar = () => {
 
 	const handleNav = (delta) => {
 		const newDate = new Date(currentDate);
-		if (viewMode === 'day') newDate.setDate(newDate.getDate() + delta);
+		if (viewMode === "day") newDate.setDate(newDate.getDate() + delta);
 		else newDate.setDate(newDate.getDate() + delta * 7);
 		setCurrentDate(newDate);
 	};
@@ -419,19 +419,19 @@ const Calendar = () => {
 	const toggleGroup = (id) => {
 		setSelectedGroups((prev) => {
 			const newSelected = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
-			localStorage.setItem('zeus_selected_groups', JSON.stringify(newSelected));
+			localStorage.setItem("zeus_selected_groups", JSON.stringify(newSelected));
 			return newSelected;
 		});
 	};
 
 	const handleContextSwitch = (type, id, label) => {
-		const contextType = type === 'group' ? 'single-group' : type;
+		const contextType = type === "group" ? "single-group" : type;
 		setScheduleContext({ type: contextType, ids: [id], label });
 		setSelectedEvent(null);
 	};
 
 	const resetContext = () => {
-		setScheduleContext({ type: 'group', ids: selectedGroups, label: 'Mes Groupes' });
+		setScheduleContext({ type: "group", ids: selectedGroups, label: "Mes Groupes" });
 	};
 
 	const CurrentTimeLine = () => {
@@ -446,9 +446,9 @@ const Calendar = () => {
 	};
 
 	const renderGrid = () => {
-		const w = viewMode === 'day' ? { start: currentDate } : getWeekRange(currentDate);
-		const daysCount = viewMode === 'day' ? 1 : 7;
-		const startRef = viewMode === 'day' ? currentDate : w.start;
+		const w = viewMode === "day" ? { start: currentDate } : getWeekRange(currentDate);
+		const daysCount = viewMode === "day" ? 1 : 7;
+		const startRef = viewMode === "day" ? currentDate : w.start;
 
 		const headers = [];
 		const columns = [];
@@ -465,14 +465,14 @@ const Calendar = () => {
 
 		for (let i = 0; i < daysCount; i++) {
 			const d = new Date(startRef);
-			if (viewMode !== 'day') d.setDate(d.getDate() + i);
+			if (viewMode !== "day") d.setDate(d.getDate() + i);
 
 			const isToday = d.toDateString() === now.toDateString();
 			const dateStr = d.toDateString();
 
 			headers.push(
-				<div key={i} className={`grid-header-cell ${isToday ? 'today' : ''}`}>
-					<span className="day-name">{d.toLocaleDateString('fr-FR', { weekday: 'short' })}</span>
+				<div key={i} className={`grid-header-cell ${isToday ? "today" : ""}`}>
+					<span className="day-name">{d.toLocaleDateString("fr-FR", { weekday: "short" })}</span>
 					<span className="day-num">{d.getDate()}</span>
 				</div>
 			);
@@ -487,27 +487,27 @@ const Calendar = () => {
 					))}
 
 					{dayEvents.map((ev, idx) => {
-						let borderColor = ev.courseColor || 'var(--accent-color)';
-						if (borderColor.startsWith('hsl')) {
+						let borderColor = ev.courseColor || "var(--accent-color)";
+						if (borderColor.startsWith("hsl")) {
 							borderColor = borderColor.replace(/hsl\((\d+),\s*(\d+)%?,\s*(\d+)%?\)/, (h, hue, sat, light) => `hsl(${hue}, ${sat}%, ${Math.max(0, light - 20)}%)`);
 						}
 						return (
 							<div
 								key={idx}
-								className={`grid-event ${ev.isOnline ? 'event-online' : ''}`}
+								className={`grid-event ${ev.isOnline ? "event-online" : ""}`}
 								onClick={() => handleEventClick(ev)}
 								style={{
 									...ev.style,
 									borderColor: borderColor,
-									backgroundColor: ev.courseColor || 'var(--bg-secondary)',
+									backgroundColor: ev.courseColor || "var(--bg-secondary)",
 								}}>
 								{ev.isOnline && <div className="event-badge">💻 En ligne</div>}
 								<div className="ev-time">
-									{ev.startObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} -{' '}
-									{ev.endObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+									{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+									{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
 								</div>
 								<div className="ev-title">{ev.name || ev.typeName}</div>
-								<div className="ev-room">{ev.rooms?.map((r) => r.name).join(', ')}</div>
+								<div className="ev-room">{ev.rooms?.map((r) => r.name).join(", ")}</div>
 							</div>
 						);
 					})}
@@ -519,17 +519,17 @@ const Calendar = () => {
 			<div className="calendar-grid-wrapper">
 				<div className="grid-content">
 					<div className="grid-headers">
-						<div style={{ width: '60px', flexShrink: 0 }}></div>
+						<div style={{ width: "60px", flexShrink: 0 }}></div>
 						{headers}
 					</div>
 
 					{multiDayEventsInWeek.length > 0 && (
 						<div className="multi-day-events-bar">
-							<div style={{ width: '60px', flexShrink: 0 }}></div>
-							<div style={{ display: 'flex', flex: 1 }}>
+							<div style={{ width: "60px", flexShrink: 0 }}></div>
+							<div style={{ display: "flex", flex: 1 }}>
 								{[...Array(daysCount)].map((_, dayIdx) => {
 									const d = new Date(startRef);
-									if (viewMode !== 'day') d.setDate(d.getDate() + dayIdx);
+									if (viewMode !== "day") d.setDate(d.getDate() + dayIdx);
 									const dateStr = d.toDateString();
 
 									const dayMultiDayEvents = multiDayEventsInWeek.filter((ev) => {
@@ -542,19 +542,19 @@ const Calendar = () => {
 									});
 
 									return (
-										<div key={dayIdx} style={{ flex: 1, minHeight: dayMultiDayEvents.length > 0 ? 'auto' : '0' }} className="multi-day-col">
+										<div key={dayIdx} style={{ flex: 1, minHeight: dayMultiDayEvents.length > 0 ? "auto" : "0" }} className="multi-day-col">
 											{dayMultiDayEvents.map((ev, idx) => (
 												<div
 													key={idx}
 													className="multi-day-event-item"
 													onClick={() => handleEventClick(ev)}
 													style={{
-														backgroundColor: ev.courseColor || 'var(--bg-secondary)',
-														borderColor: ev.courseColor || 'var(--accent-color)',
-														marginBottom: '2px',
+														backgroundColor: ev.courseColor || "var(--bg-secondary)",
+														borderColor: ev.courseColor || "var(--accent-color)",
+														marginBottom: "2px",
 													}}>
 													<div className="ev-title">{ev.name || ev.typeName}</div>
-													<div className="ev-room">{ev.rooms?.map((r) => r.name).join(', ')}</div>
+													<div className="ev-room">{ev.rooms?.map((r) => r.name).join(", ")}</div>
 												</div>
 											))}
 										</div>
@@ -564,14 +564,14 @@ const Calendar = () => {
 						</div>
 					)}
 
-					<div style={{ display: 'flex', position: 'relative' }}>
+					<div style={{ display: "flex", position: "relative" }}>
 						<div className="time-sidebar">
 							{[...Array(18)].map((_, i) => {
 								const hour = i + 7;
 								const displayHour = hour >= 24 ? hour - 24 : hour;
 								return (
 									<div key={i} className="time-label" style={{ top: `${(i / 17) * 100}%` }}>
-										{displayHour.toString().padStart(2, '0')}:00
+										{displayHour.toString().padStart(2, "0")}:00
 									</div>
 								);
 							})}
@@ -599,7 +599,7 @@ const Calendar = () => {
 		uniqueEvents.forEach((ev) => {
 			const startDate = new Date(ev.startDate);
 			const dateKey = startDate.toDateString();
-			const dateLabel = startDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+			const dateLabel = startDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
 			if (!datesMap.has(dateKey)) {
 				datesMap.set(dateKey, {
@@ -618,7 +618,7 @@ const Calendar = () => {
 
 		if (sortedDates.length === 0)
 			return (
-				<div className="empty-state" style={{ padding: '2rem', textAlign: 'center' }}>
+				<div className="empty-state" style={{ padding: "2rem", textAlign: "center" }}>
 					Aucun cours 😴
 				</div>
 			);
@@ -636,11 +636,11 @@ const Calendar = () => {
 								{evs.map((ev, i) => (
 									<div
 										key={i}
-										className={`list-card ${ev.isOnline ? 'list-card-online' : ''} ${ev.isMultiDay ? 'list-card-multiday' : ''}`}
+										className={`list-card ${ev.isOnline ? "list-card-online" : ""} ${ev.isMultiDay ? "list-card-multiday" : ""}`}
 										onClick={() => handleEventClick(ev)}
 										style={{
-											borderLeftColor: ev.courseColor || 'var(--accent-color)',
-											backgroundColor: ev.courseColor ? ev.courseColor.replace('hsl', 'hsla').replace('%)', '%, 0.2)') : 'transparent',
+											borderLeftColor: ev.courseColor || "var(--accent-color)",
+											backgroundColor: ev.courseColor ? ev.courseColor.replace("hsl", "hsla").replace("%)", "%, 0.2)") : "transparent",
 										}}>
 										<div className="list-top-row">
 											{ev.isOnline && <span className="chip online-chip">💻 En ligne</span>}
@@ -649,16 +649,16 @@ const Calendar = () => {
 										<div className="list-time">
 											{ev.startObj.toDateString() === ev.endObj.toDateString() ? (
 												<>
-													{ev.startObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}-
-													{ev.endObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+													{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}-
+													{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
 												</>
 											) : (
 												<>
-													Du {ev.startObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}{' '}
-													{ev.startObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+													Du {ev.startObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
+													{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
 													<br />
-													au {ev.endObj.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}{' '}
-													{ev.endObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+													au {ev.endObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
+													{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
 												</>
 											)}
 										</div>
@@ -718,7 +718,7 @@ const Calendar = () => {
 					viewMode={viewMode}
 					setViewMode={(mode) => {
 						setViewMode(mode);
-						localStorage.setItem('zeus_view_mode', mode);
+						localStorage.setItem("zeus_view_mode", mode);
 					}}
 					scheduleContext={scheduleContext}
 					resetContext={resetContext}
@@ -728,7 +728,7 @@ const Calendar = () => {
 				/>
 
 				<div className="calendar-grid-wrapper">
-					{viewMode === 'week' ? renderGrid() : renderList()}
+					{viewMode === "week" ? renderGrid() : renderList()}
 					{loading && (
 						<div className="loading-overlay">
 							<div className="spinner"></div>

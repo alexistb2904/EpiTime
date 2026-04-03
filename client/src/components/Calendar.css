@@ -178,7 +178,7 @@
 }
 
 .group-item.active .group-checkbox::after {
-	content: '✓';
+	content: "✓";
 	font-size: 12px;
 	color: white;
 	font-weight: 800;
@@ -658,7 +658,7 @@
 	pointer-events: none;
 }
 .current-time-line::before {
-	content: '';
+	content: "";
 	position: absolute;
 	left: -5px;
 	top: -4px;
@@ -1122,7 +1122,7 @@
 	color: #856404;
 }
 
-[data-theme='dark'] .disclaimer-box {
+[data-theme="dark"] .disclaimer-box {
 	background-color: #3a3200;
 	border-color: #ffc107;
 	color: #ffd54f;

@@ -1,19 +1,19 @@
-import React from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
-import { NotificationProvider } from './context/NotificationContext';
-import Login from './components/Login';
-import Calendar from './components/Calendar';
-import { PWAInstallBanner } from './components/PWAInstallBanner';
-import { usePWA } from './hooks/usePWA';
-import './App.css';
+import React from "react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { NotificationProvider } from "./context/NotificationContext";
+import Login from "./components/Login";
+import Calendar from "./components/Calendar";
+import { PWAInstallBanner } from "./components/PWAInstallBanner";
+import { usePWA } from "./hooks/usePWA";
+import "./App.css";
 
 function AppContent() {
 	const { user, loading } = useAuth();
 	const { showInstallBanner, isOnline, installMethod, handleInstall, handleDismiss } = usePWA();
 
 	React.useEffect(() => {
-		document.body.classList.toggle('offline', !isOnline);
+		document.body.classList.toggle("offline", !isOnline);
 	}, [isOnline]);
 
 	if (loading) {

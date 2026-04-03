@@ -19,7 +19,6 @@ const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
 let pushEnabled = false;
 if (vapidPublicKey && vapidPrivateKey) {
 	webpush.setVapidDetails('mailto:alexistb2904@gmail.com', vapidPublicKey, vapidPrivateKey);
-	console.log('Push notifications configurées');
 	pushEnabled = true;
 }
 
@@ -53,7 +52,6 @@ const cacheEvents = (events, groups) => {
 
 	if (groups && groups.length > 0) {
 		groups.forEach((groupId) => {
-			// Convertir en string pour la clé ( sinon compare un int avec un string )
 			const cacheKey = String(groupId);
 			const existing = eventsCache.get(cacheKey) || { events: [], lastUpdate: now };
 
@@ -377,7 +375,6 @@ app.post('/api/subscribe', async (req, res) => {
 		subscription.userGroups = userGroups;
 		subscription.settings = notificationSettings;
 		subscriptions.set(userId, subscription);
-		console.log(`✅ Subscription enregistrée pour ${userId} (groupes: ${userGroups.join(', ') || 'aucun'}, ${notificationSettings.minutesBefore}min avant)`);
 
 		res.json({ success: true, message: 'Subscription registered' });
 	} catch (err) {
@@ -409,7 +406,6 @@ app.post('/api/update-notification-settings', async (req, res) => {
 		}
 		subscriptions.set(userId, subscription);
 
-		console.log(`✅ Préférences mises à jour pour ${userId}: ${minutesBefore}min avant, jours: ${selectedDays?.join(', ')}`);
 		res.json({ success: true, message: 'Settings updated' });
 	} catch (err) {
 		console.error('/api/update-notification-settings error', err);
@@ -493,7 +489,6 @@ const notificationWorker = async () => {
 						await webpush.sendNotification(subscription, payload);
 						sentNotifications.set(notifKey, Date.now());
 						totalNotified++;
-						console.log(`Notification envoyée à ${userId} pour "${eventName}"`);
 					} catch (err) {
 						if (err.statusCode === 410) {
 							subscriptions.delete(userId);
@@ -573,11 +568,9 @@ app.post('/api/notify-test', async (req, res) => {
 		try {
 			await webpush.sendNotification(subscription, payload);
 			sent = 1;
-			console.log(`Notification test envoyée à ${userId}`);
 		} catch (err) {
 			if (err.statusCode === 410) {
 				subscriptions.delete(userId);
-				console.log(`Subscription expirée pour ${userId}`);
 			} else {
 				console.error(`Erreur envoi notification test à ${userId}:`, err.message);
 			}

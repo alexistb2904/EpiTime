@@ -1,19 +1,19 @@
-import React from 'react';
+import React from "react";
 
 const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 	if (!event) return null;
 
 	const mappingCourseTypeToLabel = {
-		'CourseType.IntegratedLecture': 'Cours Intégré',
-		'CourseType.FollowUp': 'Suivi de Cours',
-		'CourseType.Practice': 'Travaux Pratiques',
-		'CourseType.Lecture': 'Cours Magistral',
-		'CourseType.Meeting': 'Réunion',
-		'CourseType.Exam': 'Examen',
-		'CourseType.Permanence': 'Permanence',
-		'CourseType.Conference': 'Conférence',
-		'CourseType.Workshop': 'Atelier',
-		'CourseType.Defense': 'Soutenance',
+		"CourseType.IntegratedLecture": "Cours Intégré",
+		"CourseType.FollowUp": "Suivi de Cours",
+		"CourseType.Practice": "Travaux Pratiques",
+		"CourseType.Lecture": "Cours Magistral",
+		"CourseType.Meeting": "Réunion",
+		"CourseType.Exam": "Examen",
+		"CourseType.Permanence": "Permanence",
+		"CourseType.Conference": "Conférence",
+		"CourseType.Workshop": "Atelier",
+		"CourseType.Defense": "Soutenance",
 	};
 
 	return (
@@ -40,15 +40,15 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 							<span
 								className="detail-badge"
 								style={{
-									display: 'inline-block',
-									padding: '4px 12px',
-									width: '50%',
-									backgroundColor: 'var(--accent-color)',
-									color: 'white',
-									fontWeight: 'bold',
-									borderRadius: '4px',
-									fontSize: '0.9rem',
-									marginBottom: '8px',
+									display: "inline-block",
+									padding: "4px 12px",
+									width: "50%",
+									backgroundColor: "var(--accent-color)",
+									color: "white",
+									fontWeight: "bold",
+									borderRadius: "4px",
+									fontSize: "0.9rem",
+									marginBottom: "8px",
 								}}>
 								💻 En ligne
 							</span>
@@ -57,14 +57,14 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 
 					<div
 						style={{
-							display: 'grid',
-							gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-							gap: '1rem',
-							marginBottom: '1rem',
+							display: "grid",
+							gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+							gap: "1rem",
+							marginBottom: "1rem",
 						}}>
-						<div className="detail-row" style={{ gridColumn: '1 / -1' }}>
+						<div className="detail-row" style={{ gridColumn: "1 / -1" }}>
 							<span className="detail-label">Matière</span>
-							<span className="detail-value" style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>
+							<span className="detail-value" style={{ fontWeight: "bold", fontSize: "1.2rem" }}>
 								{event.name || event.typeName}
 							</span>
 						</div>
@@ -88,17 +88,17 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 							<span className="detail-value">
 								{event.startObj.toDateString() === event.endObj.toDateString() ? (
 									<>
-										{event.startObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} <br />
-										{event.startObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} -{' '}
-										{event.endObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+										{event.startObj.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} <br />
+										{event.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+										{event.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
 									</>
 								) : (
 									<>
-										<strong>Du:</strong> {event.startObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à{' '}
-										{event.startObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+										<strong>Du:</strong> {event.startObj.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} à{" "}
+										{event.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
 										<br />
-										<strong>Au:</strong> {event.endObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à{' '}
-										{event.endObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+										<strong>Au:</strong> {event.endObj.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} à{" "}
+										{event.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
 									</>
 								)}
 							</span>
@@ -107,17 +107,17 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 						{event.creationDate && (
 							<div className="detail-row">
 								<span className="detail-label">Créé le</span>
-								<span className="detail-value" style={{ fontSize: '0.85rem', opacity: 0.7 }}>
-									{new Date(event.creationDate).toLocaleString('fr-FR')}
+								<span className="detail-value" style={{ fontSize: "0.85rem", opacity: 0.7 }}>
+									{new Date(event.creationDate).toLocaleString("fr-FR")}
 								</span>
 							</div>
 						)}
 
 						{event.url && (
-							<div className="detail-row" style={{ gridColumn: '1 / -1' }}>
+							<div className="detail-row" style={{ gridColumn: "1 / -1" }}>
 								<span className="detail-label">Lien</span>
 								<span className="detail-value">
-									<a href={event.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-color)', textDecoration: 'underline' }}>
+									<a href={event.url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-color)", textDecoration: "underline" }}>
 										{event.url}
 									</a>
 								</span>
@@ -130,7 +130,7 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 							<span className="detail-label">Salles</span>
 							<div className="detail-value">
 								{event.rooms.map((r) => (
-									<button className="detail-chip" key={r.id || r.room.id} onClick={() => onContextSwitch('room', r.id || r.room.id, r.name || r.room.name)}>
+									<button className="detail-chip" key={r.id || r.room.id} onClick={() => onContextSwitch("room", r.id || r.room.id, r.name || r.room.name)}>
 										📍 {r.name || r.room.name}
 									</button>
 								))}
@@ -143,7 +143,7 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 							<span className="detail-label">Intervenants</span>
 							<div className="detail-value">
 								{event.teachers.map((t) => (
-									<button className="detail-chip" key={t.id} onClick={() => onContextSwitch('teacher', t.id, t.name)}>
+									<button className="detail-chip" key={t.id} onClick={() => onContextSwitch("teacher", t.id, t.name)}>
 										🎓 {t.firstname} {t.name}
 									</button>
 								))}
@@ -156,7 +156,7 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 							<span className="detail-label">Groupes</span>
 							<div className="detail-value">
 								{event.groups.map((g) => (
-									<button className="detail-chip" key={g.id} onClick={() => onContextSwitch('group', g.id, g.name)}>
+									<button className="detail-chip" key={g.id} onClick={() => onContextSwitch("group", g.id, g.name)}>
 										👥 {g.name}
 									</button>
 								))}
