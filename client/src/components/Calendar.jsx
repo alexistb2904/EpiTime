@@ -519,13 +519,13 @@ const Calendar = () => {
 			<div className="calendar-grid-wrapper">
 				<div className="grid-content">
 					<div className="grid-headers">
-						<div style={{ width: "60px", flexShrink: 0 }}></div>
+						<div className="grid-spacers"></div>
 						{headers}
 					</div>
 
 					{multiDayEventsInWeek.length > 0 && (
 						<div className="multi-day-events-bar">
-							<div style={{ width: "60px", flexShrink: 0 }}></div>
+							<div className="grid-spacers"></div>
 							<div style={{ display: "flex", flex: 1 }}>
 								{[...Array(daysCount)].map((_, dayIdx) => {
 									const d = new Date(startRef);
