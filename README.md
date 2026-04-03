@@ -1,11 +1,11 @@
-# EpiTime - l’EDT joli pour remplacer Zer-us
+# EpiTime - l’EDT joli pour remplacer Zeus
 
 Zeus (https://zeus.ionis-it.com/) est pratique mais… pas franchement beau. EpiTime apporte une version propre. Il existait bien EpiLife mais bon l'application n'est plus maintenue
 
 ## Stack et structure
 
-- Front : React + Vite + vite-plugin-pwa.
-- Back : Node/Express (proxy Zeus).
+- Front : React + Vite.
+- Back : Node/Express.
 
 ## Installer en local
 
@@ -60,6 +60,13 @@ cd client
 npm run build
 ```
 
+Build watch :
+
+```bash
+cd client
+npm run build:watch
+```
+
 Lancer en Docker (un seul conteneur) :
 
 ```bash
@@ -75,6 +82,12 @@ L'application est déployée via CI/CD sur Coolify.
 ## Pourquoi ce projet ?
 
 Parce que l’interface originale de Zeus pique un peu les yeux. Ici, même données, mais UI propre, responsive, PWA, notifications et Tada, c’est tout beau maintenant.
+
+## Fonctionnement pour les curieux
+
+Pour avoir accès aux données de Zeus, il faut d’abord se connecter à l’API de Zeus via une OAuth Microsoft pour récupérer un token d’authentification. Ensuite, ce token est utilisé pour faire des requêtes à l’API de Zeus afin d’obtenir les données de l’emploi du temps. Ces données sont ensuite traitées et affichées dans le front. Pour les encore plus curieux voici le swagger de l’API de Zeus : https://zeus.ionis-it.com/swagger/index.html
+
+Pour les notifications, le front s’inscrit auprès du service de push, qui génère une paire de clés VAPID. Le back stocke la clé publique et privée pour pouvoir envoyer des notifications push aux clients inscrits. Lorsqu’une notification doit être envoyée (par exemple, un changement d’emploi du temps), le back utilise la clé privée pour signer la notification et l’envoie via le service de push. Le client reçoit alors la notification et peut afficher une alerte à l’utilisateur. Inconvénient à chaque redéploiement, il faut régénérer les clés VAPID et réinscrire les clients.
 
 ## Précision
 
