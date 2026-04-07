@@ -1,6 +1,7 @@
-import React from 'react';
-import ReactCalendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
+import React from "react";
+import ReactCalendar from "react-calendar";
+import "react-calendar/dist/Calendar.css";
+import { trackEvent } from "../utils/analyticsTracker";
 
 const Sidebar = ({
 	sidebarOpen,
@@ -17,7 +18,7 @@ const Sidebar = ({
 	logout,
 }) => {
 	return (
-		<div className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
+		<div className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
 			<div className="sidebar-header">
 				<div className="sidebar-logo">EpiTime</div>
 			</div>
@@ -37,11 +38,11 @@ const Sidebar = ({
 			</div>
 
 			<div className="sidebar-section">
-				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+				<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<h3 className="sidebar-title">Groupe sélectionnés</h3>
 					<button
 						className="btn-icon"
-						style={{ padding: '4px', width: '24px', height: '24px', fontSize: '0.9rem' }}
+						style={{ padding: "4px", width: "24px", height: "24px", fontSize: "0.9rem" }}
 						onClick={() => setShowGroupModal(true)}
 						title="Modifier la sélection">
 						+
@@ -54,13 +55,13 @@ const Sidebar = ({
 							<div key={id} className="group-item active" onClick={() => toggleGroup(id)}>
 								<div
 									className="group-checkbox"
-									style={{ borderColor: group?.color || 'var(--text-secondary)', backgroundColor: group?.color || 'transparent' }}></div>
-								<span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{group ? group.name : id}</span>
+									style={{ borderColor: group?.color || "var(--text-secondary)", backgroundColor: group?.color || "transparent" }}></div>
+								<span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{group ? group.name : id}</span>
 							</div>
 						);
 					})}
 					{selectedGroups.length === 0 && (
-						<div className="empty-state-sidebar" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic' }}>
+						<div className="empty-state-sidebar" style={{ color: "var(--text-secondary)", fontSize: "0.9rem", fontStyle: "italic" }}>
 							Aucun groupe sélectionné
 						</div>
 					)}
@@ -68,9 +69,17 @@ const Sidebar = ({
 			</div>
 
 			<div className="sidebar-footer">
-				<button className="sidebar-btn" onClick={toggleTheme}>
-					<span>{theme === 'light' ? '🌙' : '☀️'}</span>
-					<span>Thème {theme === 'light' ? 'Sombre' : 'Clair'}</span>
+				<button
+					className="sidebar-btn"
+					onClick={() => {
+						trackEvent("theme_toggle_clicked", {
+							area: "sidebar",
+							to_theme: theme === "light" ? "dark" : "light",
+						});
+						toggleTheme();
+					}}>
+					<span>{theme === "light" ? "🌙" : "☀️"}</span>
+					<span>Thème {theme === "light" ? "Sombre" : "Clair"}</span>
 				</button>
 				<button className="sidebar-btn" onClick={() => setShowNotificationsModal(true)}>
 					<span>🔔</span>

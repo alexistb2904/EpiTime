@@ -34,6 +34,7 @@
 	font-size: 1.8rem;
 	font-weight: 800;
 	background: var(--accent-color);
+	background-clip: text;
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
 	letter-spacing: -1px;
@@ -1021,6 +1022,41 @@
 	text-decoration: none;
 	color: var(--text-primary);
 }
+
+.detail-room-chip-group {
+	display: inline-flex;
+	align-items: center;
+	position: relative;
+}
+
+.detail-map-icon-btn {
+	width: 28px;
+	height: 28px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	border: 1px solid var(--border-color);
+	background: var(--bg-secondary);
+	color: var(--text-secondary);
+	cursor: pointer;
+	font-size: 0.85rem;
+	transition: all 0.15s ease;
+	position: absolute;
+	left: 90%;
+	top: -40%;
+}
+
+.detail-map-icon-btn:hover {
+	color: var(--accent-color);
+	border-color: var(--accent-color);
+	background: rgba(var(--accent-rgb), 0.08);
+}
+
+.detail-map-icon-btn:active {
+	transform: translateY(1px);
+}
+
 .detail-chip:hover {
 	border-color: var(--accent-color);
 	background-color: rgba(var(--accent-rgb), 0.1);
@@ -1442,6 +1478,57 @@
 	border: 1px solid var(--border-color);
 	border-radius: 8px;
 	padding: 1rem;
+}
+
+.analytics-kpi-card {
+	background: linear-gradient(145deg, rgba(var(--accent-rgb), 0.1), rgba(var(--accent-rgb), 0.04));
+	border: 1px solid var(--border-color);
+	border-radius: 10px;
+	padding: 1rem;
+}
+
+.analytics-kpi-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 0.7rem;
+	margin-bottom: 0.45rem;
+}
+
+.analytics-kpi-title {
+	font-size: 0.86rem;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-secondary);
+	font-weight: 700;
+}
+
+.analytics-kpi-status {
+	padding: 0.2rem 0.55rem;
+	border-radius: 999px;
+	font-size: 0.75rem;
+	font-weight: 700;
+	border: 1px solid transparent;
+}
+
+.analytics-kpi-status.ready {
+	background: rgba(46, 125, 50, 0.15);
+	border-color: rgba(46, 125, 50, 0.25);
+	color: #1b5e20;
+}
+
+.analytics-kpi-status.disabled {
+	background: rgba(255, 193, 7, 0.15);
+	border-color: rgba(255, 193, 7, 0.28);
+	color: #8d6e00;
+}
+
+.analytics-kpi-value {
+	font-size: clamp(1.75rem, 4vw, 2.35rem);
+	font-weight: 800;
+	line-height: 1.1;
+	margin-bottom: 0.4rem;
+	color: var(--text-primary);
 }
 
 .settings-footer {

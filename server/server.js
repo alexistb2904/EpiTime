@@ -12,6 +12,10 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const ZEUS_BASE = process.env.ZEUS_BASE || "https://zeus.ionis-it.com";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
+const RYBBIT_API_BASE = process.env.RYBBIT_API_BASE || "";
+const RYBBIT_SITE_ID = process.env.RYBBIT_SITE_ID || "";
+const RYBBIT_API_KEY = process.env.RYBBIT_API_KEY || "";
+const RYBBIT_TIME_ZONE = process.env.RYBBIT_TIME_ZONE || "Europe/Paris";
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
@@ -109,6 +113,50 @@ app.use(express.static(publicPath));
 
 app.get("/health", (_req, res) => {
 	res.json({ ok: true });
+});
+
+app.get("/api/analytics/overview", async (_req, res) => {
+	try {
+		if (!RYBBIT_SITE_ID || !RYBBIT_API_KEY) {
+			return res.status(200).json({
+				enabled: false,
+				users: null,
+				message: "Rybbit non configuré",
+			});
+		}
+
+		const now = new Date();
+		const endDate = now.toISOString().slice(0, 10);
+		const startDate = "2020-01-01";
+
+		const url = `${RYBBIT_API_BASE}/overview/${encodeURIComponent(RYBBIT_SITE_ID)}?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&time_zone=${encodeURIComponent(RYBBIT_TIME_ZONE)}`;
+
+		const upstream = await fetch(url, {
+			headers: {
+				Authorization: `Bearer ${RYBBIT_API_KEY}`,
+			},
+		});
+
+		const text = await upstream.text();
+		if (!upstream.ok) {
+			return res.status(upstream.status).json({
+				error: text || "Rybbit upstream error",
+				upstream: url,
+			});
+		}
+
+		const parsed = text ? JSON.parse(text) : {};
+		const users = Number(parsed?.data?.users);
+
+		return res.json({
+			enabled: true,
+			users: Number.isFinite(users) ? users : 0,
+			fetchedAt: new Date().toISOString(),
+		});
+	} catch (err) {
+		console.error("/api/analytics/overview error", err);
+		return res.status(500).json({ error: "Analytics proxy error" });
+	}
 });
 
 app.post("/api/auth", async (req, res) => {

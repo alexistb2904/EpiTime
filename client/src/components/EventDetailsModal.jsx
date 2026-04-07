@@ -3,6 +3,38 @@ import React from "react";
 const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 	if (!event) return null;
 
+	const getRoomMapUrl = (roomName = "") => {
+		const BASE_URL = "https://maps.forge.epita.fr";
+		const normalized = String(roomName || "").toLowerCase();
+		const upper = String(roomName || "").toUpperCase();
+
+		if (normalized.includes("paritalie") || normalized.includes("partialie")) {
+			let floor = "f0";
+			if (normalized.includes("rdc")) floor = "f0";
+			else if (normalized.includes("1er")) floor = "f1";
+			else if (normalized.includes("2ème") || normalized.includes("2eme")) floor = "f2";
+			else if (normalized.includes("3ème") || normalized.includes("3eme")) floor = "f3";
+			else if (normalized.includes("4ème") || normalized.includes("4eme")) floor = "f4";
+			else if (normalized.includes("5ème") || normalized.includes("5eme")) floor = "f5";
+
+			return `${BASE_URL}/campus/kb/building/paritalie/floor/${floor}`;
+		}
+
+		if (normalized.includes("pasteur")) {
+			return `${BASE_URL}/campus/kb/building/pasteur`;
+		}
+
+		if (upper.includes("KB")) {
+			const kbMatch = upper.match(/KB\s*([0-6])/);
+			if (kbMatch) {
+				return `${BASE_URL}/campus/kb/building/voltaire/floor/f${kbMatch[1]}`;
+			}
+			return `${BASE_URL}/campus/kb/building/voltaire`;
+		}
+
+		return BASE_URL;
+	};
+
 	const mappingCourseTypeToLabel = {
 		"CourseType.IntegratedLecture": "Cours Intégré",
 		"CourseType.FollowUp": "Suivi de Cours",
@@ -129,11 +161,25 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 						<div className="detail-row">
 							<span className="detail-label">Salles</span>
 							<div className="detail-value">
-								{event.rooms.map((r) => (
-									<button className="detail-chip" key={r.id || r.room.id} onClick={() => onContextSwitch("room", r.id || r.room.id, r.name || r.room.name)}>
-										📍 {r.name || r.room.name}
-									</button>
-								))}
+								{event.rooms.map((r) => {
+									const roomId = r.id || r.room?.id;
+									const roomName = r.name || r.room?.name || "Salle";
+									return (
+										<span className="detail-room-chip-group" key={roomId || roomName}>
+											<button className="detail-chip" onClick={() => onContextSwitch("room", roomId, roomName)}>
+												📍 {roomName}
+											</button>
+											<button
+												type="button"
+												className="detail-map-icon-btn"
+												title="Voir sur la carte"
+												aria-label={`Voir ${roomName} sur la carte`}
+												onClick={() => window.open(getRoomMapUrl(roomName), "_blank", "noopener,noreferrer")}>
+												🗺️
+											</button>
+										</span>
+									);
+								})}
 							</div>
 						</div>
 					)}

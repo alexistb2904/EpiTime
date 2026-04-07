@@ -1,39 +1,44 @@
-import React from 'react';
-import { useNotification } from '../context/NotificationContext';
-import { usePushNotifications } from '../hooks/usePushNotifications';
-import './NotificationSettings.css';
+import React from "react";
+import { useNotification } from "../context/NotificationContext";
+import { usePushNotifications } from "../hooks/usePushNotifications";
+import { trackEvent } from "../utils/analyticsTracker";
+import "./NotificationSettings.css";
 
 export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = [] }) => {
 	const { notificationSettings, updateSettings } = useNotification();
 	const { sendTestNotification, registerPushNotifications, updateNotificationSettings } = usePushNotifications(userEmail, userGroups, notificationSettings);
 
 	const daysOfWeek = [
-		{ label: 'Lun', value: 1 },
-		{ label: 'Mar', value: 2 },
-		{ label: 'Mer', value: 3 },
-		{ label: 'Jeu', value: 4 },
-		{ label: 'Ven', value: 5 },
-		{ label: 'Sam', value: 6 },
-		{ label: 'Dim', value: 0 },
+		{ label: "Lun", value: 1 },
+		{ label: "Mar", value: 2 },
+		{ label: "Mer", value: 3 },
+		{ label: "Jeu", value: 4 },
+		{ label: "Ven", value: 5 },
+		{ label: "Sam", value: 6 },
+		{ label: "Dim", value: 0 },
 	];
 
 	const handleToggleEnabled = async () => {
+		trackEvent("notification_toggle_clicked", {
+			next_state: !notificationSettings.enabled ? "enabled" : "disabled",
+		});
+
 		if (!notificationSettings.enabled) {
 			// Activer : demander permission d'abord
-			if (!('Notification' in window)) {
-				alert('Les notifications ne sont pas supportées sur ce navigateur');
+			if (!("Notification" in window)) {
+				alert("Les notifications ne sont pas supportées sur ce navigateur");
 				return;
 			}
 
-			if (Notification.permission === 'denied') {
-				alert('Les notifications sont bloquées. Veuillez les autoriser dans les paramètres de votre navigateur.');
+			if (Notification.permission === "denied") {
+				alert("Les notifications sont bloquées. Veuillez les autoriser dans les paramètres de votre navigateur.");
 				return;
 			}
 
-			if (Notification.permission !== 'granted') {
+			if (Notification.permission !== "granted") {
 				const permission = await Notification.requestPermission();
-				if (permission !== 'granted') {
-					alert('Permission de notification refusée');
+				if (permission !== "granted") {
+					alert("Permission de notification refusée");
 					return;
 				}
 			}
@@ -87,7 +92,7 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 						✕
 					</button>
 				</div>
-				<div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+				<div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
 					<div className="setting-group">
 						<div className="setting-row">
 							<label className="toggle-label">
@@ -121,7 +126,7 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 											type="radio"
 											name="notificationType"
 											value="banner"
-											checked={notificationSettings.notificationType === 'banner'}
+											checked={notificationSettings.notificationType === "banner"}
 											onChange={handleNotificationTypeChange}
 										/>
 										Bannière uniquement
@@ -131,7 +136,7 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 											type="radio"
 											name="notificationType"
 											value="sound"
-											checked={notificationSettings.notificationType === 'sound'}
+											checked={notificationSettings.notificationType === "sound"}
 											onChange={handleNotificationTypeChange}
 										/>
 										Son uniquement
@@ -141,7 +146,7 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 											type="radio"
 											name="notificationType"
 											value="both"
-											checked={notificationSettings.notificationType === 'both'}
+											checked={notificationSettings.notificationType === "both"}
 											onChange={handleNotificationTypeChange}
 										/>
 										Bannière + Son
@@ -163,7 +168,7 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 									{daysOfWeek.map((day) => (
 										<button
 											key={day.value}
-											className={`day-btn ${notificationSettings.selectedDays.includes(day.value) ? 'active' : ''}`}
+											className={`day-btn ${notificationSettings.selectedDays.includes(day.value) ? "active" : ""}`}
 											onClick={() => handleDayToggle(day.value)}>
 											{day.label}
 										</button>
@@ -173,18 +178,28 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 
 							<div className="setting-group summary">
 								<p>
-									📌 <strong>Résumé :</strong> Vous recevrez une notification <strong>{notificationSettings.minuesBefore} minutes</strong> avant chaque cours sur{' '}
-									<strong>{notificationSettings.selectedDays.length === 7 ? 'tous les jours' : `${notificationSettings.selectedDays.length} jours`}</strong>.
+									📌 <strong>Résumé :</strong> Vous recevrez une notification <strong>{notificationSettings.minuesBefore} minutes</strong> avant chaque cours sur{" "}
+									<strong>{notificationSettings.selectedDays.length === 7 ? "tous les jours" : `${notificationSettings.selectedDays.length} jours`}</strong>.
 								</p>
 							</div>
 
 							<div className="setting-group">
 								<label className="setting-label">🧪 Test des notifications</label>
-								<div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-									<button className="btn-test" onClick={() => sendTestNotification('📚 Test - Notification Push', 'Les notifications sont bien activées!')}>
+								<div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+									<button
+										className="btn-test"
+										onClick={() => {
+											trackEvent("notification_test_sent", { type: "push" });
+											sendTestNotification("📚 Test - Notification Push", "Les notifications sont bien activées!");
+										}}>
 										Tester Push Notification
 									</button>
-									<button className="btn-test" onClick={() => registerPushNotifications()}>
+									<button
+										className="btn-test"
+										onClick={() => {
+											trackEvent("notification_reactivate_clicked");
+											registerPushNotifications();
+										}}>
 										🔔 Réactiver notifications
 									</button>
 								</div>

@@ -10,6 +10,7 @@ import EventDetailsModal from "./EventDetailsModal";
 import SettingsModal from "./SettingsModal";
 import { NotificationSettings } from "./NotificationSettings";
 import RoomAvailabilityModal from "./RoomAvailabilityModal";
+import { trackEvent } from "../utils/analyticsTracker";
 import "./Calendar.css";
 
 const generatePastelColor = (str) => {
@@ -127,13 +128,22 @@ const Calendar = () => {
 			if (data.offline && data.cached === false) {
 				const cachedGroups = localStorage.getItem("zeus_cached_groups");
 				if (cachedGroups) {
-					setGroups(JSON.parse(cachedGroups));
+					const parsedGroups = JSON.parse(cachedGroups);
+					setGroups(parsedGroups);
+					trackEvent("groups_loaded", {
+						source: "cache",
+						group_count: parsedGroups.length,
+					});
 					console.log("📦 Groupes chargés depuis le cache local");
 				} else {
 					setError("Aucune donnée en cache disponible");
 				}
 			} else {
 				setGroups(data);
+				trackEvent("groups_loaded", {
+					source: "api",
+					group_count: data.length,
+				});
 				localStorage.setItem("zeus_cached_groups", JSON.stringify(data));
 			}
 		} catch (err) {
@@ -144,6 +154,7 @@ const Calendar = () => {
 				console.log("📦 Groupes chargés depuis le cache local après erreur");
 			} else {
 				setError("Erreur chargement groupes");
+				trackEvent("groups_load_failed", { source: "api" });
 			}
 		} finally {
 			setLoading(false);
@@ -189,7 +200,14 @@ const Calendar = () => {
 			if (data.offline && data.cached === false) {
 				const cachedEvents = localStorage.getItem(cacheKey);
 				if (cachedEvents) {
-					setEvents(JSON.parse(cachedEvents) || []);
+					const parsedEvents = JSON.parse(cachedEvents) || [];
+					setEvents(parsedEvents);
+					trackEvent("calendar_loaded", {
+						source: "cache",
+						view_mode: viewMode,
+						context_type: scheduleContext.type,
+						event_count: parsedEvents.length,
+					});
 					console.log("📦 Événements chargés depuis le cache local");
 				} else {
 					setEvents([]);
@@ -207,6 +225,10 @@ const Calendar = () => {
 				console.log("📦 Événements chargés depuis le cache local après erreur");
 			} else {
 				setError("Erreur chargement événements: " + err.message);
+				trackEvent("calendar_load_failed", {
+					view_mode: viewMode,
+					context_type: scheduleContext.type,
+				});
 			}
 		} finally {
 			setLoading(false);
@@ -214,6 +236,12 @@ const Calendar = () => {
 	};
 
 	const handleEventClick = async (ev) => {
+		trackEvent("event_details_opened", {
+			view_mode: viewMode,
+			has_online: !!ev.isOnline,
+			has_rooms: (ev.rooms?.length || 0) > 0,
+			has_teachers: (ev.teachers?.length || 0) > 0,
+		});
 		setSelectedEventLoading(true);
 		setSelectedEvent({ ...ev, loadingDetails: true });
 
@@ -416,6 +444,10 @@ const Calendar = () => {
 		if (viewMode === "day") newDate.setDate(newDate.getDate() + delta);
 		else newDate.setDate(newDate.getDate() + delta * 7);
 		setCurrentDate(newDate);
+		trackEvent("calendar_navigated", {
+			view_mode: viewMode,
+			direction: delta > 0 ? "next" : "previous",
+		});
 	};
 
 	const toggleGroup = (id) => {
@@ -444,6 +476,11 @@ const Calendar = () => {
 			label: room.name || `Salle #${room.id}`,
 		});
 		setSelectedEvent(null);
+	};
+
+	const handleViewModeChange = (mode) => {
+		setViewMode(mode);
+		localStorage.setItem("zeus_view_mode", mode);
 	};
 
 	const CurrentTimeLine = () => {
@@ -728,16 +765,16 @@ const Calendar = () => {
 					setCurrentDate={setCurrentDate}
 					handleNav={handleNav}
 					viewMode={viewMode}
-					setViewMode={(mode) => {
-						setViewMode(mode);
-						localStorage.setItem("zeus_view_mode", mode);
-					}}
+					setViewMode={handleViewModeChange}
 					scheduleContext={scheduleContext}
 					resetContext={resetContext}
 					sidebarOpen={sidebarOpen}
 					setSidebarOpen={setSidebarOpen}
 					logout={logout}
-					onOpenRoomFinder={() => setShowRoomAvailabilityModal(true)}
+					onOpenRoomFinder={() => {
+						trackEvent("room_finder_opened", { source: "calendar_header" });
+						setShowRoomAvailabilityModal(true);
+					}}
 				/>
 
 				<div className="calendar-grid-wrapper">

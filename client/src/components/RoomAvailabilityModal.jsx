@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { trackEvent } from "../utils/analyticsTracker";
 
 const LOCATION_LABEL_OVERRIDES = {
 	2: "Kremlin-Bicêtre",
@@ -240,6 +241,13 @@ const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], 
 
 	const submitSearch = async (e) => {
 		e.preventDefault();
+		trackEvent("room_search_submitted", {
+			has_location_filter: !!selectedLocation,
+			has_room_type_filter: !!selectedRoomType,
+			has_capacity_filter: !!capacity,
+			has_specific_room_filter: !!selectedRoom,
+			duration_minutes: Number(durationMinutes) || 30,
+		});
 		setSearchLoading(true);
 		setError("");
 		setHasSearched(false);
@@ -284,14 +292,21 @@ const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], 
 			const data = await res.json();
 			setAvailableRooms(Array.isArray(data) ? data : []);
 			setHasSearched(true);
+			trackEvent("room_search_results", {
+				available_count: Array.isArray(data) ? data.length : 0,
+			});
 		} catch (err) {
 			setError(err.message || "Erreur pendant la recherche.");
+			trackEvent("room_search_failed");
 		} finally {
 			setSearchLoading(false);
 		}
 	};
 
 	const handlePickRoom = (room) => {
+		trackEvent("room_search_result_clicked", {
+			has_capacity: Number(room?.capacity || 0) > 0,
+		});
 		if (typeof onApplyRoomFilter === "function") {
 			onApplyRoomFilter(room);
 			onClose();

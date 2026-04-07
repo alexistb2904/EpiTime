@@ -1,16 +1,36 @@
-import React from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import './Login.css';
+import React from "react";
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import { useUniqueUsers } from "../hooks/useUniqueUsers";
+import { trackEvent } from "../utils/analyticsTracker";
+import "./Login.css";
 
 const Login = () => {
 	const { login, loading, error } = useAuth();
 	const { theme, toggleTheme } = useTheme();
+	const { users, enabledAnalytics, loading: uniqueUsersLoading } = useUniqueUsers();
+
+	const formattedUsers = typeof users === "number" ? new Intl.NumberFormat("fr-FR").format(users) : "—";
+
+	const handleThemeToggle = () => {
+		trackEvent("theme_toggle_clicked", {
+			area: "login",
+			to_theme: theme === "light" ? "dark" : "light",
+		});
+		toggleTheme();
+	};
+
+	const handleLoginClick = () => {
+		trackEvent("login_button_clicked", {
+			provider: "microsoft",
+		});
+		login();
+	};
 
 	return (
 		<div className="login-container">
-			<button className="theme-toggle-login" onClick={toggleTheme} title="Changer de thème">
-				{theme === 'light' ? '🌙' : '☀️'}
+			<button className="theme-toggle-login" onClick={handleThemeToggle} title="Changer de thème">
+				{theme === "light" ? "🌙" : "☀️"}
 			</button>
 
 			<div className="login-content">
@@ -28,7 +48,7 @@ const Login = () => {
 					)}
 
 					<div className="login-actions">
-						<button className="btn-login-primary" onClick={login} disabled={loading}>
+						<button className="btn-login-primary" onClick={handleLoginClick} disabled={loading}>
 							{loading ? (
 								<>
 									<span className="btn-spinner"></span>
@@ -47,6 +67,14 @@ const Login = () => {
 							Utilise ton compte EPITA (@epita.fr)
 						</p>
 					</div>
+					{/* Avant 10 utilisateurs, on affiche pas pour éviter de faire peur aux nouveaux mdr */}
+					{enabledAnalytics && !uniqueUsersLoading && formattedUsers > 10 && (
+						<div className="kpi-hero-card">
+							<span className="kpi-hero-label">Utilisateurs utilisant EpiTime</span>
+							<div className="kpi-hero-value">{uniqueUsersLoading ? "…" : formattedUsers}</div>
+							<p className="kpi-hero-caption">Total d'utilisateurs uniques</p>
+						</div>
+					)}
 				</div>
 
 				<div className="login-features">
@@ -63,13 +91,20 @@ const Login = () => {
 					<div className="feature-card">
 						<div className="feature-icon">🔒</div>
 						<h3>Confidentialité</h3>
-						<p>Aucune donnée collectée, tout reste local, promis</p>
+						<p>Mesure d'usage anonyme uniquement et sous réserve de consentement</p>
 					</div>
 				</div>
 
 				<footer className="login-footer">
-					<p className="footer-disclaimer">⚠️ Projet open-source étudiant indépendant • Non affilié à Zeus, IONIS ou EPITA  • <a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">Voir sur GitHub</a></p>
-					<p className="footer-contact">📬 Contact : <a href="mailto:alexistb2904@gmail.com">alexistb2904@gmail.com</a> ou alexistb2904 sur Discord</p>
+					<p className="footer-disclaimer">
+						⚠️ Projet open-source étudiant indépendant • Non affilié à Zeus, IONIS ou EPITA •{" "}
+						<a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">
+							Voir sur GitHub
+						</a>
+					</p>
+					<p className="footer-contact">
+						📬 Contact : <a href="mailto:alexistb2904@gmail.com">alexistb2904@gmail.com</a> ou alexistb2904 sur Discord
+					</p>
 				</footer>
 			</div>
 		</div>

@@ -1,6 +1,38 @@
 import React from "react";
+import { useUniqueUsers } from "../hooks/useUniqueUsers";
+import {
+	analyticsConsentValues,
+	disableAnalyticsTracking,
+	enableAnalyticsTracking,
+	getAnalyticsConsent,
+	loadAnalyticsScript,
+	setAnalyticsConsent,
+} from "../utils/analyticsConsent";
 
 const SettingsModal = ({ show, onClose }) => {
+	const [analyticsEnabled, setAnalyticsEnabled] = React.useState(() => getAnalyticsConsent() === analyticsConsentValues.accepted);
+	const { users, enabledAnalytics, loading: uniqueUsersLoading, error: uniqueUsersError, refresh } = useUniqueUsers({ enabled: show });
+	const formattedUsers = typeof users === "number" ? new Intl.NumberFormat("fr-FR").format(users) : "—";
+
+	React.useEffect(() => {
+		if (!show) return;
+		setAnalyticsEnabled(getAnalyticsConsent() === analyticsConsentValues.accepted);
+	}, [show]);
+
+	const handleToggleAnalytics = async () => {
+		if (analyticsEnabled) {
+			setAnalyticsConsent(analyticsConsentValues.declined);
+			disableAnalyticsTracking();
+			setAnalyticsEnabled(false);
+			return;
+		}
+
+		setAnalyticsConsent(analyticsConsentValues.accepted);
+		enableAnalyticsTracking();
+		await loadAnalyticsScript();
+		setAnalyticsEnabled(true);
+	};
+
 	if (!show) return null;
 
 	return (
@@ -56,20 +88,63 @@ const SettingsModal = ({ show, onClose }) => {
 					<div className="settings-section">
 						<h3 className="settings-section-title">🔒 Confidentialité & Données</h3>
 						<div className="privacy-box">
+							<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.8rem", marginBottom: "0.8rem" }}>
+								<strong>Analytics anonymes</strong>
+								<button type="button" className="btn-primary settings-btn" onClick={handleToggleAnalytics} style={{ margin: 0 }}>
+									{analyticsEnabled ? "Activé" : "Désactivé"}
+								</button>
+							</div>
 							<p className="settings-text">
-								<strong>Aucune donnée n'est collectée</strong>
-								<br /><strong>Aucune base de données</strong>
-								<br /><strong>Authentification via Microsoft (EPITA)</strong>
-								<br /><strong>Données stockées localement (navigateur uniquement)</strong>
+								<strong>Analytics d'usage anonymes (si vous acceptez les cookies)</strong>
+								<br />
+								<strong>Aucune identification utilisateur envoyée</strong>
+								<br />
+								<strong>Aucune donnée personnelle (email, nom, identifiant) transmise aux analytics</strong>
+								<br />
+								<strong>Authentification via Microsoft (EPITA)</strong>
+								<br />
+								<strong>Données stockées localement (navigateur uniquement)</strong>
 							</p>
-							<p className="settings-text muted">Vos préférences (groupes sélectionnés, thème) sont stockées uniquement dans votre navigateur via localStorage.</p>
+							<p className="settings-text muted">
+								Vos préférences (groupes sélectionnés, thème, notifications, consentement analytics) sont stockées uniquement dans votre navigateur via
+								localStorage.
+							</p>
+						</div>
+					</div>
+
+					<div className="settings-divider"></div>
+
+					<div className="settings-section">
+						<h3 className="settings-section-title">📊 Audience</h3>
+						<div className="analytics-kpi-card">
+							<div className="analytics-kpi-head">
+								<span className="analytics-kpi-title">Utilisateurs uniques (total)</span>
+							</div>
+							<div className="analytics-kpi-value">{uniqueUsersLoading ? "…" : formattedUsers}</div>
+							{uniqueUsersError && (
+								<p className="settings-text" style={{ color: "#d32f2f" }}>
+									Erreur API: {uniqueUsersError}
+								</p>
+							)}
+							<button type="button" className="btn-primary settings-btn" onClick={refresh} style={{ margin: 0 }}>
+								🔄 Actualiser
+							</button>
 						</div>
 					</div>
 
 					<div className="settings-divider"></div>
 
 					<div className="settings-footer">
-						<p className="settings-text muted small">Version 1.0.0 • Code source disponible sur <a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">GitHub</a></p>
+						<p className="settings-text muted small">
+							Version 1.5.0 • Code source disponible sur{" "}
+							<a
+								href="https://github.com/alexistb2904/EpiTime"
+								target="_blank"
+								rel="noopener noreferrer"
+								style={{ color: "var(--accent-color)", textDecoration: "none" }}>
+								GitHub
+							</a>
+						</p>
 					</div>
 				</div>
 			</div>
