@@ -451,7 +451,7 @@
 	position: relative;
 	border-right: 1px solid var(--border-color);
 	flex-shrink: 0;
-	z-index: 1443;
+	z-index: 1444;
 	height: 100%;
 	min-height: 1020px;
 }
@@ -479,6 +479,10 @@
 	height: 60px;
 	border-bottom: 1px solid var(--border-color);
 	flex-shrink: 0;
+	position: sticky;
+	top: 0;
+	z-index: 1445;
+	background-color: var(--bg-secondary);
 }
 
 .grid-spacers {
@@ -602,10 +606,13 @@
 
 .multi-day-events-bar {
 	display: flex;
-	background-color: rgba(var(--accent-rgb), 0.04);
+	background-color: var(--bg-secondary);
 	border-bottom: 1px solid var(--border-color);
 	padding: 8px 0;
 	flex-shrink: 0;
+	position: sticky;
+	top: 60px;
+	z-index: 1443;
 }
 
 .multi-day-col {
@@ -686,7 +693,7 @@
 	position: sticky;
 	top: 0;
 	padding: 0.5rem 0;
-	z-index: 1443;
+	z-index: 1444;
 	border-bottom: 2px solid var(--border-color);
 	margin-bottom: 0.5rem;
 	font-weight: 600;
@@ -1353,6 +1360,10 @@
 		background-color: rgba(0, 0, 0, 0.5);
 		z-index: 1999;
 		animation: fadeIn 0.3s ease-in-out;
+	}
+
+	.multi-day-events-bar {
+		position: initial;
 	}
 
 	@keyframes fadeIn {
