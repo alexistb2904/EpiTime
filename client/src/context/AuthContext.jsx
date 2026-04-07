@@ -124,9 +124,6 @@ export const AuthProvider = ({ children }) => {
 				setUser(msResponse.account);
 				localStorage.setItem("zeus_token", data.token);
 				localStorage.setItem("zeus_user", JSON.stringify(msResponse.account));
-				trackEvent("auth_exchange_success", {
-					mode: navigator.onLine ? "online" : "offline_cache",
-				});
 			}
 		} catch (err) {
 			if (!navigator.onLine) {

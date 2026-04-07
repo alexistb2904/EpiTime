@@ -130,20 +130,12 @@ const Calendar = () => {
 				if (cachedGroups) {
 					const parsedGroups = JSON.parse(cachedGroups);
 					setGroups(parsedGroups);
-					trackEvent("groups_loaded", {
-						source: "cache",
-						group_count: parsedGroups.length,
-					});
 					console.log("📦 Groupes chargés depuis le cache local");
 				} else {
 					setError("Aucune donnée en cache disponible");
 				}
 			} else {
 				setGroups(data);
-				trackEvent("groups_loaded", {
-					source: "api",
-					group_count: data.length,
-				});
 				localStorage.setItem("zeus_cached_groups", JSON.stringify(data));
 			}
 		} catch (err) {
