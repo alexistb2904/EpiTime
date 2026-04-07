@@ -1,10 +1,15 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import { NetworkFirst } from "workbox-strategies";
+import { NetworkFirst, NetworkOnly } from "workbox-strategies";
 
 precacheAndRoute(self.__WB_MANIFEST);
 
 cleanupOutdatedCaches();
+
+registerRoute(
+	({ url }) => url.href.startsWith("https://analytics.alexis.qzz.io/api"),
+	new NetworkOnly()
+);
 
 registerRoute(
 	({ url }) => url.pathname.startsWith("/api/"),
