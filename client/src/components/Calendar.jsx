@@ -9,6 +9,7 @@ import GroupSelectionModal from "./GroupSelectionModal";
 import EventDetailsModal from "./EventDetailsModal";
 import SettingsModal from "./SettingsModal";
 import { NotificationSettings } from "./NotificationSettings";
+import RoomAvailabilityModal from "./RoomAvailabilityModal";
 import "./Calendar.css";
 
 const generatePastelColor = (str) => {
@@ -50,6 +51,7 @@ const Calendar = () => {
 	const [selectedEventLoading, setSelectedEventLoading] = useState(false);
 	const [showSettingsModal, setShowSettingsModal] = useState(false);
 	const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+	const [showRoomAvailabilityModal, setShowRoomAvailabilityModal] = useState(false);
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState(null);
@@ -434,6 +436,16 @@ const Calendar = () => {
 		setScheduleContext({ type: "group", ids: selectedGroups, label: "Mes Groupes" });
 	};
 
+	const applyRoomCalendarFilter = (room) => {
+		if (!room?.id) return;
+		setScheduleContext({
+			type: "room",
+			ids: [room.id],
+			label: room.name || `Salle #${room.id}`,
+		});
+		setSelectedEvent(null);
+	};
+
 	const CurrentTimeLine = () => {
 		const GRID_START_HOUR = 7;
 		const GRID_END_HOUR = 24;
@@ -725,6 +737,7 @@ const Calendar = () => {
 					sidebarOpen={sidebarOpen}
 					setSidebarOpen={setSidebarOpen}
 					logout={logout}
+					onOpenRoomFinder={() => setShowRoomAvailabilityModal(true)}
 				/>
 
 				<div className="calendar-grid-wrapper">
@@ -755,6 +768,13 @@ const Calendar = () => {
 
 			<SettingsModal show={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
 			<NotificationSettings isOpen={showNotificationsModal} onClose={() => setShowNotificationsModal(false)} userEmail={user?.username} userGroups={selectedGroups} />
+			<RoomAvailabilityModal
+				show={showRoomAvailabilityModal}
+				onClose={() => setShowRoomAvailabilityModal(false)}
+				zeusToken={zeusToken}
+				selectedGroups={selectedGroups}
+				onApplyRoomFilter={applyRoomCalendarFilter}
+			/>
 		</div>
 	);
 };

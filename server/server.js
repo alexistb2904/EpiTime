@@ -1,24 +1,24 @@
-import express from 'express';
-import cors from 'cors';
-import fetch from 'node-fetch';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import webpush from 'web-push';
+import express from "express";
+import cors from "cors";
+import fetch from "node-fetch";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import webpush from "web-push";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const ZEUS_BASE = process.env.ZEUS_BASE || 'https://zeus.ionis-it.com';
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const ZEUS_BASE = process.env.ZEUS_BASE || "https://zeus.ionis-it.com";
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
 
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || '';
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "";
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
 
 let pushEnabled = false;
 if (vapidPublicKey && vapidPrivateKey) {
-	webpush.setVapidDetails('mailto:alexistb2904@gmail.com', vapidPublicKey, vapidPrivateKey);
+	webpush.setVapidDetails("mailto:alexistb2904@gmail.com", vapidPublicKey, vapidPrivateKey);
 	pushEnabled = true;
 }
 
@@ -89,14 +89,14 @@ const getEventsFromCache = (groups) => {
 };
 
 app.use(cors({ origin: ALLOWED_ORIGIN }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: "1mb" }));
 
 let publicPath;
-if (process.env.NODE_ENV === 'production') {
-	publicPath = path.join(__dirname, 'public');
+if (process.env.NODE_ENV === "production") {
+	publicPath = path.join(__dirname, "public");
 } else {
-	const distPath = path.join(__dirname, '../client/dist');
-	const publicFallback = path.join(__dirname, '../client/public');
+	const distPath = path.join(__dirname, "../client/dist");
+	const publicFallback = path.join(__dirname, "../client/public");
 	try {
 		fs.accessSync(distPath);
 		publicPath = distPath;
@@ -107,54 +107,54 @@ if (process.env.NODE_ENV === 'production') {
 
 app.use(express.static(publicPath));
 
-app.get('/health', (_req, res) => {
+app.get("/health", (_req, res) => {
 	res.json({ ok: true });
 });
 
-app.post('/api/auth', async (req, res) => {
+app.post("/api/auth", async (req, res) => {
 	try {
 		const { accessToken } = req.body || {};
 		if (!accessToken) {
-			return res.status(400).json({ error: 'accessToken is required' });
+			return res.status(400).json({ error: "accessToken is required" });
 		}
 
 		const upstream = await fetch(`${ZEUS_BASE}/api/User/OfficeLogin`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ accessToken }),
 		});
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || 'Upstream error', upstream: `${ZEUS_BASE}/api/User/OfficeLogin` });
+			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: `${ZEUS_BASE}/api/User/OfficeLogin` });
 		}
 
-		const token = text.replace(/^"|"$/g, '');
+		const token = text.replace(/^"|"$/g, "");
 		return res.json({ token });
 	} catch (err) {
-		console.error('/api/auth error', err);
-		return res.status(500).json({ error: 'Proxy error' });
+		console.error("/api/auth error", err);
+		return res.status(500).json({ error: "Proxy error" });
 	}
 });
 
-app.get('/api/events', async (req, res) => {
+app.get("/api/events", async (req, res) => {
 	try {
-		const authHeader = req.headers.authorization || '';
+		const authHeader = req.headers.authorization || "";
 		const match = authHeader.match(/^Bearer\s+(.+)/i);
 		const zeusToken = match && match[1];
 		if (!zeusToken) {
-			return res.status(401).json({ error: 'Bearer token required' });
+			return res.status(401).json({ error: "Bearer token required" });
 		}
 
 		const { start, end, groups } = req.query;
 		if (!start || !end) {
-			return res.status(400).json({ error: 'start and end query params are required' });
+			return res.status(400).json({ error: "start and end query params are required" });
 		}
 
 		let url = `${ZEUS_BASE}/api/reservation/filter/displayable?StartDate=${encodeURIComponent(start)}&EndDate=${encodeURIComponent(end)}`;
 
 		if (groups) {
-			const groupIds = Array.isArray(groups) ? groups : groups.split(',');
+			const groupIds = Array.isArray(groups) ? groups : groups.split(",");
 			groupIds.forEach((gid) => {
 				url += `&Groups=${encodeURIComponent(gid.trim())}`;
 			});
@@ -162,7 +162,7 @@ app.get('/api/events', async (req, res) => {
 
 		const { teachers } = req.query;
 		if (teachers) {
-			const teacherIds = Array.isArray(teachers) ? teachers : teachers.split(',');
+			const teacherIds = Array.isArray(teachers) ? teachers : teachers.split(",");
 			teacherIds.forEach((tid) => {
 				url += `&Teachers=${encodeURIComponent(tid.trim())}`;
 			});
@@ -170,7 +170,7 @@ app.get('/api/events', async (req, res) => {
 
 		const { rooms } = req.query;
 		if (rooms) {
-			const roomIds = Array.isArray(rooms) ? rooms : rooms.split(',');
+			const roomIds = Array.isArray(rooms) ? rooms : rooms.split(",");
 			roomIds.forEach((rid) => {
 				url += `&Rooms=${encodeURIComponent(rid.trim())}`;
 			});
@@ -183,7 +183,7 @@ app.get('/api/events', async (req, res) => {
 		const text = await upstream.text();
 		if (!upstream.ok) {
 			return res.status(upstream.status).json({
-				error: text || 'Upstream error',
+				error: text || "Upstream error",
 				upstream: url,
 			});
 		}
@@ -192,27 +192,27 @@ app.get('/api/events', async (req, res) => {
 			const data = text ? JSON.parse(text) : null;
 
 			if (data && Array.isArray(data)) {
-				const groupIds = groups ? (Array.isArray(groups) ? groups : groups.split(',')) : [];
+				const groupIds = groups ? (Array.isArray(groups) ? groups : groups.split(",")) : [];
 				cacheEvents(data, groupIds);
 			}
 
 			return res.json(data);
 		} catch (parseErr) {
-			return res.type('application/json').send(text);
+			return res.type("application/json").send(text);
 		}
 	} catch (err) {
-		console.error('/api/events error', err);
-		return res.status(500).json({ error: 'Proxy error' });
+		console.error("/api/events error", err);
+		return res.status(500).json({ error: "Proxy error" });
 	}
 });
 
-app.get('/api/reservation/:id/details', async (req, res) => {
+app.get("/api/reservation/:id/details", async (req, res) => {
 	try {
-		const authHeader = req.headers.authorization || '';
+		const authHeader = req.headers.authorization || "";
 		const match = authHeader.match(/^Bearer\s+(.+)/i);
 		const zeusToken = match && match[1];
 		if (!zeusToken) {
-			return res.status(401).json({ error: 'Bearer token required' });
+			return res.status(401).json({ error: "Bearer token required" });
 		}
 
 		const { id } = req.params;
@@ -225,7 +225,7 @@ app.get('/api/reservation/:id/details', async (req, res) => {
 		const text = await upstream.text();
 		if (!upstream.ok) {
 			return res.status(upstream.status).json({
-				error: text || 'Upstream error',
+				error: text || "Upstream error",
 				upstream: url,
 			});
 		}
@@ -234,17 +234,17 @@ app.get('/api/reservation/:id/details', async (req, res) => {
 			const data = text ? JSON.parse(text) : null;
 			return res.json(data);
 		} catch (parseErr) {
-			return res.type('application/json').send(text);
+			return res.type("application/json").send(text);
 		}
 	} catch (err) {
-		console.error('/api/reservation/:id/details error', err);
-		return res.status(500).json({ error: 'Proxy error' });
+		console.error("/api/reservation/:id/details error", err);
+		return res.status(500).json({ error: "Proxy error" });
 	}
 });
 
-app.get('/api/courses', async (req, res) => {
+app.get("/api/courses", async (req, res) => {
 	try {
-		const authHeader = req.headers.authorization || '';
+		const authHeader = req.headers.authorization || "";
 		const match = authHeader.match(/^Bearer\s+(.+)/i);
 		const zeusToken = match && match[1];
 
@@ -255,24 +255,24 @@ app.get('/api/courses', async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || 'Upstream error', upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
 		}
 
 		try {
 			const data = text ? JSON.parse(text) : null;
 			return res.json(data);
 		} catch (parseErr) {
-			return res.type('application/json').send(text);
+			return res.type("application/json").send(text);
 		}
 	} catch (err) {
-		console.error('/api/courses error', err);
-		return res.status(500).json({ error: 'Proxy error' });
+		console.error("/api/courses error", err);
+		return res.status(500).json({ error: "Proxy error" });
 	}
 });
 
-app.get('/api/coursetype/:id', async (req, res) => {
+app.get("/api/coursetype/:id", async (req, res) => {
 	try {
-		const authHeader = req.headers.authorization || '';
+		const authHeader = req.headers.authorization || "";
 		const match = authHeader.match(/^Bearer\s+(.+)/i);
 		const zeusToken = match && match[1];
 
@@ -284,24 +284,24 @@ app.get('/api/coursetype/:id', async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || 'Upstream error', upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
 		}
 
 		try {
 			const data = text ? JSON.parse(text) : null;
 			return res.json(data);
 		} catch (parseErr) {
-			return res.type('application/json').send(text);
+			return res.type("application/json").send(text);
 		}
 	} catch (err) {
-		console.error('/api/coursetype/:id error', err);
-		return res.status(500).json({ error: 'Proxy error' });
+		console.error("/api/coursetype/:id error", err);
+		return res.status(500).json({ error: "Proxy error" });
 	}
 });
 
-app.get('/api/rooms', async (req, res) => {
+app.get("/api/rooms", async (req, res) => {
 	try {
-		const authHeader = req.headers.authorization || '';
+		const authHeader = req.headers.authorization || "";
 		const match = authHeader.match(/^Bearer\s+(.+)/i);
 		const zeusToken = match && match[1];
 
@@ -312,24 +312,120 @@ app.get('/api/rooms', async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || 'Upstream error', upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
 		}
 
 		try {
 			const data = text ? JSON.parse(text) : null;
 			return res.json(data);
 		} catch (parseErr) {
-			return res.type('application/json').send(text);
+			return res.type("application/json").send(text);
 		}
 	} catch (err) {
-		console.error('/api/rooms error', err);
-		return res.status(500).json({ error: 'Proxy error' });
+		console.error("/api/rooms error", err);
+		return res.status(500).json({ error: "Proxy error" });
 	}
 });
 
-app.get('/api/groups', async (req, res) => {
+app.get("/api/roomtypes", async (req, res) => {
 	try {
-		const authHeader = req.headers.authorization || '';
+		const authHeader = req.headers.authorization || "";
+		const match = authHeader.match(/^Bearer\s+(.+)/i);
+		const zeusToken = match && match[1];
+
+		const url = `${ZEUS_BASE}/api/roomtype`;
+		const headers = zeusToken ? { Authorization: `Bearer ${zeusToken}` } : {};
+
+		const upstream = await fetch(url, { headers });
+
+		const text = await upstream.text();
+		if (!upstream.ok) {
+			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+		}
+
+		try {
+			const data = text ? JSON.parse(text) : null;
+			return res.json(data);
+		} catch (parseErr) {
+			return res.type("application/json").send(text);
+		}
+	} catch (err) {
+		console.error("/api/roomtypes error", err);
+		return res.status(500).json({ error: "Proxy error" });
+	}
+});
+
+app.get("/api/locations", async (req, res) => {
+	try {
+		const authHeader = req.headers.authorization || "";
+		const match = authHeader.match(/^Bearer\s+(.+)/i);
+		const zeusToken = match && match[1];
+
+		const url = `${ZEUS_BASE}/api/location/hierarchy/withrooms`;
+		const headers = zeusToken ? { Authorization: `Bearer ${zeusToken}` } : {};
+
+		const upstream = await fetch(url, { headers });
+
+		const text = await upstream.text();
+		if (!upstream.ok) {
+			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+		}
+
+		try {
+			const data = text ? JSON.parse(text) : null;
+			return res.json(data);
+		} catch (parseErr) {
+			return res.type("application/json").send(text);
+		}
+	} catch (err) {
+		console.error("/api/locations error", err);
+		return res.status(500).json({ error: "Proxy error" });
+	}
+});
+
+app.post("/api/rooms/available", async (req, res) => {
+	try {
+		const authHeader = req.headers.authorization || "";
+		const match = authHeader.match(/^Bearer\s+(.+)/i);
+		const zeusToken = match && match[1];
+		if (!zeusToken) {
+			return res.status(401).json({ error: "Bearer token required" });
+		}
+
+		const url = `${ZEUS_BASE}/api/room/available/all`;
+
+		const upstream = await fetch(url, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${zeusToken}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(req.body || {}),
+		});
+
+		const text = await upstream.text();
+		if (!upstream.ok) {
+			return res.status(upstream.status).json({
+				error: text || "Upstream error",
+				upstream: url,
+			});
+		}
+
+		try {
+			const data = text ? JSON.parse(text) : [];
+			return res.json(Array.isArray(data) ? data : []);
+		} catch (parseErr) {
+			return res.type("application/json").send(text);
+		}
+	} catch (err) {
+		console.error("/api/rooms/available error", err);
+		return res.status(500).json({ error: "Proxy error" });
+	}
+});
+
+app.get("/api/groups", async (req, res) => {
+	try {
+		const authHeader = req.headers.authorization || "";
 		const match = authHeader.match(/^Bearer\s+(.+)/i);
 		const zeusToken = match && match[1];
 
@@ -349,24 +445,24 @@ app.get('/api/groups', async (req, res) => {
 			res.send(text);
 		}
 	} catch (err) {
-		console.error('/api/groups error', err);
-		res.status(500).json({ error: 'Proxy error' });
+		console.error("/api/groups error", err);
+		res.status(500).json({ error: "Proxy error" });
 	}
 });
 
 // ===== notification =====
 
-app.post('/api/subscribe', async (req, res) => {
+app.post("/api/subscribe", async (req, res) => {
 	try {
 		const subscription = req.body;
-		const userId = req.headers['x-user-id'] || 'anonymous';
-		const userGroups = req.headers['x-user-groups'] ? JSON.parse(req.headers['x-user-groups']) : [];
-		const notificationSettings = req.headers['x-notification-settings']
-			? JSON.parse(req.headers['x-notification-settings'])
+		const userId = req.headers["x-user-id"] || "anonymous";
+		const userGroups = req.headers["x-user-groups"] ? JSON.parse(req.headers["x-user-groups"]) : [];
+		const notificationSettings = req.headers["x-notification-settings"]
+			? JSON.parse(req.headers["x-notification-settings"])
 			: { minutesBefore: 15, selectedDays: [0, 1, 2, 3, 4, 5, 6] };
 
 		if (!subscription.endpoint) {
-			return res.status(400).json({ error: 'Invalid subscription' });
+			return res.status(400).json({ error: "Invalid subscription" });
 		}
 		if (!notificationSettings.minutesBefore) {
 			notificationSettings.minutesBefore = 15;
@@ -376,25 +472,25 @@ app.post('/api/subscribe', async (req, res) => {
 		subscription.settings = notificationSettings;
 		subscriptions.set(userId, subscription);
 
-		res.json({ success: true, message: 'Subscription registered' });
+		res.json({ success: true, message: "Subscription registered" });
 	} catch (err) {
-		console.error('/api/subscribe error', err);
-		res.status(500).json({ error: 'Subscription failed' });
+		console.error("/api/subscribe error", err);
+		res.status(500).json({ error: "Subscription failed" });
 	}
 });
 
-app.post('/api/update-notification-settings', async (req, res) => {
+app.post("/api/update-notification-settings", async (req, res) => {
 	try {
-		const userId = req.headers['x-user-id'];
+		const userId = req.headers["x-user-id"];
 		const { minutesBefore, selectedDays, groups } = req.body;
 
 		if (!userId) {
-			return res.status(400).json({ error: 'User ID requis' });
+			return res.status(400).json({ error: "User ID requis" });
 		}
 
 		const subscription = subscriptions.get(userId);
 		if (!subscription) {
-			return res.status(404).json({ error: 'Subscription non trouvée' });
+			return res.status(404).json({ error: "Subscription non trouvée" });
 		}
 
 		subscription.settings = {
@@ -406,19 +502,19 @@ app.post('/api/update-notification-settings', async (req, res) => {
 		}
 		subscriptions.set(userId, subscription);
 
-		res.json({ success: true, message: 'Settings updated' });
+		res.json({ success: true, message: "Settings updated" });
 	} catch (err) {
-		console.error('/api/update-notification-settings error', err);
-		res.status(500).json({ error: 'Update failed' });
+		console.error("/api/update-notification-settings error", err);
+		res.status(500).json({ error: "Update failed" });
 	}
 });
 
-app.get('/api/vapid-key', (_req, res) => {
+app.get("/api/vapid-key", (_req, res) => {
 	if (!pushEnabled) {
 		return res.status(200).json({
 			enabled: false,
 			publicKey: null,
-			message: 'Push notifications non configurées (VAPID keys manquantes)',
+			message: "Push notifications non configurées (VAPID keys manquantes)",
 		});
 	}
 	res.json({
@@ -462,7 +558,7 @@ const notificationWorker = async () => {
 			for (const event of events) {
 				const eventStart = new Date(event.startDate || event.start);
 				const eventId = event.id || event.idReservation;
-				const eventName = event.name || 'Aucun Titre' || 'Cours';
+				const eventName = event.name || "Aucun Titre" || "Cours";
 
 				const notifKey = `${userId}-${eventId}`;
 				if (sentNotifications.has(notifKey)) {
@@ -474,10 +570,10 @@ const notificationWorker = async () => {
 
 				if (minutesUntilEvent >= minutesBefore - 1 && minutesUntilEvent <= minutesBefore + 1) {
 					const payload = JSON.stringify({
-						title: '📚 Cours bientôt!',
+						title: "📚 Cours bientôt!",
 						body: `${eventName} commence dans ${Math.round(minutesUntilEvent)} minutes`,
-						icon: '/icons/logo.png',
-						badge: '/icons/logo.png',
+						icon: "/icons/logo.png",
+						badge: "/icons/logo.png",
 						tag: `event-${eventId}`,
 						data: {
 							eventId,
@@ -512,17 +608,17 @@ const notificationWorker = async () => {
 
 setInterval(notificationWorker, 60 * 1000);
 
-app.post('/api/check-notifications', async (req, res) => {
+app.post("/api/check-notifications", async (req, res) => {
 	try {
 		if (!pushEnabled) {
 			return res.json({ success: true, checked: 0, notified: 0 });
 		}
 
 		const { events } = req.body;
-		const userId = req.headers['x-user-id'];
+		const userId = req.headers["x-user-id"];
 
 		if (!userId) {
-			return res.status(400).json({ error: 'User ID requis' });
+			return res.status(400).json({ error: "User ID requis" });
 		}
 
 		if (events && Array.isArray(events) && events.length > 0) {
@@ -532,33 +628,33 @@ app.post('/api/check-notifications', async (req, res) => {
 			}
 		}
 
-		res.json({ success: true, message: 'Events cached for notification worker' });
+		res.json({ success: true, message: "Events cached for notification worker" });
 	} catch (err) {
-		console.error('/api/check-notifications error', err);
-		res.status(500).json({ error: 'Check failed' });
+		console.error("/api/check-notifications error", err);
+		res.status(500).json({ error: "Check failed" });
 	}
 });
 
-app.post('/api/notify-test', async (req, res) => {
+app.post("/api/notify-test", async (req, res) => {
 	try {
 		const { title, body } = req.body;
-		const userId = req.headers['x-user-id'];
+		const userId = req.headers["x-user-id"];
 
 		if (!userId) {
-			return res.status(400).json({ error: 'User ID requis' });
+			return res.status(400).json({ error: "User ID requis" });
 		}
 
 		const payload = JSON.stringify({
-			title: title || '🔔 Notification de test',
-			body: body || 'Ceci est une notification de test',
-			icon: '/icons/logo.png',
-			badge: '/icons/logo.png',
+			title: title || "🔔 Notification de test",
+			body: body || "Ceci est une notification de test",
+			icon: "/icons/logo.png",
+			badge: "/icons/logo.png",
 		});
 
 		const subscription = subscriptions.get(userId);
 		if (!subscription) {
 			return res.status(404).json({
-				error: 'Aucune subscription trouvée pour cet utilisateur',
+				error: "Aucune subscription trouvée pour cet utilisateur",
 				sent: 0,
 				total: 0,
 			});
@@ -583,30 +679,30 @@ app.post('/api/notify-test', async (req, res) => {
 			total: 1,
 		});
 	} catch (err) {
-		console.error('/api/notify-test error', err);
-		res.status(500).json({ error: 'Test notification failed' });
+		console.error("/api/notify-test error", err);
+		res.status(500).json({ error: "Test notification failed" });
 	}
 });
 
-app.post('/api/unsubscribe', async (req, res) => {
+app.post("/api/unsubscribe", async (req, res) => {
 	try {
-		const userId = req.headers['x-user-id'] || 'anonymous';
+		const userId = req.headers["x-user-id"] || "anonymous";
 		subscriptions.delete(userId);
 		console.log(`❌ Subscription supprimée pour ${userId}`);
 		res.json({ success: true });
 	} catch (err) {
-		console.error('/api/unsubscribe error', err);
-		res.status(500).json({ error: 'Unsubscribe failed' });
+		console.error("/api/unsubscribe error", err);
+		res.status(500).json({ error: "Unsubscribe failed" });
 	}
 });
 
-app.get('*', (req, res) => {
-	const indexPath = process.env.NODE_ENV === 'production' ? path.join(__dirname, 'public/index.html') : path.join(__dirname, '../client/dist/index.html');
+app.get("*", (req, res) => {
+	const indexPath = process.env.NODE_ENV === "production" ? path.join(__dirname, "public/index.html") : path.join(__dirname, "../client/dist/index.html");
 
 	res.sendFile(indexPath, (err) => {
 		if (err) {
-			console.error('Erreur SPA fallback:', err);
-			res.status(404).json({ error: 'Not found' });
+			console.error("Erreur SPA fallback:", err);
+			res.status(404).json({ error: "Not found" });
 		}
 	});
 });

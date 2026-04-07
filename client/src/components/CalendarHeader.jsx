@@ -1,6 +1,18 @@
-import React from 'react';
+import React from "react";
 
-const CalendarHeader = ({ currentDate, setCurrentDate, handleNav, viewMode, setViewMode, scheduleContext, resetContext, sidebarOpen, setSidebarOpen, logout }) => {
+const CalendarHeader = ({
+	currentDate,
+	setCurrentDate,
+	handleNav,
+	viewMode,
+	setViewMode,
+	scheduleContext,
+	resetContext,
+	sidebarOpen,
+	setSidebarOpen,
+	logout,
+	onOpenRoomFinder,
+}) => {
 	return (
 		<header className="calendar-header">
 			<div className="header-section header-left">
@@ -20,13 +32,13 @@ const CalendarHeader = ({ currentDate, setCurrentDate, handleNav, viewMode, setV
 					</button>
 				</div>
 
-				<h2 className="current-date">{currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}</h2>
+				<h2 className="current-date">{currentDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</h2>
 			</div>
 
 			<div className="header-section header-center">
-				{scheduleContext.type !== 'group' && (
+				{scheduleContext.type !== "group" && (
 					<div className="context-badge">
-						<span className="context-icon">{scheduleContext.type === 'single-group' ? '👥' : '📅'}</span>
+						<span className="context-icon">{scheduleContext.type === "single-group" ? "👥" : "📅"}</span>
 						<span className="context-label">{scheduleContext.label}</span>
 						<button className="context-close" onClick={resetContext} title="Retour à mes groupes">
 							×
@@ -37,17 +49,21 @@ const CalendarHeader = ({ currentDate, setCurrentDate, handleNav, viewMode, setV
 
 			<div className="header-section header-right">
 				<div className="view-switcher">
-					<button className={`view-btn ${viewMode === 'week' ? 'active' : ''}`} onClick={() => setViewMode('week')} title="Vue semaine">
+					<button className={`view-btn ${viewMode === "week" ? "active" : ""}`} onClick={() => setViewMode("week")} title="Vue semaine">
 						<span className="desktop-label">Semaine</span>
 						<span className="mobile-icon">📅</span>
 					</button>
-					<button className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')} title="Vue liste">
+					<button className={`view-btn ${viewMode === "list" ? "active" : ""}`} onClick={() => setViewMode("list")} title="Vue liste">
 						<span className="desktop-label">Liste</span>
 						<span className="mobile-icon">📋</span>
 					</button>
 				</div>
 
 				<div className="header-actions">
+					<button className="btn-icon room-finder-btn" onClick={onOpenRoomFinder} title="Trouver une salle libre">
+						<span className="desktop-label">Salles libres</span>
+						<span className="mobile-icon">🏫</span>
+					</button>
 					<button className="btn-icon logout-btn desktop-only" onClick={logout} title="Déconnexion">
 						<span className="desktop-label">Déconnexion</span>
 						<span className="mobile-icon">🚪</span>
