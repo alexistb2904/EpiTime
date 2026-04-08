@@ -1030,8 +1030,8 @@
 }
 
 .detail-map-icon-btn {
-	width: 28px;
-	height: 28px;
+	width: 20px;
+	height: 20px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -1041,6 +1041,7 @@
 	color: var(--text-secondary);
 	cursor: pointer;
 	font-size: 0.85rem;
+	opacity: 0.8;
 	transition: all 0.15s ease;
 	position: absolute;
 	left: 90%;
