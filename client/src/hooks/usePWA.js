@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { androidAppDownloadUrl } from "../utils/downloadLinks";
 
 export const usePWA = () => {
 	const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -8,8 +9,7 @@ export const usePWA = () => {
 	const [installMethod, setInstallMethod] = useState(null);
 	const [isAndroid, setIsAndroid] = useState(false);
 
-	const androidApkUrl =
-		import.meta.env.VITE_ANDROID_APK_URL || "/downloads/epitime-beta.apk";
+	const androidApkUrl = androidAppDownloadUrl;
 
 	const isIOS = () =>
 		/iPad|iPhone|iPod/i.test(navigator.userAgent) ||

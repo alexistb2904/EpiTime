@@ -2,6 +2,7 @@ import React from "react";
 import ReactCalendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { trackEvent } from "../utils/analyticsTracker";
+import { androidAppDownloadUrl } from "../utils/downloadLinks";
 
 const Sidebar = ({
 	sidebarOpen,
@@ -20,9 +21,9 @@ const Sidebar = ({
 	const handleAndroidDownload = () => {
 		trackEvent("android_download_clicked", {
 			area: "sidebar",
-			destination: "github_releases",
+			destination: androidAppDownloadUrl,
 		});
-		window.open("https://github.com/alexistb2904/EpiTime/releases", "_blank", "noopener,noreferrer");
+		window.open(androidAppDownloadUrl, "_blank", "noopener,noreferrer");
 	};
 
 	return (

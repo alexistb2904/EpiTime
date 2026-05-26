@@ -1,6 +1,7 @@
 import "./PWAInstallBanner.css";
+import { androidAppDownloadUrl } from "../utils/downloadLinks";
 
-export function PWAInstallBanner({ show, installMethod, onInstall, onDismiss, isAndroid = false, androidApkUrl = "/downloads/epitime-beta.apk", onAndroidBetaInstall }) {
+export function PWAInstallBanner({ show, installMethod, onInstall, onDismiss, isAndroid = false, androidApkUrl = androidAppDownloadUrl, onAndroidBetaInstall }) {
 	if (!show) return null;
 
 	const isManualIOSInstall = installMethod === "ios";
