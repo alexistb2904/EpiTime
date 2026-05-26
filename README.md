@@ -2,10 +2,12 @@
 
 Zeus (https://zeus.ionis-it.com/) est pratique mais… pas franchement beau. EpiTime apporte une version propre. Il existait bien EpiLife mais bon l'application n'est plus maintenue
 
-## Stack et structure
+## Aperçus
 
-- Front : React + Vite.
-- Back : Node/Express.
+<img width="1920" height="1440" alt="772shots_so" src="https://github.com/user-attachments/assets/8d121cd5-324a-433e-b901-9d212a4f1b6a" />
+<img width="1920" height="1440" alt="706shots_so" src="https://github.com/user-attachments/assets/e143b555-98d4-4688-9a6a-8f49661b6e76" />
+<img width="1920" height="1440" alt="328shots_so" src="https://github.com/user-attachments/assets/ff841497-1700-4dd9-8d7c-c5f7dc7a3063" />
+
 
 ## Installer en local
 
