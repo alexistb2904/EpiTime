@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { Calendar, Download, Palette } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -11,6 +12,7 @@ const Login = () => {
 	const { login, loading, error } = useAuth();
 	const { theme, toggleTheme } = useTheme();
 	const { users, enabledAnalytics, loading: uniqueUsersLoading } = useUniqueUsers();
+	const [selectedPreview, setSelectedPreview] = useState(null);
 
 	const formattedUsers = typeof users === "number" ? new Intl.NumberFormat("fr-FR").format(users) : "—";
 	const showUserKpi = enabledAnalytics && !uniqueUsersLoading && typeof users === "number" && users > 10;
@@ -36,6 +38,14 @@ const Login = () => {
 			destination: androidAppDownloadUrl,
 		});
 		window.open(androidAppDownloadUrl, "_blank", "noopener,noreferrer");
+	};
+
+	const openPreview = (src, alt) => {
+		setSelectedPreview({ src, alt });
+	};
+
+	const closePreview = () => {
+		setSelectedPreview(null);
 	};
 
 	return (
@@ -177,6 +187,77 @@ const Login = () => {
 						<p>Notifications, accès rapide et interface pensée pour consulter ton planning en déplacement.</p>
 					</article>
 				</section>
+
+				<section className="login-preview-section" aria-labelledby="login-preview-title">
+					<div className="login-preview-header">
+						<div>
+							<p className="login-preview-eyebrow">Aperçus</p>
+							<h2 id="login-preview-title">Découvre les captures plus bas dans la page</h2>
+						</div>
+					</div>
+
+					<div className="login-preview-grid">
+						<article className="preview-card preview-card-image">
+							<button
+								className="preview-card-image-button"
+								type="button"
+								onClick={() => openPreview("/icons/androidapp.png", "Aperçu de l’application Android EpiTime")}
+								aria-label="Ouvrir en grand l’aperçu Android">
+								<img src="/icons/androidapp.png" alt="Aperçu de l’application Android EpiTime" className="preview-card-image-element" />
+							</button>
+							<div className="preview-card-body">
+								<span className="preview-card-tag">Android</span>
+								<h3>Interface mobile</h3>
+								<p>
+									la toute nouvelle application Android EpiTime
+									<br /> <small>bientôt IOS qui sais..</small>
+								</p>
+							</div>
+						</article>
+
+						<article className="preview-card preview-card-image">
+							<button
+								className="preview-card-image-button"
+								type="button"
+								onClick={() => openPreview("/icons/webapp.png", "Aperçu de l’application web EpiTime")}
+								aria-label="Ouvrir en grand l’aperçu web">
+								<img src="/icons/webapp.png" alt="Aperçu de l’application web EpiTime" className="preview-card-image-element" />
+							</button>
+							<div className="preview-card-body">
+								<span className="preview-card-tag preview-card-tag-soft">Web</span>
+								<h3>Interface web</h3>
+								<p>La plateforme web EpiTime, accessible depuis n'importe quel navigateur moderne.</p>
+							</div>
+						</article>
+
+						<article className="preview-card preview-card-image">
+							<button
+								className="preview-card-image-button"
+								type="button"
+								onClick={() => openPreview("/icons/pwa.png", "Aperçu de la PWA EpiTime")}
+								aria-label="Ouvrir en grand l’aperçu PWA">
+								<img src="/icons/pwa.png" alt="Aperçu de la PWA EpiTime" className="preview-card-image-element" />
+							</button>
+							<div className="preview-card-body">
+								<span className="preview-card-tag preview-card-tag-soft">PWA</span>
+								<h3>Dernière capture</h3>
+								<p>Vue de la PWA EpiTime sur mobile, installable depuis n'importe quel appareil.</p>
+							</div>
+						</article>
+					</div>
+				</section>
+
+				{selectedPreview && createPortal(
+					<div className="preview-lightbox" role="dialog" aria-modal="true" aria-label={selectedPreview.alt} onClick={closePreview}>
+						<button className="preview-lightbox-close" type="button" onClick={closePreview} aria-label="Fermer l’image agrandie">
+							×
+						</button>
+						<div className="preview-lightbox-panel" onClick={(event) => event.stopPropagation()}>
+							<img src={selectedPreview.src} alt={selectedPreview.alt} className="preview-lightbox-image" />
+						</div>
+					</div>,
+					document.body
+				)}
 
 				<footer className="login-footer">
 					<p className="footer-disclaimer">
