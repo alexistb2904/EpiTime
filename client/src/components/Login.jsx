@@ -131,7 +131,7 @@ const Login = () => {
 								<div className="schedule-event schedule-event-dark">
 									<span>18:00</span>
 									<strong>Rappel live</strong>
-									<small>Notification Android prête</small>
+									<small>Partialie Apprentissage 1</small>
 								</div>
 							</div>
 						</div>
@@ -174,7 +174,7 @@ const Login = () => {
 							<img src="/icons/android.svg" alt="" />
 						</span>
 						<h2>Nouvelle app Android</h2>
-						<p>Notifications natives, accès rapide et interface pensée pour consulter ton planning en déplacement.</p>
+						<p>Notifications, accès rapide et interface pensée pour consulter ton planning en déplacement.</p>
 					</article>
 				</section>
 

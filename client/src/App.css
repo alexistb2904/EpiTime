@@ -2,30 +2,42 @@
 	/* LIGHT THEME */
 	--bg-primary: #f2f4f8;
 	--bg-secondary: #ffffff;
-	--text-primary: #1a1c20;
+	--text-primary: #43464b;
 	--text-secondary: #6e7a8a;
 	--border-color: #e2e8f0;
-	--accent-color: #5b5fef;
-	--accent-hover: #484bbf;
-	--accent-light: rgba(91, 95, 239, 0.1);
-	--card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+	--accent-color: #265cff;
+	--accent-rgb: 38, 92, 255;
+	--accent-hover: #1744c7;
+	--accent-light: rgba(38, 92, 255, 0.1);
+	--success-color: #0f9f8f;
+	--success-rgb: 15, 159, 143;
+	--warning-color: #f3b43f;
+	--danger-color: #ff6247;
+	--card-shadow: 0 18px 44px rgba(16, 19, 27, 0.08);
 	--modal-bg: rgba(255, 255, 255, 0.95);
+	--modal-bg-transparent: rgba(255, 255, 255, 0.8);
 	--time-line: #f43f5e;
 	--grid-line: #edf2f7;
 	--sidebar-bg: #ffffff;
 }
 
-[data-theme='dark'] {
+[data-theme="dark"] {
 	--bg-primary: #0f1115;
 	--bg-secondary: #1a1d23;
 	--text-primary: #f0f4f8;
 	--text-secondary: #94a3b8;
 	--border-color: #2d3340;
-	--accent-color: #818cf8;
-	--accent-hover: #a5b4fc;
-	--accent-light: rgba(129, 140, 248, 0.15);
-	--card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
+	--accent-color: #8fb0ff;
+	--accent-rgb: 143, 176, 255;
+	--accent-hover: #b3c7ff;
+	--accent-light: rgba(143, 176, 255, 0.14);
+	--success-color: #4dd7c8;
+	--success-rgb: 77, 215, 200;
+	--warning-color: #f8c95b;
+	--danger-color: #ff8b77;
+	--card-shadow: 0 20px 48px rgba(0, 0, 0, 0.32);
 	--modal-bg: rgba(26, 29, 35, 0.98);
+	--modal-bg-transparent: rgba(26, 29, 35, 0.8);
 	--time-line: #fb7185;
 	--grid-line: #2d3340;
 	--sidebar-bg: #15171c;
@@ -40,8 +52,18 @@
 body {
 	background-color: var(--bg-primary);
 	color: var(--text-primary);
-	transition: background-color 0.3s, color 0.3s;
-	font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	transition:
+		background-color 0.3s,
+		color 0.3s;
+	font-family:
+		"Inter",
+		-apple-system,
+		BlinkMacSystemFont,
+		"Segoe UI",
+		Roboto,
+		Helvetica,
+		Arial,
+		sans-serif;
 }
 
 ::-webkit-scrollbar {

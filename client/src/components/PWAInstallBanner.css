@@ -147,3 +147,45 @@ body.offline::after {
 	font-size: 0.875rem;
 	z-index: 9999;
 }
+
+.pwa-install-banner {
+	left: 16px;
+	right: 16px;
+	bottom: 16px;
+	border-radius: 18px;
+	background: linear-gradient(135deg, rgba(16, 19, 27, 0.94), rgba(26, 33, 46, 0.92)), radial-gradient(circle at 0% 0%, rgba(var(--accent-rgb), 0.22), transparent 36%);
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	box-shadow: 0 18px 44px rgba(16, 19, 27, 0.28);
+	backdrop-filter: blur(18px);
+}
+
+.pwa-banner-title {
+	font-size: 1.12rem;
+	letter-spacing: 0;
+}
+
+.pwa-banner-beta {
+	background: rgba(var(--success-rgb), 0.16);
+	border-color: rgba(var(--success-rgb), 0.32);
+	color: #d7fff9;
+}
+
+.pwa-banner-btn {
+	border-radius: 14px;
+	font-weight: 780;
+}
+
+.pwa-banner-btn.install {
+	background: #f6f8fb;
+	color: #10131b;
+}
+
+.pwa-banner-btn.dismiss {
+	border-color: rgba(255, 255, 255, 0.24);
+}
+
+body.offline::after {
+	background: rgba(16, 19, 27, 0.94);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+	backdrop-filter: blur(16px);
+}

@@ -283,3 +283,64 @@
 		width: 100%;
 	}
 }
+
+.notification-settings-modal {
+	background: var(--app-panel, rgba(255, 255, 255, 0.86));
+	border: 1px solid var(--app-line, rgba(29, 38, 54, 0.12));
+	border-radius: 22px;
+	backdrop-filter: blur(22px);
+	box-shadow: var(--card-shadow, 0 18px 44px rgba(16, 19, 27, 0.12));
+}
+
+.close-btn,
+.minutes-btn,
+.quick-select-btn,
+.day-btn,
+.btn-test,
+.btn-primary,
+.minutes-control,
+.notification-type-options label,
+.setting-group.summary {
+	border-radius: 14px;
+}
+
+.close-btn:hover,
+.notification-type-options label:hover,
+.day-btn:hover {
+	background: rgba(var(--accent-rgb, 38, 92, 255), 0.1);
+}
+
+.minutes-control,
+.notification-type-options label,
+.setting-group.summary {
+	background: rgba(255, 255, 255, 0.56);
+	border: 1px solid var(--app-line, rgba(29, 38, 54, 0.12));
+}
+
+[data-theme="dark"] .minutes-control,
+[data-theme="dark"] .notification-type-options label,
+[data-theme="dark"] .setting-group.summary {
+	background: rgba(255, 255, 255, 0.055);
+}
+
+.minutes-btn,
+.quick-select-btn,
+.day-btn.active,
+.btn-primary {
+	background: var(--app-ink, #10131b);
+	color: var(--bg-secondary, #fff);
+}
+
+[data-theme="dark"] .minutes-btn,
+[data-theme="dark"] .quick-select-btn,
+[data-theme="dark"] .day-btn.active,
+[data-theme="dark"] .btn-primary {
+	background: #f6f8fb;
+	color: #10131b;
+}
+
+.btn-test {
+	background: rgba(var(--accent-rgb, 38, 92, 255), 0.1);
+	border: 1px solid rgba(var(--accent-rgb, 38, 92, 255), 0.28);
+	color: var(--accent-color, #265cff);
+}

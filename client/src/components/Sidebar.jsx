@@ -1,6 +1,7 @@
 import React from "react";
 import ReactCalendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import { Bell, LogOut, Moon, Plus, Settings, Sun } from "lucide-react";
 import { trackEvent } from "../utils/analyticsTracker";
 import { androidAppDownloadUrl } from "../utils/downloadLinks";
 
@@ -47,14 +48,13 @@ const Sidebar = ({
 			</div>
 
 			<div className="sidebar-section">
-				<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+				<div className="sidebar-section-head">
 					<h3 className="sidebar-title">Groupe sélectionnés</h3>
 					<button
-						className="btn-icon"
-						style={{ padding: "4px", width: "24px", height: "24px", fontSize: "0.9rem" }}
+						className="btn-icon sidebar-add-btn"
 						onClick={() => setShowGroupModal(true)}
 						title="Modifier la sélection">
-						+
+						<Plus size={16} strokeWidth={2.6} />
 					</button>
 				</div>
 				<div className="group-list">
@@ -79,7 +79,7 @@ const Sidebar = ({
 
 			<div className="sidebar-footer">
 				<button className="sidebar-btn sidebar-download-btn" onClick={handleAndroidDownload}>
-					<span>⬇️</span>
+					<img src="/icons/android.svg" alt="" className="sidebar-btn-img" aria-hidden="true" />
 					<span>Télécharger Android</span>
 				</button>
 				<button
@@ -91,19 +91,25 @@ const Sidebar = ({
 						});
 						toggleTheme();
 					}}>
-					<span>{theme === "light" ? "🌙" : "☀️"}</span>
+					<span className="sidebar-btn-icon">{theme === "light" ? <Moon size={18} strokeWidth={2.3} /> : <Sun size={18} strokeWidth={2.3} />}</span>
 					<span>Thème {theme === "light" ? "Sombre" : "Clair"}</span>
 				</button>
 				<button className="sidebar-btn" onClick={() => setShowNotificationsModal(true)}>
-					<span>🔔</span>
+					<span className="sidebar-btn-icon">
+						<Bell size={18} strokeWidth={2.3} />
+					</span>
 					<span>Notifications</span>
 				</button>
 				<button className="sidebar-btn" onClick={() => setShowSettingsModal(true)}>
-					<span>⚙️</span>
+					<span className="sidebar-btn-icon">
+						<Settings size={18} strokeWidth={2.3} />
+					</span>
 					<span>Paramètres</span>
 				</button>
 				<button className="sidebar-btn logout-sidebar-btn" onClick={logout}>
-					<span>🚪</span>
+					<span className="sidebar-btn-icon">
+						<LogOut size={18} strokeWidth={2.3} />
+					</span>
 					<span>Déconnexion</span>
 				</button>
 			</div>

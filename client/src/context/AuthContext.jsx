@@ -19,7 +19,8 @@ const isStandalonePWA = () => {
 };
 
 const shouldUseRedirectAuth = () => {
-	return isMobile() || isIOS() || isStandalonePWA();
+	return true; // Problème de popup a fix plus tard
+	//return isMobile() || isIOS() || isStandalonePWA();
 };
 
 const isPopupIssue = (err) => {
