@@ -19,6 +19,7 @@ export type WidgetCourse = {
 	code?: string;
 	room: string;
 	teacher: string;
+	startDate: string;
 	startMillis: number;
 	endMillis: number;
 	color: string;
@@ -84,6 +85,7 @@ function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
 			code: event.code,
 			room: event.rooms?.map(getRoomName).filter(Boolean).join(", ") || "Lieu a confirmer",
 			teacher: event.teachers?.map(getTeacherName).filter(Boolean).join(", ") || "",
+			startDate: event.startDate,
 			startMillis,
 			endMillis,
 			color: getCourseColor(event),

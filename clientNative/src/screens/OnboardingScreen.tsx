@@ -5,10 +5,11 @@ import { BellRing, CalendarDays, Check, DoorOpen, LogOut, Search, ShieldCheck, S
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { getEvents, getGroups } from "../services/api";
+import { getEvents, getGroups, registerExpoPushToken } from "../services/api";
+import { getNotificationSettings, requestPushToken, scheduleLocalCourseNotifications, setNotificationSettings } from "../services/notifications";
 import { getJSON, setJSON } from "../services/storage";
 import { syncCourseWidgets } from "../services/widgets";
-import { Group } from "../types";
+import { Group, ZeusEvent } from "../types";
 import { startOfDay } from "../utils/calendar";
 
 type Props = {
@@ -23,7 +24,7 @@ const features = [
 
 export default function OnboardingScreen({ onDone }: Props) {
 	const { theme } = useTheme();
-	const { logout } = useAuth();
+	const { logout, session } = useAuth();
 	const [step, setStep] = useState<"intro" | "groups">("intro");
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [selected, setSelected] = useState<(string | number)[]>([]);
@@ -31,6 +32,8 @@ export default function OnboardingScreen({ onDone }: Props) {
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
+	const account = session?.account as { id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
+	const userId = account?.id || account?.userPrincipalName || account?.mail || "";
 
 	useEffect(() => {
 		(async () => {
@@ -72,12 +75,22 @@ export default function OnboardingScreen({ onDone }: Props) {
 			const end = new Date(start);
 			end.setDate(end.getDate() + 30);
 			const events = await getEvents(start, end, selected).catch(() => []);
-			await setJSON("lastEvents", events || []);
-			await syncCourseWidgets(events || []);
+			const safeEvents = Array.isArray(events) ? events : [];
+			await setJSON("lastEvents", safeEvents);
+			await syncCourseWidgets(safeEvents);
+			await enableDefaultNotifications(safeEvents);
 			onDone();
 		} finally {
 			setSaving(false);
 		}
+	};
+
+	const enableDefaultNotifications = async (events: ZeusEvent[]) => {
+		const notificationSettings = { ...(await getNotificationSettings()), enabled: true };
+		await setNotificationSettings(notificationSettings);
+		const token = await requestPushToken().catch(() => null);
+		await scheduleLocalCourseNotifications(events, notificationSettings.minutesBefore, notificationSettings.selectedDays).catch(() => {});
+		if (token && userId) await registerExpoPushToken(token, userId, selected, notificationSettings).catch(() => {});
 	};
 
 	return (

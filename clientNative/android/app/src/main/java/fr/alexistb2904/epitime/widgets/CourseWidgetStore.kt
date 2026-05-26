@@ -6,10 +6,12 @@ import org.json.JSONObject
 import kotlin.math.abs
 
 data class WidgetCourse(
+  val id: String,
   val title: String,
   val type: String,
   val room: String,
   val teacher: String,
+  val startDate: String,
   val startMillis: Long,
   val endMillis: Long,
   val color: Int
@@ -95,11 +97,14 @@ object CourseWidgetStore {
     val title = optString("title").ifBlank { "Cours" }
     val seed = optString("type").ifBlank { optString("code").ifBlank { title } }
     val fallbackColor = palette[abs(seed.hashCode()) % palette.size]
+    val id = optString("id").ifBlank { "$title-$start" }
     return WidgetCourse(
+      id = id,
       title = title,
       type = optString("type").ifBlank { "Cours" },
       room = optString("room").ifBlank { "Lieu a confirmer" },
       teacher = optString("teacher"),
+      startDate = optString("startDate").ifBlank { iso(start) },
       startMillis = start,
       endMillis = end,
       color = parseColor(optString("color"), fallbackColor)
@@ -125,4 +130,9 @@ object CourseWidgetStore {
       fallback
     }
   }
+
+  private fun iso(millis: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+      timeZone = java.util.TimeZone.getTimeZone("UTC")
+    }.format(java.util.Date(millis))
 }

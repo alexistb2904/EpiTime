@@ -4,8 +4,24 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { ZeusEvent } from "../types";
 import { publicConfig } from "./config";
+import { getJSON, setJSON } from "./storage";
 
 const COURSES_CHANNEL_ID = "courses";
+const NOTIFICATION_SETTINGS_KEY = "notificationSettings";
+
+export type NotificationSettings = {
+	enabled: boolean;
+	minutesBefore: number;
+	selectedDays: number[];
+	notificationType: "banner" | "sound" | "both";
+};
+
+export const defaultNotificationSettings: NotificationSettings = {
+	enabled: true,
+	minutesBefore: 15,
+	selectedDays: [0, 1, 2, 3, 4, 5, 6],
+	notificationType: "both",
+};
 
 Notifications.setNotificationHandler({
 	handleNotification: async () => ({
@@ -39,6 +55,20 @@ export async function requestPushToken() {
 	if (!projectId) throw new Error("Expo projectId manquant");
 	return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 }
+
+export async function getNotificationSettings() {
+	const saved = await getJSON<Partial<NotificationSettings>>(NOTIFICATION_SETTINGS_KEY, defaultNotificationSettings);
+	return {
+		...defaultNotificationSettings,
+		...saved,
+		selectedDays: Array.isArray(saved.selectedDays) ? saved.selectedDays : defaultNotificationSettings.selectedDays,
+	};
+}
+
+export async function setNotificationSettings(settings: NotificationSettings) {
+	await setJSON(NOTIFICATION_SETTINGS_KEY, settings);
+}
+
 export async function scheduleLocalCourseNotifications(events: ZeusEvent[], minutesBefore = 15, selectedDays = [0, 1, 2, 3, 4, 5, 6]) {
 	if (Platform.OS === "web") return;
 	await ensureAndroidChannel();

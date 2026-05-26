@@ -46,6 +46,7 @@ class UpcomingCoursesWidgetService : RemoteViewsService() {
       views.setInt(R.id.widget_row_time, "setTextColor", if (active) accent else color(R.color.widget_text_disabled))
       views.setInt(R.id.widget_row_title, "setTextColor", if (active) color(R.color.widget_on_accent_container) else color(R.color.widget_text_muted))
       views.setInt(R.id.widget_row_room, "setTextColor", if (active) color(R.color.widget_text_muted) else color(R.color.widget_text_disabled))
+      views.setOnClickFillInIntent(R.id.widget_row_root, CourseWidgetRenderer.courseFillInIntent(course))
       return views
     }
 

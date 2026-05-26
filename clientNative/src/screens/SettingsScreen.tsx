@@ -1,15 +1,17 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { Bug, ChevronRight, Code2, Download, Info, LogOut, Moon, RefreshCw, Shield, Smartphone, Sun, User } from "lucide-react-native";
+import { BellRing, Bug, ChevronRight, Code2, Download, Info, LogOut, Moon, RefreshCw, Shield, Smartphone, Sun, User } from "lucide-react-native";
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useVersion } from "../context/VersionContext";
+import { getLiveCourseNotificationSettings, setLiveCourseProgressNotificationEnabled } from "../services/liveCourse";
 
 export default function SettingsScreen() {
 	const { logout, session } = useAuth();
 	const { theme, mode, toggleTheme } = useTheme();
 	const { currentVersion, latestVersion, updateAvailable, checking, error, lastCheckedAt, checkForUpdates, openLatestRelease } = useVersion();
+	const [liveCourseProgressEnabled, setLiveCourseProgressEnabled] = useState(true);
 	const account = session?.account as { displayName?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
 	const versionStatus = updateAvailable ? "Mise à jour disponible" : error ? "Vérification indisponible" : "Application à jour";
 	const versionDetails = updateAvailable
@@ -17,6 +19,21 @@ export default function SettingsScreen() {
 		: error
 			? `Version installée ${currentVersion} · ${error}`
 			: `Version installée ${currentVersion}${lastCheckedAt ? ` · Vérifiée à ${lastCheckedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}`;
+
+	useEffect(() => {
+		getLiveCourseNotificationSettings()
+			.then((settings) => setLiveCourseProgressEnabled(settings.progressEnabled))
+			.catch(() => {});
+	}, []);
+
+	const toggleLiveCourseProgress = async (enabled: boolean) => {
+		setLiveCourseProgressEnabled(enabled);
+		try {
+			await setLiveCourseProgressNotificationEnabled(enabled);
+		} catch {
+			setLiveCourseProgressEnabled(!enabled);
+		}
+	};
 
 	return (
 		<ScrollView style={[s.root, { backgroundColor: theme.bg }]} contentContainerStyle={s.content}>
@@ -51,6 +68,23 @@ export default function SettingsScreen() {
 					<Text style={[s.meta, { color: theme.muted }]}>Ajuste l'apparence globale</Text>
 				</View>
 				<Switch value={mode === "dark"} onValueChange={toggleTheme} thumbColor={theme.accent} trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }} />
+			</Card>
+
+			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>COURS EN DIRECT</Text>
+			<Card style={s.settingRow} variant="default" glow={false}>
+				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
+					<BellRing color={theme.accent} size={20} />
+				</View>
+				<View style={s.settingBody}>
+					<Text style={[s.settingTitle, { color: theme.text }]}>Notification persistante</Text>
+					<Text style={[s.meta, { color: theme.muted }]}>Progression du cours en cours</Text>
+				</View>
+				<Switch
+					value={liveCourseProgressEnabled}
+					onValueChange={(enabled) => void toggleLiveCourseProgress(enabled)}
+					thumbColor={theme.accent}
+					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
+				/>
 			</Card>
 
 			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>APPLICATION</Text>

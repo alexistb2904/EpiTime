@@ -86,6 +86,7 @@ object CourseWidgetFetcher {
       .put("code", optString("code"))
       .put("room", roomLabel())
       .put("teacher", teacherLabel())
+      .put("startDate", optString("startDate"))
       .put("startMillis", startMillis)
       .put("endMillis", endMillis)
       .put("color", palette[abs(seed.hashCode()) % palette.size])

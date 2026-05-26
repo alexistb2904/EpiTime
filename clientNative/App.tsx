@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, type LinkingOptions } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
 import { Bell, CalendarDays, Home, Settings } from "lucide-react-native";
@@ -16,7 +16,34 @@ import HomeScreen from "./src/screens/HomeScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
-const Tab = createBottomTabNavigator();
+
+type RootTabParamList = {
+	Accueil: undefined;
+	Agenda:
+		| {
+				targetDate?: string;
+				eventId?: string;
+				eventReservationId?: string;
+				eventStartDate?: string;
+		  }
+		| undefined;
+	Notifications: undefined;
+	Réglages: undefined;
+};
+
+const linking: LinkingOptions<RootTabParamList> = {
+	prefixes: ["epitime://"],
+	config: {
+		screens: {
+			Accueil: "home",
+			Agenda: "agenda",
+			Notifications: "notifications",
+			Réglages: "settings",
+		},
+	},
+};
+
+const Tab = createBottomTabNavigator<RootTabParamList>();
 function Root() {
 	const { session, loading } = useAuth();
 	const { theme, mode } = useTheme();
@@ -49,6 +76,7 @@ function Root() {
 	if (!onboardingReady) return <OnboardingScreen onDone={() => setOnboardingReady(true)} />;
 	return (
 		<NavigationContainer
+			linking={linking}
 			theme={{
 				dark: mode === "dark",
 				colors: {

@@ -5,36 +5,31 @@ import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { registerExpoPushToken, sendMobileTestNotification } from "../services/api";
-import { clearLocalCourseNotifications, requestPushToken, scheduleLocalCourseNotifications, sendLocalTestNotification } from "../services/notifications";
-import { getJSON, setJSON } from "../services/storage";
+import {
+	clearLocalCourseNotifications,
+	defaultNotificationSettings,
+	getNotificationSettings,
+	NotificationSettings,
+	requestPushToken,
+	scheduleLocalCourseNotifications,
+	sendLocalTestNotification,
+	setNotificationSettings,
+} from "../services/notifications";
+import { getJSON } from "../services/storage";
 import { daysOfWeek } from "../utils/calendar";
 import { ZeusEvent } from "../types";
-
-type NotificationSettings = {
-	enabled: boolean;
-	minutesBefore: number;
-	selectedDays: number[];
-	notificationType: "banner" | "sound" | "both";
-};
-
-const defaultSettings: NotificationSettings = {
-	enabled: false,
-	minutesBefore: 15,
-	selectedDays: [0, 1, 2, 3, 4, 5, 6],
-	notificationType: "both",
-};
 
 export default function NotificationsScreen() {
 	const { theme } = useTheme();
 	const { session } = useAuth();
-	const [settings, setSettings] = useState(defaultSettings);
+	const [settings, setSettings] = useState(defaultNotificationSettings);
 	const [message, setMessage] = useState("Les rappels locaux sont planifiés après chaque synchronisation de l'agenda.");
 	const [loading, setLoading] = useState(false);
 	const account = session?.account as { id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
 	const userId = account?.id || account?.userPrincipalName || account?.mail || "";
 
 	useEffect(() => {
-		getJSON<NotificationSettings>("notificationSettings", defaultSettings)
+		getNotificationSettings()
 			.then(setSettings)
 			.catch(() => {});
 	}, []);
@@ -50,7 +45,7 @@ export default function NotificationsScreen() {
 
 	const saveSettings = async (next: NotificationSettings) => {
 		setSettings(next);
-		await setJSON("notificationSettings", next);
+		await setNotificationSettings(next);
 		const events = await getJSON<ZeusEvent[]>("lastEvents", []);
 		if (next.enabled) await scheduleLocalCourseNotifications(events, next.minutesBefore, next.selectedDays);
 		else await clearLocalCourseNotifications();

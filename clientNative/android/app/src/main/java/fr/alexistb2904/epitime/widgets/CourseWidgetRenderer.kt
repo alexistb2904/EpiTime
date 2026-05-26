@@ -23,7 +23,7 @@ object CourseWidgetRenderer {
     val muted = color(context, R.color.widget_text_muted)
     val outline = color(context, R.color.widget_outline)
     val onAccentContainer = color(context, R.color.widget_on_accent_container)
-    views.setOnClickPendingIntent(R.id.widget_next_root, launchIntent(context))
+    views.setOnClickPendingIntent(R.id.widget_next_root, launchIntent(context, REQUEST_NEXT_COURSE, course?.let { courseUri(it) } ?: agendaUri()))
 
     if (course == null) {
       views.setTextViewText(R.id.widget_next_kicker, "Planning")
@@ -55,6 +55,7 @@ object CourseWidgetRenderer {
     views.setOnClickPendingIntent(R.id.widget_upcoming_root, launchIntent(context))
     views.setTextViewText(R.id.widget_upcoming_updated, updatedLabel(context))
     views.setRemoteAdapter(R.id.widget_upcoming_list, adapterIntent)
+    views.setPendingIntentTemplate(R.id.widget_upcoming_list, launchIntent(context, REQUEST_UPCOMING_ROW, mutable = true))
     views.setEmptyView(R.id.widget_upcoming_list, R.id.widget_upcoming_empty)
 
     appWidgetManager.updateAppWidget(widgetId, views)
@@ -71,18 +72,46 @@ object CourseWidgetRenderer {
     }
   }
 
-  private fun launchIntent(context: Context): PendingIntent {
-    val intent = Intent(context, MainActivity::class.java).apply {
-      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+  internal fun courseFillInIntent(course: WidgetCourse): Intent =
+    Intent().apply {
+      action = Intent.ACTION_VIEW
+      data = courseUri(course)
     }
-    val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
-    return PendingIntent.getActivity(context, 1001, intent, flags)
+
+  private fun launchIntent(context: Context, requestCode: Int = REQUEST_OPEN_APP, uri: Uri? = agendaUri(), mutable: Boolean = false): PendingIntent {
+    val intent = Intent(context, MainActivity::class.java).apply {
+      action = Intent.ACTION_VIEW
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      if (uri != null) data = uri
+    }
+    val mutabilityFlag = when {
+      Build.VERSION.SDK_INT < Build.VERSION_CODES.M -> 0
+      mutable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> PendingIntent.FLAG_MUTABLE
+      mutable -> 0
+      else -> PendingIntent.FLAG_IMMUTABLE
+    }
+    val flags = PendingIntent.FLAG_UPDATE_CURRENT or mutabilityFlag
+    return PendingIntent.getActivity(context, requestCode, intent, flags)
   }
+
+  private fun agendaUri(): Uri = Uri.Builder()
+    .scheme("epitime")
+    .authority("agenda")
+    .build()
+
+  private fun courseUri(course: WidgetCourse): Uri = Uri.Builder()
+    .scheme("epitime")
+    .authority("agenda")
+    .appendQueryParameter("targetDate", course.startDate)
+    .appendQueryParameter("eventId", course.id)
+    .appendQueryParameter("eventReservationId", course.id)
+    .appendQueryParameter("eventStartDate", course.startDate)
+    .build()
 
   private fun updatedLabel(context: Context): String {
     val updated = CourseWidgetStore.updatedAt(context)
     if (updated <= 0L) return "Non synchronise"
-    return "Maj ${formatTime(updated)}"
+    return "Dernière Actualisation ${formatTime(updated)}"
   }
 
   private fun relativeStart(start: Long, now: Long): String {
@@ -99,4 +128,8 @@ object CourseWidgetRenderer {
 
   private fun color(context: Context, resId: Int): Int =
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) context.getColor(resId) else context.resources.getColor(resId)
+
+  private const val REQUEST_OPEN_APP = 1001
+  private const val REQUEST_NEXT_COURSE = 1002
+  private const val REQUEST_UPCOMING_ROW = 1003
 }

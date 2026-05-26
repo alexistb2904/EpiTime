@@ -30,7 +30,7 @@ import { useTheme } from "../context/ThemeContext";
 import { getAvailableRooms, getCourseType, getEvents, getGroups, getLocations, getReservationDetails, getRooms, getRoomTypes } from "../services/api";
 import { getJSON, setJSON } from "../services/storage";
 import { syncLiveCourseNotification } from "../services/liveCourse";
-import { scheduleLocalCourseNotifications } from "../services/notifications";
+import { getNotificationSettings, scheduleLocalCourseNotifications } from "../services/notifications";
 import { refreshCourseWidgetsForGroups } from "../services/widgets";
 import { Group, LocationNode, Room, RoomType, ZeusEvent } from "../types";
 import {
@@ -162,9 +162,9 @@ export default function CalendarScreen() {
 					setEvents(safeData);
 					await setJSON(cacheKey, safeData);
 					await setJSON("lastEvents", safeData);
-					const notificationSettings = await getJSON<{ enabled?: boolean; minutesBefore?: number; selectedDays?: number[] }>("notificationSettings", {});
+					const notificationSettings = await getNotificationSettings();
 					if (notificationSettings.enabled) {
-						await scheduleLocalCourseNotifications(safeData, notificationSettings.minutesBefore || 15, notificationSettings.selectedDays || [0, 1, 2, 3, 4, 5, 6]);
+						await scheduleLocalCourseNotifications(safeData, notificationSettings.minutesBefore, notificationSettings.selectedDays);
 					}
 				}
 				setUsingCache(false);
@@ -268,7 +268,7 @@ export default function CalendarScreen() {
 	const activeEventForDay = selectedDayEvents.find((event) => new Date(event.startDate).getTime() <= now && new Date(event.endDate).getTime() > now);
 	const nextEventForDay = selectedDayEvents.find((event) => new Date(event.startDate).getTime() > now);
 	const activeEvent = activeEventForDay || null;
-	const nextEvent = nextEventForDay || sortedEvents.find((event) => new Date(event.endDate).getTime() > now);
+	const nextEvent = activeEventForDay || nextEventForDay || sortedEvents.find((event) => new Date(event.endDate).getTime() > now);
 	const contextLabel = context.type === "group" ? selectedLabels.slice(0, 2).join(", ").replace("_", " ") || "Aucun groupe" : context.label;
 	const compactDate = selectedDay.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 	const nextEventColor = nextEvent ? getCourseColor(nextEvent) : theme.accent;

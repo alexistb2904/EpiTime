@@ -1,8 +1,18 @@
 import { NativeModules, Platform } from "react-native";
 import { ZeusEvent } from "../types";
 import { getEventTitle, getRoomName } from "../utils/calendar";
+import { getJSON, setJSON } from "./storage";
 
 const minute = 60_000;
+const LIVE_COURSE_NOTIFICATION_SETTINGS_KEY = "liveCourseNotificationSettings";
+
+export type LiveCourseNotificationSettings = {
+	progressEnabled: boolean;
+};
+
+const defaultLiveCourseNotificationSettings: LiveCourseNotificationSettings = {
+	progressEnabled: true,
+};
 
 const LiveCourse = NativeModules.EpiTimeLiveCourse as
 	| {
@@ -16,6 +26,13 @@ const eventSources = new Map<string, ZeusEvent[]>();
 
 export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date.now(), source = "default") {
 	if (Platform.OS !== "android" || !LiveCourse?.showCourseProgress || !LiveCourse?.stop) return;
+	const settings = await getLiveCourseNotificationSettings();
+	if (!settings.progressEnabled) {
+		eventSources.clear();
+		lastSignature = null;
+		await LiveCourse.stop().catch(() => false);
+		return;
+	}
 
 	eventSources.set(source, events);
 	const activeCourse = getActiveCourse(Array.from(eventSources.values()).flat(), now);
@@ -49,6 +66,17 @@ export async function stopLiveCourseNotification() {
 	eventSources.clear();
 	lastSignature = null;
 	await LiveCourse.stop().catch(() => false);
+}
+
+export async function getLiveCourseNotificationSettings() {
+	const saved = await getJSON<Partial<LiveCourseNotificationSettings>>(LIVE_COURSE_NOTIFICATION_SETTINGS_KEY, defaultLiveCourseNotificationSettings);
+	return { ...defaultLiveCourseNotificationSettings, ...saved };
+}
+
+export async function setLiveCourseProgressNotificationEnabled(progressEnabled: boolean) {
+	const current = await getLiveCourseNotificationSettings();
+	await setJSON<LiveCourseNotificationSettings>(LIVE_COURSE_NOTIFICATION_SETTINGS_KEY, { ...current, progressEnabled });
+	if (!progressEnabled) await stopLiveCourseNotification();
 }
 
 function getActiveCourse(events: ZeusEvent[], now: number) {
