@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { Alert } from "react-native";
 import { getSession, clearSession } from "../services/storage";
 import { loginWithMicrosoft } from "../services/auth";
 import { Session } from "../types";
@@ -14,9 +15,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 	async function login() {
 		setLoading(true);
+
 		try {
-			await loginWithMicrosoft();
-			setSession(await getSession());
+			const nextSession = await loginWithMicrosoft();
+
+			if (!nextSession) {
+				throw new Error("Connexion réussie, mais aucune session locale n'a été sauvegardée.");
+			}
+
+			setSession(nextSession);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Erreur inconnue pendant la connexion.";
+
+			console.error("[AUTH] Login failed:", error);
+			Alert.alert("Connexion impossible", message);
 		} finally {
 			setLoading(false);
 		}

@@ -3,7 +3,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import { exchangeMicrosoftToken } from "./api";
 import { saveSession, clearSession } from "./storage";
-import { MicrosoftProfile } from "../types";
+import { MicrosoftProfile, Session } from "../types";
 import { publicConfig } from "./config";
 WebBrowser.maybeCompleteAuthSession();
 const clientId = publicConfig.microsoftClientId;
@@ -38,7 +38,7 @@ async function getMicrosoftProfile(accessToken: string): Promise<MicrosoftProfil
 		return null;
 	}
 }
-export async function loginWithMicrosoft() {
+export async function loginWithMicrosoft(): Promise<Session> {
 	if (!clientId) throw new Error("EXPO_PUBLIC_MICROSOFT_CLIENT_ID manquant");
 	const redirectUri = getRedirectUri();
 	const request = new AuthSession.AuthRequest({
@@ -58,8 +58,9 @@ export async function loginWithMicrosoft() {
 	if (!tokenResponse.accessToken) throw new Error("Access token Microsoft manquant");
 	const zeus = await exchangeMicrosoftToken(tokenResponse.accessToken);
 	const account = await getMicrosoftProfile(tokenResponse.accessToken);
-	await saveSession({ microsoftAccessToken: tokenResponse.accessToken, zeusToken: zeus.token, account });
-	return { zeusToken: zeus.token, account };
+	const session = { microsoftAccessToken: tokenResponse.accessToken, zeusToken: zeus.token, account };
+	await saveSession(session);
+	return session;
 }
 export async function logout() {
 	await clearSession();
