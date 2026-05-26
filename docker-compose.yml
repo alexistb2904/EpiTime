@@ -10,13 +10,19 @@ services:
             NODE_ENV: ${NODE_ENV:-production}
             PORT: 3001
             ZEUS_BASE: ${ZEUS_BASE:-https://zeus.ionis-it.com}
-            ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-http://localhost:3001}
+            ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001,http://127.0.0.1:3001,http://192.168.1.62:3001}
             VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
             VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+            EXPO_PUSH_API_URL: ${EXPO_PUSH_API_URL:-https://exp.host/--/api/v2/push/send}
+            DATA_DIR: /app/data
+            WEB_PUSH_STORE: /app/data/web-push-subscriptions.json
+            MOBILE_PUSH_STORE: /app/data/mobile-push-subscriptions.json
             RYBBIT_API_BASE: ${RYBBIT_API_BASE:-}
             RYBBIT_SITE_ID: ${RYBBIT_SITE_ID:-}
             RYBBIT_API_KEY: ${RYBBIT_API_KEY:-}
             RYBBIT_TIME_ZONE: ${RYBBIT_TIME_ZONE:-Europe/Paris}
+        volumes:
+            - epitime_data:/app/data
         restart: unless-stopped
         healthcheck:
             test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
@@ -29,3 +35,6 @@ services:
             options:
                 max-size: "10m"
                 max-file: "3"
+
+volumes:
+    epitime_data:

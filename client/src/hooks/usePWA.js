@@ -6,25 +6,53 @@ export const usePWA = () => {
 	const [isOnline, setIsOnline] = useState(navigator.onLine);
 	const [isInstalled, setIsInstalled] = useState(false);
 	const [installMethod, setInstallMethod] = useState(null);
+	const [isAndroid, setIsAndroid] = useState(false);
 
-	const isIOS = () => /iPad|iPhone|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /MacIntel/.test(navigator.platform));
-	const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+	const androidApkUrl =
+		import.meta.env.VITE_ANDROID_APK_URL || "/downloads/epitime-beta.apk";
+
+	const isIOS = () =>
+		/iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+		(navigator.maxTouchPoints > 1 && /MacIntel/.test(navigator.platform));
+
+	const isAndroidDevice = () =>
+		/Android/i.test(navigator.userAgent);
+
+	const isStandalone = () =>
+		window.matchMedia("(display-mode: standalone)").matches ||
+		window.navigator.standalone === true;
 
 	const wasDismissedRecently = () => {
 		const dismissed = localStorage.getItem("pwa-install-dismissed");
 		const lastDismissed = dismissed ? parseInt(dismissed, 10) : 0;
 		const now = Date.now();
 		const threeDays = 3 * 24 * 60 * 60 * 1000;
+
 		return dismissed && now - lastDismissed <= threeDays;
 	};
 
 	useEffect(() => {
+		const android = isAndroidDevice();
+		setIsAndroid(android);
+
 		if (isStandalone()) {
 			setIsInstalled(true);
+			return;
 		}
 
-		if (isIOS() && !isStandalone() && !wasDismissedRecently()) {
+		if (wasDismissedRecently()) {
+			return;
+		}
+
+		if (isIOS()) {
 			setInstallMethod("ios");
+
+			setTimeout(() => {
+				setShowInstallBanner(true);
+			}, 2000);
+		}
+
+		if (android) {
 			setTimeout(() => {
 				setShowInstallBanner(true);
 			}, 2000);
@@ -65,22 +93,28 @@ export const usePWA = () => {
 		};
 
 		window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
 		return () => {
 			window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 		};
 	}, []);
 
-	// Gestion de l'état en ligne/hors ligne
 	useEffect(() => {
 		const handleOnline = () => {
 			console.log("✅ En ligne");
 			setIsOnline(true);
+			document.body.classList.remove("offline");
 		};
 
 		const handleOffline = () => {
 			console.log("⚠️ Mode hors ligne");
 			setIsOnline(false);
+			document.body.classList.add("offline");
 		};
+
+		if (!navigator.onLine) {
+			document.body.classList.add("offline");
+		}
 
 		window.addEventListener("online", handleOnline);
 		window.addEventListener("offline", handleOffline);
@@ -88,6 +122,7 @@ export const usePWA = () => {
 		return () => {
 			window.removeEventListener("online", handleOnline);
 			window.removeEventListener("offline", handleOffline);
+			document.body.classList.remove("offline");
 		};
 	}, []);
 
@@ -105,11 +140,17 @@ export const usePWA = () => {
 		}
 
 		deferredPrompt.prompt();
+
 		const { outcome } = await deferredPrompt.userChoice;
 		console.log(`✅ Installation PWA: ${outcome}`);
 
 		setShowInstallBanner(false);
 		setDeferredPrompt(null);
+	};
+
+	const handleAndroidBetaInstall = () => {
+		console.log("🤖 Téléchargement APK beta Android");
+		window.open(androidApkUrl, "_blank", "noopener,noreferrer");
 	};
 
 	const handleDismiss = () => {
@@ -123,7 +164,10 @@ export const usePWA = () => {
 		isOnline,
 		isInstalled,
 		installMethod,
+		isAndroid,
+		androidApkUrl,
 		handleInstall,
+		handleAndroidBetaInstall,
 		handleDismiss,
 	};
 };

@@ -1,0 +1,34 @@
+{
+	"expo": {
+		"name": "EpiTime",
+		"slug": "epitime",
+		"scheme": "epitime",
+		"version": "1.0.0",
+		"orientation": "portrait",
+		"icon": "./assets/epitime_app.png",
+		"userInterfaceStyle": "automatic",
+		"ios": {
+			"bundleIdentifier": "fr.alexistb2904.epitime",
+			"supportsTablet": true,
+			"infoPlist": {
+				"ITSAppUsesNonExemptEncryption": false
+			}
+		},
+		"android": {
+			"package": "fr.alexistb2904.epitime",
+			"googleServicesFile": "./google-services.json",
+			"adaptiveIcon": {
+				"foregroundImage": "./assets/epitime_app_adaptive.png",
+				"backgroundColor": "#023c69"
+			},
+			"permissions": ["POST_NOTIFICATIONS", "POST_PROMOTED_NOTIFICATIONS"]
+		},
+		"plugins": ["expo-secure-store", "expo-notifications"],
+		"extra": {
+			"eas": {
+				"projectId": "19303643-730f-48a3-9cc5-811f9be90e77"
+			}
+		},
+		"owner": "alexistb2904"
+	}
+}

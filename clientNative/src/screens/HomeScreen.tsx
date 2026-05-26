@@ -1,0 +1,396 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
+import { BellRing, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, Clock3, GraduationCap, MapPin, RefreshCw, BellElectric, Users, WifiOff } from "lucide-react-native";
+import { useTheme } from "../context/ThemeContext";
+import { getEvents, getGroups } from "../services/api";
+import { syncLiveCourseNotification } from "../services/liveCourse";
+import { getJSON, setJSON } from "../services/storage";
+import { syncCourseWidgets } from "../services/widgets";
+import { Group, ZeusEvent } from "../types";
+import { formatDateRange, getEventTitle, getRoomName, startOfDay, getCourseColor } from "../utils/calendar";
+
+type HomeTab = "today" | "next";
+
+const minute = 60_000;
+const day = 86_400_000;
+
+const sameDay = (a: Date, b: Date) => startOfDay(a).getTime() === startOfDay(b).getTime();
+
+const formatTime = (date: Date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+const formatDuration = (ms: number) => {
+	const totalMinutes = Math.max(0, Math.round(ms / minute));
+	if (totalMinutes < 60) return `${totalMinutes} min`;
+	const hours = Math.floor(totalMinutes / 60);
+	const minutes = totalMinutes % 60;
+	return minutes ? `${hours} h ${minutes}` : `${hours} h`;
+};
+
+const greetingFor = (date: Date) => {
+	const hour = date.getHours();
+	if (hour < 12) return "Bonjour";
+	if (hour < 18) return "Bon après-midi";
+	return "Bonsoir";
+};
+
+export default function HomeScreen() {
+	const { theme } = useTheme();
+	const navigation = useNavigation<any>();
+	const [events, setEvents] = useState<ZeusEvent[]>([]);
+	const [groups, setGroups] = useState<Group[]>([]);
+	const [selectedGroups, setSelectedGroups] = useState<(string | number)[]>([]);
+	const [refreshing, setRefreshing] = useState(false);
+	const [usingCache, setUsingCache] = useState(false);
+	const [homeTab, setHomeTab] = useState<HomeTab>("today");
+
+	const refresh = useCallback(async () => {
+		setRefreshing(true);
+		try {
+			const ids = await getJSON<(string | number)[]>("selectedGroups", []);
+			setSelectedGroups(ids);
+			const allGroups = await getGroups();
+			setGroups(allGroups);
+			await setJSON("lastGroups", allGroups);
+			const start = startOfDay(new Date());
+			const end = new Date(start);
+			end.setDate(end.getDate() + 30);
+			if (ids.length > 0) {
+				const data = await getEvents(start, end, ids);
+				setEvents(data);
+				await setJSON("lastEvents", data);
+				await syncCourseWidgets(data);
+				setUsingCache(false);
+			} else {
+				setEvents([]);
+				await syncCourseWidgets([]);
+				setUsingCache(false);
+			}
+		} catch {
+			const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
+			setEvents(cachedEvents);
+			setGroups(await getJSON("lastGroups", []));
+			await syncCourseWidgets(cachedEvents);
+			setUsingCache(true);
+		} finally {
+			setRefreshing(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		refresh();
+	}, [refresh]);
+
+	const now = new Date();
+	const nowMs = now.getTime();
+	const sorted = useMemo(() => [...events].sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate)), [events]);
+	useEffect(() => {
+		syncLiveCourseNotification(sorted, Date.now(), "home").catch(() => {});
+		const timer = setInterval(() => syncLiveCourseNotification(sorted, Date.now(), "home").catch(() => {}), minute);
+		return () => clearInterval(timer);
+	}, [sorted]);
+	const todayEvents = useMemo(() => sorted.filter((event) => sameDay(new Date(event.startDate), now)), [now, sorted]);
+	const upcomingEvents = useMemo(() => sorted.filter((event) => new Date(event.endDate).getTime() > nowMs).slice(0, 8), [nowMs, sorted]);
+	const currentEvent = sorted.find((event) => new Date(event.startDate).getTime() <= nowMs && new Date(event.endDate).getTime() > nowMs);
+	const nextEvent = currentEvent || sorted.find((event) => new Date(event.startDate).getTime() > nowMs);
+	const visibleEvents = homeTab === "today" ? todayEvents : upcomingEvents;
+	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
+	const nextStart = nextEvent ? new Date(nextEvent.startDate) : null;
+	const nextEnd = nextEvent ? new Date(nextEvent.endDate) : null;
+	const isLive = Boolean(currentEvent && nextEvent?.idReservation === currentEvent.idReservation && nextEvent?.startDate === currentEvent.startDate);
+	const nextRooms = nextEvent?.rooms?.map(getRoomName).filter(Boolean).join(", ");
+	const progress = currentEvent
+		? Math.min(
+				100,
+				Math.max(
+					4,
+					((nowMs - new Date(currentEvent.startDate).getTime()) /
+						Math.max(minute, new Date(currentEvent.endDate).getTime() - new Date(currentEvent.startDate).getTime())) *
+						100
+				)
+			)
+		: 0;
+	const weekCount = sorted.filter((event) => {
+		const start = new Date(event.startDate).getTime();
+		return start >= startOfDay(now).getTime() && start < startOfDay(now).getTime() + 7 * day;
+	}).length;
+	const statusLabel = usingCache ? "Mémoire locale" : selectedGroups.length ? "Synchronisé" : "Groupes à choisir";
+	const nextKicker = !nextEvent ? "Planning libre" : isLive ? "En cours" : `Dans ${formatDuration(nextStart!.getTime() - nowMs)}`;
+	const freeLabel = currentEvent ? `Fin à ${formatTime(new Date(currentEvent.endDate))}` : nextStart ? `Libre jusqu'à ${formatTime(nextStart)}` : "Aucune contrainte à venir";
+	const openEventInCalendar = (event?: ZeusEvent | null) => {
+		if (!event) {
+			navigation.navigate("Agenda");
+			return;
+		}
+		navigation.navigate("Agenda", {
+			targetDate: event.startDate,
+			eventId: event.id,
+			eventReservationId: event.idReservation,
+			eventStartDate: event.startDate,
+		});
+	};
+
+	return (
+		<ScrollView
+			style={[s.root, { backgroundColor: theme.bg }]}
+			contentContainerStyle={s.content}
+			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.accent} />}>
+			<View pointerEvents="none" style={[s.topBand, { backgroundColor: theme.mode === "dark" ? "#171923" : "#e9edf5" }]} />
+
+			<Animated.View entering={FadeInUp.duration(420)} style={s.header}>
+				<View style={s.headerIdentity}>
+					<Image source={require("../../assets/logo.png")} style={s.logo} resizeMode="contain" />
+					<View style={s.headerText}>
+						<Text style={[s.eyebrow, { color: theme.accent }]}>{now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</Text>
+						<Text style={[s.title, { color: theme.text }]}>{greetingFor(now)}</Text>
+					</View>
+				</View>
+				<Pressable style={[s.syncPill, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={refresh}>
+					{usingCache ? <WifiOff color={theme.warn} size={15} /> : <RefreshCw color={theme.accent} size={15} />}
+					<Text style={[s.syncText, { color: usingCache ? theme.warn : theme.text }]} numberOfLines={1}>
+						{statusLabel}
+					</Text>
+				</Pressable>
+			</Animated.View>
+
+			{usingCache ? (
+				<Animated.View entering={FadeInDown.duration(300)} style={[s.offline, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
+					<WifiOff color={theme.accent} size={17} />
+					<Text style={[s.offlineText, { color: theme.text }]}>Mode hors ligne, données chargées depuis le cache.</Text>
+				</Animated.View>
+			) : null}
+
+			<Animated.View entering={FadeInDown.delay(80).duration(440)} layout={Layout.springify()}>
+				<Pressable
+					style={[s.focusPanel, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.cardShadow }]}
+					onPress={() => openEventInCalendar(nextEvent)}>
+					<View style={[s.focusRail, { backgroundColor: theme.accent }]} />
+					<View style={s.focusTop}>
+						<View style={[s.liveBadge, { backgroundColor: isLive ? theme.timeLine : theme.accent }]}>
+							{isLive ? <BellElectric color="#fff" size={14} /> : <Clock3 color="#fff" size={14} />}
+							<Text style={s.liveBadgeText}>{nextKicker}</Text>
+						</View>
+						<ChevronRight color={theme.muted} size={22} />
+					</View>
+					<Text style={[s.focusTitle, { color: theme.text }]} numberOfLines={2}>
+						{nextEvent ? getEventTitle(nextEvent) : "Aucun cours à venir"}
+					</Text>
+					<Text style={[s.focusMeta, { color: theme.muted }]} numberOfLines={2}>
+						{nextEvent && nextStart && nextEnd
+							? `${formatTime(nextStart)} - ${formatTime(nextEnd)} · ${formatDateRange(nextEvent).split("·")[0].trim()}`
+							: "Sélectionne tes groupes pour afficher ton planning personnalisé."}
+					</Text>
+					<View style={s.focusFooter}>
+						<View style={s.focusRoom}>
+							<MapPin color={theme.accent} size={16} />
+							<Text style={[s.focusRoomText, { color: theme.text }]} numberOfLines={1}>
+								{nextRooms || "Lieu à confirmer"}
+							</Text>
+						</View>
+						<Text style={[s.freeText, { color: theme.muted }]}>{freeLabel}</Text>
+					</View>
+					{currentEvent ? (
+						<View style={[s.progressTrack, { backgroundColor: theme.surfaceSoft }]}>
+							<View style={[s.progressFill, { backgroundColor: theme.accent, width: `${progress}%` }]} />
+						</View>
+					) : null}
+				</Pressable>
+			</Animated.View>
+
+			<Animated.View entering={FadeInDown.delay(140).duration(420)} style={s.metricsRow}>
+				<Metric icon={<CalendarDays color={theme.accent} size={19} />} value={String(todayEvents.length)} label="Cours aujourd'hui" />
+				<Metric icon={<CalendarClock color={theme.accent} size={19} />} value={String(weekCount)} label="Cours de la semaine" />
+			</Animated.View>
+
+			<Animated.View entering={FadeInDown.delay(200).duration(420)} style={[s.routePanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+				<Pressable style={s.routeMain} onPress={() => navigation.navigate("Agenda")}>
+					<View style={[s.routeIcon, { backgroundColor: theme.accentSoft }]}>
+						<GraduationCap color={theme.accent} size={22} />
+					</View>
+					<View style={s.routeCopy}>
+						<Text style={[s.routeTitle, { color: theme.text }]}>Mes groupes</Text>
+						<Text style={[s.routeText, { color: theme.muted }]} numberOfLines={2}>
+							{selectedLabels.length ? selectedLabels.slice(0, 3).join(", ") : "Configurer le planning dans l'agenda"}
+						</Text>
+					</View>
+					<ChevronRight color={theme.muted} size={20} />
+				</Pressable>
+				<View style={[s.routeDivider, { backgroundColor: theme.border }]} />
+				<View style={s.quickGrid}>
+					<QuickAction icon={<CalendarDays color="#fff" size={18} />} label="Agenda" onPress={() => navigation.navigate("Agenda")} />
+					<QuickAction icon={<BellRing color="#fff" size={18} />} label="Rappels" onPress={() => navigation.navigate("Notifications")} />
+				</View>
+			</Animated.View>
+
+			<Animated.View entering={FadeInDown.delay(260).duration(420)} style={s.sectionHead}>
+				<View>
+					<Text style={[s.sectionEyebrow, { color: theme.accent }]}>Vue rapide</Text>
+					<Text style={[s.sectionTitle, { color: theme.text }]}>Timeline</Text>
+				</View>
+				<View style={[s.segment, { backgroundColor: theme.surfaceSoft }]}>
+					{(["today", "next"] as HomeTab[]).map((tab) => {
+						const active = homeTab === tab;
+						return (
+							<Pressable key={tab} style={[s.segmentItem, active && { backgroundColor: theme.surface }]} onPress={() => setHomeTab(tab)}>
+								<Text style={[s.segmentText, { color: active ? theme.text : theme.muted }]}>{tab === "today" ? "Jour" : "À venir"}</Text>
+							</Pressable>
+						);
+					})}
+				</View>
+			</Animated.View>
+
+			{visibleEvents.length === 0 ? (
+				<Animated.View entering={FadeInDown.delay(300).duration(420)} style={[s.emptyPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+					<CheckCircle2 color={theme.accent} size={26} />
+					<View style={s.emptyCopy}>
+						<Text style={[s.emptyTitle, { color: theme.text }]}>{selectedGroups.length ? "Rien sur cette vue" : "Planning à connecter"}</Text>
+						<Text style={[s.emptyText, { color: theme.muted }]}>
+							{selectedGroups.length ? "Bascule sur l'agenda pour explorer une autre date." : "Ajoute tes groupes pour remplir la home automatiquement."}
+						</Text>
+					</View>
+				</Animated.View>
+			) : (
+				<View style={s.timeline}>
+					{visibleEvents.slice(0, 5).map((event, index) => (
+						<TimelineRow
+							key={`${event.idReservation || event.id || index}-${event.startDate}`}
+							event={event}
+							index={index}
+							colored={homeTab === "today"}
+							onPress={() => openEventInCalendar(event)}
+						/>
+					))}
+				</View>
+			)}
+		</ScrollView>
+	);
+}
+
+function Metric({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+	const { theme } = useTheme();
+	return (
+		<View style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+			{icon}
+			<Text style={[s.metricValue, { color: theme.text }]}>{value}</Text>
+			<Text style={[s.metricLabel, { color: theme.muted }]} numberOfLines={1}>
+				{label}
+			</Text>
+		</View>
+	);
+}
+
+function QuickAction({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress: () => void }) {
+	const { theme } = useTheme();
+	return (
+		<Pressable style={[s.quickAction, { backgroundColor: theme.accent }]} onPress={onPress}>
+			{icon}
+			<Text style={s.quickText}>{label}</Text>
+		</Pressable>
+	);
+}
+
+function TimelineRow({ event, index, colored, onPress }: { event: ZeusEvent; index: number; colored?: boolean; onPress: () => void }) {
+	const { theme } = useTheme();
+	const start = new Date(event.startDate);
+	const end = new Date(event.endDate);
+	const rooms = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
+	const isPast = end.getTime() < Date.now();
+	const isNow = start.getTime() <= Date.now() && end.getTime() > Date.now();
+	const eventColor = colored ? getCourseColor(event) : theme.border;
+	const activeColor = isNow ? (colored ? eventColor : theme.accent) : eventColor;
+
+	return (
+		<Animated.View entering={FadeInDown.delay(300 + Math.min(index, 5) * 45).duration(360)} layout={Layout.springify()}>
+			<Pressable style={[s.timelineRow, { backgroundColor: theme.surface, borderColor: isNow ? activeColor : theme.border, opacity: isPast ? 0.62 : 1 }]} onPress={onPress}>
+				<View style={s.timeCol}>
+					<Text style={[s.timeText, { color: isNow ? activeColor : theme.text }]}>{formatTime(start)}</Text>
+					<Text style={[s.timeEnd, { color: theme.muted }]}>{formatTime(end)}</Text>
+				</View>
+				<View style={[s.timelineMarker, { backgroundColor: activeColor }]}>{isNow ? <View style={s.timelineDot} /> : null}</View>
+				<View style={s.timelineBody}>
+					<Text style={[s.timelineTitle, { color: theme.text }]} numberOfLines={1}>
+						{getEventTitle(event)}
+					</Text>
+					<Text style={[s.timelineMeta, { color: theme.muted }]} numberOfLines={1}>
+						{rooms || "Lieu à confirmer"}
+					</Text>
+				</View>
+				<ChevronRight color={theme.muted} size={18} />
+			</Pressable>
+		</Animated.View>
+	);
+}
+
+const s = StyleSheet.create({
+	root: { flex: 1 },
+	content: { padding: 18, paddingTop: 58, paddingBottom: 112 },
+	topBand: { position: "absolute", top: 0, left: 0, right: 0, height: 210, opacity: 0.72 },
+	header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 18 },
+	headerIdentity: { flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 },
+	logo: { width: 50, height: 50, marginRight: 12 },
+	headerText: { flex: 1, minWidth: 0 },
+	eyebrow: { fontSize: 12, fontWeight: "900", textTransform: "capitalize" },
+	title: { fontSize: 34, fontWeight: "900", letterSpacing: 0 },
+	syncPill: { maxWidth: 134, minHeight: 40, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 7 },
+	syncText: { flexShrink: 1, fontSize: 12, fontWeight: "900" },
+	offline: { borderWidth: 1, borderRadius: 8, padding: 11, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+	offlineText: { flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 },
+	focusPanel: {
+		borderWidth: 1,
+		borderRadius: 28,
+		padding: 18,
+		minHeight: 252,
+		overflow: "hidden",
+		shadowOpacity: 0.13,
+		shadowRadius: 28,
+		shadowOffset: { width: 0, height: 18 },
+		elevation: 5,
+	},
+	focusRail: { position: "absolute", left: 0, top: 0, bottom: 0, width: 7 },
+	focusTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+	liveBadge: { minHeight: 34, borderRadius: 8, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 7 },
+	liveBadgeText: { color: "#fff", fontSize: 12, fontWeight: "900" },
+	focusTitle: { fontSize: 29, lineHeight: 34, fontWeight: "900", letterSpacing: 0, marginTop: 20 },
+	focusMeta: { marginTop: 10, lineHeight: 20, fontWeight: "700" },
+	focusFooter: { marginTop: "auto", paddingTop: 22, gap: 10 },
+	focusRoom: { flexDirection: "row", alignItems: "center", gap: 8 },
+	focusRoomText: { flex: 1, fontWeight: "900" },
+	freeText: { fontSize: 13, fontWeight: "800" },
+	progressTrack: { height: 7, borderRadius: 8, overflow: "hidden", marginTop: 16 },
+	progressFill: { height: "100%", borderRadius: 8 },
+	metricsRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+	metric: { flex: 1, minHeight: 104, borderRadius: 18, borderWidth: 1, padding: 12, justifyContent: "space-between" },
+	metricValue: { fontSize: 28, fontWeight: "900", letterSpacing: 0 },
+	metricLabel: { fontSize: 12, fontWeight: "800" },
+	routePanel: { borderWidth: 1, borderRadius: 24, padding: 14, marginTop: 12 },
+	routeMain: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 12 },
+	routeIcon: { width: 46, height: 46, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+	routeCopy: { flex: 1, minWidth: 0 },
+	routeTitle: { fontSize: 17, fontWeight: "900" },
+	routeText: { marginTop: 4, lineHeight: 18, fontWeight: "700" },
+	routeDivider: { height: 1, marginVertical: 12 },
+	quickGrid: { flexDirection: "row", gap: 10 },
+	quickAction: { flex: 1, minHeight: 48, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+	quickText: { color: "#fff", fontWeight: "900" },
+	sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 24, marginBottom: 12 },
+	sectionEyebrow: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+	sectionTitle: { fontSize: 26, fontWeight: "900", letterSpacing: 0 },
+	segment: { width: 154, flexDirection: "row", padding: 4, borderRadius: 8 },
+	segmentItem: { flex: 1, minHeight: 34, borderRadius: 6, alignItems: "center", justifyContent: "center" },
+	segmentText: { fontSize: 12, fontWeight: "900" },
+	timeline: { gap: 10 },
+	timelineRow: { borderWidth: 1, borderRadius: 18, minHeight: 82, padding: 12, flexDirection: "row", alignItems: "center", gap: 12 },
+	timeCol: { width: 48 },
+	timeText: { fontSize: 15, fontWeight: "900" },
+	timeEnd: { marginTop: 4, fontSize: 12, fontWeight: "800" },
+	timelineMarker: { width: 10, alignSelf: "stretch", borderRadius: 10, alignItems: "center", justifyContent: "center" },
+	timelineDot: { width: 4, height: 24, borderRadius: 4, backgroundColor: "#fff" },
+	timelineBody: { flex: 1, minWidth: 0 },
+	timelineTitle: { fontSize: 16, fontWeight: "900" },
+	timelineMeta: { marginTop: 5, fontSize: 13, fontWeight: "700" },
+	emptyPanel: { borderWidth: 1, borderRadius: 20, padding: 16, flexDirection: "row", gap: 12, alignItems: "center" },
+	emptyCopy: { flex: 1 },
+	emptyTitle: { fontSize: 17, fontWeight: "900" },
+	emptyText: { marginTop: 4, lineHeight: 19, fontWeight: "700" },
+});

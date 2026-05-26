@@ -24,8 +24,13 @@ WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3001 \
     ZEUS_BASE=https://zeus.ionis-it.com \
-    ALLOWED_ORIGIN=http://localhost:3001 \
-    VAPID_PUBLIC_KEY=""
+    ALLOWED_ORIGINS=http://localhost:3001,http://127.0.0.1:3001,http://192.168.1.62:3001 \
+    VAPID_PUBLIC_KEY="" \
+    VAPID_PRIVATE_KEY="" \
+    EXPO_PUSH_API_URL=https://exp.host/--/api/v2/push/send \
+    DATA_DIR=/app/data \
+    WEB_PUSH_STORE=/app/data/web-push-subscriptions.json \
+    MOBILE_PUSH_STORE=/app/data/mobile-push-subscriptions.json
 
 COPY server/package*.json ./
 
@@ -34,6 +39,8 @@ RUN npm install --production
 COPY server/server.js .
 
 COPY --from=client-builder /client/dist ./public
+
+RUN mkdir -p /app/data
 
 EXPOSE 3001
 

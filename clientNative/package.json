@@ -1,0 +1,49 @@
+{
+	"name": "epitime-rn-store-front",
+	"version": "1.0.0",
+	"private": true,
+	"main": "node_modules/expo/AppEntry.js",
+	"scripts": {
+		"start": "npx expo start",
+		"android": "npx expo run:android",
+		"ios": "npx expo run:ios",
+		"prebuild": "npx expo prebuild",
+		"apk": "npm run apk:build && npm run apk:copy",
+		"apk:build": "cd android && gradlew.bat assembleRelease",
+		"apk:clean": "cd android && gradlew.bat clean",
+		"apk:copy": "node -e \"const fs=require('fs'); const pkg=require('./package.json'); fs.copyFileSync('android/app/build/outputs/apk/release/app-release.apk', `EpiTime-${pkg.version}-release.apk`); console.log(`APK copied to EpiTime-${pkg.version}-release.apk`);\"",
+		"apk:rebuild": "npm run apk:clean && npm run apk",
+		"build:android": "eas build -p android",
+		"build:ios": "eas build -p ios"
+	},
+	"dependencies": {
+		"@react-native-async-storage/async-storage": "3.1.0",
+		"@react-navigation/bottom-tabs": "7.16.1",
+		"@react-navigation/native": "7.2.4",
+		"@react-navigation/native-stack": "7.15.1",
+		"babel-preset-expo": "~56.0.0",
+		"expo": "56.0.4",
+		"expo-auth-session": "56.0.11",
+		"expo-constants": "56.0.15",
+		"expo-crypto": "56.0.3",
+		"expo-device": "56.0.4",
+		"expo-linking": "56.0.11",
+		"expo-notifications": "56.0.13",
+		"expo-secure-store": "56.0.4",
+		"expo-status-bar": "56.0.4",
+		"expo-web-browser": "56.0.5",
+		"lucide-react-native": "1.16.0",
+		"react": "19.2.3",
+		"react-native": "0.85.3",
+		"react-native-gesture-handler": "2.31.2",
+		"react-native-reanimated": "4.3.1",
+		"react-native-safe-area-context": "5.8.0",
+		"react-native-screens": "4.25.2",
+		"react-native-svg": "15.15.4",
+		"react-native-worklets": "0.8.3"
+	},
+	"devDependencies": {
+		"@types/react": "19.2.15",
+		"typescript": "6.0.3"
+	}
+}

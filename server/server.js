@@ -11,11 +11,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 const ZEUS_BASE = process.env.ZEUS_BASE || "https://zeus.ionis-it.com";
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "*";
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || "";
 const RYBBIT_API_BASE = process.env.RYBBIT_API_BASE || "";
 const RYBBIT_SITE_ID = process.env.RYBBIT_SITE_ID || "";
 const RYBBIT_API_KEY = process.env.RYBBIT_API_KEY || "";
 const RYBBIT_TIME_ZONE = process.env.RYBBIT_TIME_ZONE || "Europe/Paris";
+const EXPO_PUSH_API_URL = process.env.EXPO_PUSH_API_URL || "https://exp.host/--/api/v2/push/send";
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, "data");
+const WEB_PUSH_STORE = process.env.WEB_PUSH_STORE ? path.resolve(process.env.WEB_PUSH_STORE) : path.join(DATA_DIR, "web-push-subscriptions.json");
+const MOBILE_PUSH_STORE = process.env.MOBILE_PUSH_STORE ? path.resolve(process.env.MOBILE_PUSH_STORE) : path.join(DATA_DIR, "mobile-push-subscriptions.json");
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
@@ -28,8 +32,135 @@ if (vapidPublicKey && vapidPrivateKey) {
 
 // Possiblement utiliser une BD plus tard
 const subscriptions = new Map();
+const mobileSubscriptions = new Map();
 const sentNotifications = new Map();
 const eventsCache = new Map();
+
+const isExpoPushToken = (token) => /^Expo(nent)?PushToken\[[^\]]+\]$/.test(String(token || ""));
+
+const normalizeIdArray = (value) => {
+	if (!Array.isArray(value)) return [];
+	return value
+		.map((item) => String(item).trim())
+		.filter(Boolean)
+		.slice(0, 100);
+};
+
+const normalizeNotificationSettings = (settings = {}) => {
+	const minutesBefore = Number(settings.minutesBefore ?? settings.minuesBefore);
+	const selectedDays = Array.isArray(settings.selectedDays) ? settings.selectedDays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6) : [];
+
+	return {
+		minutesBefore: Number.isFinite(minutesBefore) && minutesBefore > 0 ? Math.min(minutesBefore, 24 * 60) : 15,
+		selectedDays: selectedDays.length > 0 ? selectedDays : [0, 1, 2, 3, 4, 5, 6],
+	};
+};
+
+const mobileSubscriptionKey = (userId, expoPushToken) => `${userId}:${expoPushToken}`;
+
+const writeJsonStore = async (storePath, rows) => {
+	await fs.promises.mkdir(path.dirname(storePath), { recursive: true });
+	const tmpPath = `${storePath}.${process.pid}.tmp`;
+	await fs.promises.writeFile(tmpPath, JSON.stringify(rows, null, 2), "utf8");
+	await fs.promises.rename(tmpPath, storePath);
+};
+
+const loadWebSubscriptions = async () => {
+	try {
+		const raw = await fs.promises.readFile(WEB_PUSH_STORE, "utf8");
+		const rows = JSON.parse(raw);
+		if (!Array.isArray(rows)) return;
+		rows.forEach((row) => {
+			const userId = String(row?.userId || "").trim();
+			const subscription = row?.subscription || row;
+			if (userId && subscription?.endpoint) {
+				subscription.userGroups = normalizeIdArray(subscription.userGroups);
+				subscription.settings = normalizeNotificationSettings(subscription.settings);
+				subscriptions.set(userId, subscription);
+			}
+		});
+		console.log(`Web push: ${subscriptions.size} subscription(s) chargée(s)`);
+	} catch (err) {
+		if (err.code !== "ENOENT") {
+			console.error("Web push store load error:", err.message);
+		}
+	}
+};
+
+const persistWebSubscriptions = async () => {
+	const rows = Array.from(subscriptions.entries()).map(([userId, subscription]) => ({
+		userId,
+		subscription,
+	}));
+	await writeJsonStore(WEB_PUSH_STORE, rows);
+};
+
+const loadMobileSubscriptions = async () => {
+	try {
+		const raw = await fs.promises.readFile(MOBILE_PUSH_STORE, "utf8");
+		const rows = JSON.parse(raw);
+		if (!Array.isArray(rows)) return;
+		rows.forEach((row) => {
+			if (row?.userId && isExpoPushToken(row?.expoPushToken)) {
+				row.groups = normalizeIdArray(row.groups);
+				row.settings = normalizeNotificationSettings(row.settings);
+				mobileSubscriptions.set(mobileSubscriptionKey(row.userId, row.expoPushToken), row);
+			}
+		});
+		console.log(`Mobile push: ${mobileSubscriptions.size} subscription(s) chargée(s)`);
+	} catch (err) {
+		if (err.code !== "ENOENT") {
+			console.error("Mobile push store load error:", err.message);
+		}
+	}
+};
+
+const persistMobileSubscriptions = async () => {
+	const rows = Array.from(mobileSubscriptions.values());
+	await writeJsonStore(MOBILE_PUSH_STORE, rows);
+};
+
+const sendExpoPushMessages = async (messages) => {
+	if (!messages.length) return [];
+	const results = [];
+
+	for (let i = 0; i < messages.length; i += 100) {
+		const chunk = messages.slice(i, i + 100);
+		const response = await fetch(EXPO_PUSH_API_URL, {
+			method: "POST",
+			headers: {
+				Accept: "application/json",
+				"Accept-encoding": "gzip, deflate",
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(chunk),
+		});
+		const text = await response.text();
+		const parsed = text ? JSON.parse(text) : {};
+		if (!response.ok) {
+			throw new Error(parsed?.errors?.[0]?.message || parsed?.error || `Expo push HTTP ${response.status}`);
+		}
+		const data = Array.isArray(parsed?.data) ? parsed.data : [];
+		results.push(...data);
+
+		data.forEach((ticket, index) => {
+			if (ticket?.status === "error" && ticket?.details?.error === "DeviceNotRegistered") {
+				const failed = chunk[index];
+				for (const [key, subscription] of mobileSubscriptions) {
+					if (subscription.expoPushToken === failed.to) {
+						mobileSubscriptions.delete(key);
+					}
+				}
+			}
+		});
+	}
+
+	await persistMobileSubscriptions();
+	return results;
+};
+
+await loadWebSubscriptions();
+await loadMobileSubscriptions();
 
 const cleanupSentNotifications = () => {
 	const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
@@ -92,7 +223,27 @@ const getEventsFromCache = (groups) => {
 	return Array.from(allEvents.values());
 };
 
-app.use(cors({ origin: ALLOWED_ORIGIN }));
+const allowedOrigins = (ALLOWED_ORIGINS || "*")
+	.split(",")
+	.map((origin) => origin.trim())
+	.filter(Boolean);
+
+const allowAnyOrigin = allowedOrigins.includes("*");
+const allowOriginSet = new Set(allowedOrigins);
+
+const corsOptions = {
+	origin: (origin, callback) => {
+		// Requetes mobile native (React Native/Expo), curl, etc.
+		if (!origin) return callback(null, true);
+		if (allowAnyOrigin || allowOriginSet.has(origin)) return callback(null, true);
+		return callback(new Error(`CORS blocked for origin: ${origin}`));
+	},
+	methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+	allowedHeaders: ["Content-Type", "Authorization", "X-User-ID"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 
 let publicPath;
@@ -505,25 +656,125 @@ app.post("/api/subscribe", async (req, res) => {
 		const subscription = req.body;
 		const userId = req.headers["x-user-id"] || "anonymous";
 		const userGroups = req.headers["x-user-groups"] ? JSON.parse(req.headers["x-user-groups"]) : [];
-		const notificationSettings = req.headers["x-notification-settings"]
+		const rawNotificationSettings = req.headers["x-notification-settings"]
 			? JSON.parse(req.headers["x-notification-settings"])
 			: { minutesBefore: 15, selectedDays: [0, 1, 2, 3, 4, 5, 6] };
+		const notificationSettings = normalizeNotificationSettings(rawNotificationSettings);
 
 		if (!subscription.endpoint) {
 			return res.status(400).json({ error: "Invalid subscription" });
 		}
-		if (!notificationSettings.minutesBefore) {
-			notificationSettings.minutesBefore = 15;
-		}
 
-		subscription.userGroups = userGroups;
+		subscription.userGroups = normalizeIdArray(userGroups);
 		subscription.settings = notificationSettings;
 		subscriptions.set(userId, subscription);
+		await persistWebSubscriptions();
 
 		res.json({ success: true, message: "Subscription registered" });
 	} catch (err) {
 		console.error("/api/subscribe error", err);
 		res.status(500).json({ error: "Subscription failed" });
+	}
+});
+
+app.post("/api/mobile/subscribe", async (req, res) => {
+	try {
+		const { expoPushToken, groups = [], settings = {}, platform = "unknown" } = req.body || {};
+		const userId = String(req.body?.userId || req.headers["x-user-id"] || "").trim();
+
+		if (!userId) {
+			return res.status(400).json({ error: "userId is required" });
+		}
+
+		if (!isExpoPushToken(expoPushToken)) {
+			return res.status(400).json({ error: "expoPushToken is invalid" });
+		}
+
+		const now = new Date().toISOString();
+		const key = mobileSubscriptionKey(userId, expoPushToken);
+		const existing = mobileSubscriptions.get(key);
+		const subscription = {
+			userId,
+			expoPushToken,
+			groups: normalizeIdArray(groups),
+			settings: normalizeNotificationSettings(settings),
+			platform: String(platform || "unknown"),
+			createdAt: existing?.createdAt || now,
+			updatedAt: now,
+		};
+
+		mobileSubscriptions.set(key, subscription);
+		await persistMobileSubscriptions();
+
+		res.json({
+			success: true,
+			message: "Mobile push subscription registered",
+			count: Array.from(mobileSubscriptions.values()).filter((item) => item.userId === userId).length,
+		});
+	} catch (err) {
+		console.error("/api/mobile/subscribe error", err);
+		res.status(500).json({ error: "Mobile subscription failed" });
+	}
+});
+
+app.post("/api/mobile/unsubscribe", async (req, res) => {
+	try {
+		const { expoPushToken } = req.body || {};
+		const userId = String(req.body?.userId || req.headers["x-user-id"] || "").trim();
+
+		if (!userId && !expoPushToken) {
+			return res.status(400).json({ error: "userId or expoPushToken is required" });
+		}
+
+		let removed = 0;
+		for (const [key, subscription] of mobileSubscriptions) {
+			const userMatches = userId && subscription.userId === userId;
+			const tokenMatches = expoPushToken && subscription.expoPushToken === expoPushToken;
+			if ((userId && expoPushToken && userMatches && tokenMatches) || (!expoPushToken && userMatches) || (!userId && tokenMatches)) {
+				mobileSubscriptions.delete(key);
+				removed++;
+			}
+		}
+
+		if (removed > 0) {
+			await persistMobileSubscriptions();
+		}
+
+		res.json({ success: true, removed });
+	} catch (err) {
+		console.error("/api/mobile/unsubscribe error", err);
+		res.status(500).json({ error: "Mobile unsubscribe failed" });
+	}
+});
+
+app.post("/api/mobile/notify-test", async (req, res) => {
+	try {
+		const userId = String(req.body?.userId || req.headers["x-user-id"] || "").trim();
+		if (!userId) {
+			return res.status(400).json({ error: "userId is required" });
+		}
+
+		const targets = Array.from(mobileSubscriptions.values()).filter((subscription) => subscription.userId === userId);
+		if (targets.length === 0) {
+			return res.status(404).json({ error: "Aucune subscription mobile trouvée", sent: 0, total: 0 });
+		}
+
+		const messages = targets.map((subscription) => ({
+			to: subscription.expoPushToken,
+			sound: "default",
+			title: req.body?.title || "Notification de test",
+			body: req.body?.body || "EpiTime peut envoyer des notifications natives.",
+			channelId: "courses",
+			data: { type: "test", timestamp: Date.now() },
+		}));
+
+		const tickets = await sendExpoPushMessages(messages);
+		const sent = tickets.filter((ticket) => ticket?.status === "ok").length;
+
+		res.json({ success: true, sent, total: targets.length, tickets });
+	} catch (err) {
+		console.error("/api/mobile/notify-test error", err);
+		res.status(500).json({ error: "Mobile test notification failed" });
 	}
 });
 
@@ -541,14 +792,12 @@ app.post("/api/update-notification-settings", async (req, res) => {
 			return res.status(404).json({ error: "Subscription non trouvée" });
 		}
 
-		subscription.settings = {
-			minutesBefore: minutesBefore || 15,
-			selectedDays: selectedDays || [0, 1, 2, 3, 4, 5, 6],
-		};
+		subscription.settings = normalizeNotificationSettings({ minutesBefore, selectedDays });
 		if (groups) {
-			subscription.userGroups = groups;
+			subscription.userGroups = normalizeIdArray(groups);
 		}
 		subscriptions.set(userId, subscription);
+		await persistWebSubscriptions();
 
 		res.json({ success: true, message: "Settings updated" });
 	} catch (err) {
@@ -572,8 +821,8 @@ app.get("/api/vapid-key", (_req, res) => {
 });
 
 const notificationWorker = async () => {
-	if (!pushEnabled) return;
-	if (subscriptions.size === 0) return;
+	if (!pushEnabled && mobileSubscriptions.size === 0) return;
+	if (subscriptions.size === 0 && mobileSubscriptions.size === 0) return;
 
 	cleanupSentNotifications();
 	cleanupEventsCache();
@@ -582,17 +831,86 @@ const notificationWorker = async () => {
 	const currentDay = now.getDay();
 
 	let totalNotified = 0;
+	let totalMobileNotified = 0;
 
-	for (const [userId, subscription] of subscriptions) {
+	if (pushEnabled) {
+		for (const [userId, subscription] of subscriptions) {
+			try {
+				const settings = subscription.settings || { minutesBefore: 15, selectedDays: [0, 1, 2, 3, 4, 5, 6] };
+				const userGroups = subscription.userGroups || [];
+
+				if (!settings.selectedDays.includes(currentDay)) {
+					continue;
+				}
+
+				if (userGroups.length === 0) {
+					continue;
+				}
+
+				const events = getEventsFromCache(userGroups);
+				if (events.length === 0) {
+					continue;
+				}
+
+				const minutesBefore = settings.minutesBefore || 15;
+
+				for (const event of events) {
+					const eventStart = new Date(event.startDate || event.start);
+					const eventId = event.id || event.idReservation;
+					const eventName = event.name || "Aucun Titre" || "Cours";
+
+					const notifKey = `${userId}-${eventId}`;
+					if (sentNotifications.has(notifKey)) {
+						continue;
+					}
+
+					const timeUntilEvent = eventStart.getTime() - now.getTime();
+					const minutesUntilEvent = timeUntilEvent / (60 * 1000);
+
+					if (minutesUntilEvent >= minutesBefore - 1 && minutesUntilEvent <= minutesBefore + 1) {
+						const payload = JSON.stringify({
+							title: "📚 Cours bientôt!",
+							body: `${eventName} commence dans ${Math.round(minutesUntilEvent)} minutes`,
+							icon: "/icons/logo.png",
+							badge: "/icons/logo.png",
+							tag: `event-${eventId}`,
+							data: {
+								eventId,
+								timestamp: Date.now(),
+							},
+						});
+
+						try {
+							await webpush.sendNotification(subscription, payload);
+							sentNotifications.set(notifKey, Date.now());
+							totalNotified++;
+						} catch (err) {
+							if (err.statusCode === 410) {
+								subscriptions.delete(userId);
+								await persistWebSubscriptions();
+								console.log(`Subscription expirée pour ${userId}`);
+								break;
+							} else {
+								console.error(`Erreur envoi notification ${userId}:`, err.message);
+							}
+						}
+					}
+				}
+			} catch (err) {
+				console.error(`Erreur worker pour ${userId}:`, err.message);
+			}
+		}
+	}
+
+	const mobileMessages = [];
+	const mobileNotifKeys = [];
+
+	for (const [subscriptionKey, subscription] of mobileSubscriptions) {
 		try {
 			const settings = subscription.settings || { minutesBefore: 15, selectedDays: [0, 1, 2, 3, 4, 5, 6] };
-			const userGroups = subscription.userGroups || [];
+			const userGroups = subscription.groups || [];
 
-			if (!settings.selectedDays.includes(currentDay)) {
-				continue;
-			}
-
-			if (userGroups.length === 0) {
+			if (!settings.selectedDays.includes(currentDay) || userGroups.length === 0) {
 				continue;
 			}
 
@@ -606,9 +924,10 @@ const notificationWorker = async () => {
 			for (const event of events) {
 				const eventStart = new Date(event.startDate || event.start);
 				const eventId = event.id || event.idReservation;
-				const eventName = event.name || "Aucun Titre" || "Cours";
+				const eventName = event.name || "Cours";
+				if (!eventId || Number.isNaN(eventStart.getTime())) continue;
 
-				const notifKey = `${userId}-${eventId}`;
+				const notifKey = `mobile-${subscriptionKey}-${eventId}`;
 				if (sentNotifications.has(notifKey)) {
 					continue;
 				}
@@ -617,40 +936,42 @@ const notificationWorker = async () => {
 				const minutesUntilEvent = timeUntilEvent / (60 * 1000);
 
 				if (minutesUntilEvent >= minutesBefore - 1 && minutesUntilEvent <= minutesBefore + 1) {
-					const payload = JSON.stringify({
-						title: "📚 Cours bientôt!",
+					mobileMessages.push({
+						to: subscription.expoPushToken,
+						sound: "default",
+						title: "Cours bientôt",
 						body: `${eventName} commence dans ${Math.round(minutesUntilEvent)} minutes`,
-						icon: "/icons/logo.png",
-						badge: "/icons/logo.png",
-						tag: `event-${eventId}`,
+						channelId: "courses",
 						data: {
+							type: "course-reminder",
 							eventId,
 							timestamp: Date.now(),
 						},
 					});
-
-					try {
-						await webpush.sendNotification(subscription, payload);
-						sentNotifications.set(notifKey, Date.now());
-						totalNotified++;
-					} catch (err) {
-						if (err.statusCode === 410) {
-							subscriptions.delete(userId);
-							console.log(`Subscription expirée pour ${userId}`);
-							break;
-						} else {
-							console.error(`Erreur envoi notification ${userId}:`, err.message);
-						}
-					}
+					mobileNotifKeys.push(notifKey);
 				}
 			}
 		} catch (err) {
-			console.error(`Erreur worker pour ${userId}:`, err.message);
+			console.error(`Erreur worker mobile pour ${subscription.userId}:`, err.message);
 		}
 	}
 
-	if (totalNotified > 0) {
-		console.log(`Worker notification: ${totalNotified} notification(s) envoyée(s)`);
+	if (mobileMessages.length > 0) {
+		try {
+			const tickets = await sendExpoPushMessages(mobileMessages);
+			tickets.forEach((ticket, index) => {
+				if (ticket?.status === "ok") {
+					sentNotifications.set(mobileNotifKeys[index], Date.now());
+					totalMobileNotified++;
+				}
+			});
+		} catch (err) {
+			console.error("Erreur envoi notifications mobiles:", err.message);
+		}
+	}
+
+	if (totalNotified > 0 || totalMobileNotified > 0) {
+		console.log(`Worker notification: ${totalNotified} web, ${totalMobileNotified} mobile envoyée(s)`);
 	}
 };
 
@@ -658,10 +979,6 @@ setInterval(notificationWorker, 60 * 1000);
 
 app.post("/api/check-notifications", async (req, res) => {
 	try {
-		if (!pushEnabled) {
-			return res.json({ success: true, checked: 0, notified: 0 });
-		}
-
 		const { events } = req.body;
 		const userId = req.headers["x-user-id"];
 
@@ -674,6 +991,10 @@ app.post("/api/check-notifications", async (req, res) => {
 			if (subscription && subscription.userGroups) {
 				cacheEvents(events, subscription.userGroups);
 			}
+			const mobileGroups = Array.from(mobileSubscriptions.values())
+				.filter((mobileSubscription) => mobileSubscription.userId === userId)
+				.flatMap((mobileSubscription) => mobileSubscription.groups || []);
+			cacheEvents(events, [...new Set(mobileGroups)]);
 		}
 
 		res.json({ success: true, message: "Events cached for notification worker" });
@@ -715,6 +1036,7 @@ app.post("/api/notify-test", async (req, res) => {
 		} catch (err) {
 			if (err.statusCode === 410) {
 				subscriptions.delete(userId);
+				await persistWebSubscriptions();
 			} else {
 				console.error(`Erreur envoi notification test à ${userId}:`, err.message);
 			}
@@ -735,7 +1057,10 @@ app.post("/api/notify-test", async (req, res) => {
 app.post("/api/unsubscribe", async (req, res) => {
 	try {
 		const userId = req.headers["x-user-id"] || "anonymous";
-		subscriptions.delete(userId);
+		const removed = subscriptions.delete(userId);
+		if (removed) {
+			await persistWebSubscriptions();
+		}
 		console.log(`❌ Subscription supprimée pour ${userId}`);
 		res.json({ success: true });
 	} catch (err) {

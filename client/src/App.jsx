@@ -21,7 +21,9 @@ import "./App.css";
 
 function AppContent() {
 	const { user, loading } = useAuth();
-	const { showInstallBanner, isOnline, installMethod, handleInstall, handleDismiss } = usePWA();
+
+	const { showInstallBanner, isOnline, installMethod, isAndroid, androidApkUrl, handleInstall, handleAndroidBetaInstall, handleDismiss } = usePWA();
+
 	const [showCookieBanner, setShowCookieBanner] = React.useState(() => shouldShowAnalyticsBanner());
 
 	React.useEffect(() => {
@@ -41,9 +43,11 @@ function AppContent() {
 		setAnalyticsConsent(analyticsConsentValues.accepted);
 		enableAnalyticsTracking();
 		await loadAnalyticsScript();
+
 		trackEvent("cookie_consent_accepted", {
 			source: "cookie_banner",
 		});
+
 		setShowCookieBanner(false);
 	}, []);
 
@@ -64,8 +68,18 @@ function AppContent() {
 
 	return (
 		<>
-			<PWAInstallBanner show={showInstallBanner} installMethod={installMethod} onInstall={handleInstall} onDismiss={handleDismiss} />
+			<PWAInstallBanner
+				show={showInstallBanner}
+				installMethod={installMethod}
+				isAndroid={isAndroid}
+				androidApkUrl={androidApkUrl}
+				onInstall={handleInstall}
+				onAndroidBetaInstall={handleAndroidBetaInstall}
+				onDismiss={handleDismiss}
+			/>
+
 			<CookieBanner show={showCookieBanner} onAccept={handleAcceptAnalytics} onDecline={handleDeclineAnalytics} />
+
 			{user ? <Calendar /> : <Login />}
 		</>
 	);
