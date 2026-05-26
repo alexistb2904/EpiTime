@@ -77,3 +77,6 @@ docker-compose.override.yml
 dist-ssr/
 *.local
 server/data/
+
+clientNative/android/keystore.properties
+clientNative/android/app/release.keystore

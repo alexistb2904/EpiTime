@@ -17,6 +17,14 @@ const Sidebar = ({
 	setShowNotificationsModal,
 	logout,
 }) => {
+	const handleAndroidDownload = () => {
+		trackEvent("android_download_clicked", {
+			area: "sidebar",
+			destination: "github_releases",
+		});
+		window.open("https://github.com/alexistb2904/EpiTime/releases", "_blank", "noopener,noreferrer");
+	};
+
 	return (
 		<div className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
 			<div className="sidebar-header">
@@ -69,6 +77,10 @@ const Sidebar = ({
 			</div>
 
 			<div className="sidebar-footer">
+				<button className="sidebar-btn sidebar-download-btn" onClick={handleAndroidDownload}>
+					<span>⬇️</span>
+					<span>Télécharger Android</span>
+				</button>
 				<button
 					className="sidebar-btn"
 					onClick={() => {

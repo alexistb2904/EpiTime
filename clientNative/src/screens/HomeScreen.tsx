@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
 import { BellRing, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, Clock3, GraduationCap, MapPin, RefreshCw, BellElectric, Users, WifiOff } from "lucide-react-native";
@@ -12,6 +12,58 @@ import { Group, ZeusEvent } from "../types";
 import { formatDateRange, getEventTitle, getRoomName, startOfDay, getCourseColor } from "../utils/calendar";
 
 type HomeTab = "today" | "next";
+
+type UsefulLink = {
+	title: string;
+	description: string;
+	url: string;
+	accent: string;
+	badge: string;
+	image: number;
+};
+
+const usefulLinks: UsefulLink[] = [
+	{
+		title: "Moodle",
+		description: "Plateforme d'enseignement et accès aux cours.",
+		url: "https://moodle.epita.fr",
+		accent: "#6f7cff",
+		badge: "Cours",
+		image: require("../../assets/moodle_logo_small.png"),
+	},
+	{
+		title: "CRI",
+		description: "Portail Forge avec raccourcis utiles et services EPITA.",
+		url: "https://cri.epita.fr",
+		accent: "#4bc3a7",
+		badge: "Hub",
+		image: require("../../assets/cri.png"),
+	},
+	{
+		title: "Auriga",
+		description: "Centre administratif : infos perso, syllabus et notes.",
+		url: "https://auriga.epita.fr",
+		accent: "#f0a94a",
+		badge: "Admin",
+		image: require("../../assets/logo_auriga_main_menu.png"),
+	},
+	{
+		title: "Maps",
+		description: "Plans du campus pour retrouver rapidement les lieux.",
+		url: "https://maps.forge.epita.fr",
+		accent: "#ff6b81",
+		badge: "Campus",
+		image: require("../../assets/maps.png"),
+	},
+	{
+		title: "Intranet",
+		description: "Portail Forge pour accéder aux outils internes et pratiques.",
+		url: "https://intra.forge.epita.fr",
+		accent: "#8f7cff",
+		badge: "Forge",
+		image: require("../../assets/cri.png"),
+	},
+];
 
 const minute = 60_000;
 const day = 86_400_000;
@@ -86,8 +138,8 @@ export default function HomeScreen() {
 	const nowMs = now.getTime();
 	const sorted = useMemo(() => [...events].sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate)), [events]);
 	useEffect(() => {
-		syncLiveCourseNotification(sorted, Date.now(), "home").catch(() => {});
-		const timer = setInterval(() => syncLiveCourseNotification(sorted, Date.now(), "home").catch(() => {}), minute);
+		syncLiveCourseNotification(sorted, Date.now()).catch(() => {});
+		const timer = setInterval(() => syncLiveCourseNotification(sorted, Date.now()).catch(() => {}), minute);
 		return () => clearInterval(timer);
 	}, [sorted]);
 	const todayEvents = useMemo(() => sorted.filter((event) => sameDay(new Date(event.startDate), now)), [now, sorted]);
@@ -263,7 +315,56 @@ export default function HomeScreen() {
 					))}
 				</View>
 			)}
+
+			<Animated.View entering={FadeInDown.delay(360).duration(420)} style={s.sectionHead}>
+				<View>
+					<Text style={[s.sectionEyebrow, { color: theme.accent }]}>Raccourcis</Text>
+					<Text style={[s.sectionTitle, { color: theme.text }]}>Liens utiles</Text>
+				</View>
+			</Animated.View>
+
+			<View style={s.linksList}>
+				{usefulLinks.map((item, index) => (
+					<UsefulLinkCard key={item.url} item={item} index={index} />
+				))}
+			</View>
 		</ScrollView>
+	);
+}
+
+function UsefulLinkCard({ item, index }: { item: UsefulLink; index: number }) {
+	const { theme } = useTheme();
+
+	return (
+		<Animated.View entering={FadeInDown.delay(360 + index * 40).duration(360)} layout={Layout.springify()}>
+			<Pressable
+				style={[s.linkCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+				onPress={() => {
+					Linking.openURL(item.url).catch(() => {});
+				}}>
+				<View style={[s.linkVisual, { backgroundColor: item.accent }]}>
+					<View style={s.linkVisualOverlay} />
+					<Image source={item.image} style={s.linkImage} resizeMode="contain" />
+					<View style={s.linkBadge}>
+						<Text style={s.linkBadgeText}>{item.badge}</Text>
+					</View>
+					<Text style={s.linkVisualUrl} numberOfLines={1}>
+						{item.url.replace(/^https?:\/\//, "")}
+					</Text>
+				</View>
+				<View style={s.linkBody}>
+					<View style={s.linkBodyHeader}>
+						<Text style={[s.linkTitle, { color: theme.text }]} numberOfLines={1}>
+							{item.title}
+						</Text>
+						<ChevronRight color={item.accent} size={18} />
+					</View>
+					<Text style={[s.linkDescription, { color: theme.muted }]} numberOfLines={2}>
+						{item.description}
+					</Text>
+				</View>
+			</Pressable>
+		</Animated.View>
 	);
 }
 
@@ -376,6 +477,7 @@ const s = StyleSheet.create({
 	sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 24, marginBottom: 12 },
 	sectionEyebrow: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	sectionTitle: { fontSize: 26, fontWeight: "900", letterSpacing: 0 },
+	linksHint: { fontSize: 12, fontWeight: "800", flexShrink: 1, textAlign: "right" },
 	segment: { width: 154, flexDirection: "row", padding: 4, borderRadius: 8 },
 	segmentItem: { flex: 1, minHeight: 34, borderRadius: 6, alignItems: "center", justifyContent: "center" },
 	segmentText: { fontSize: 12, fontWeight: "900" },
@@ -393,4 +495,37 @@ const s = StyleSheet.create({
 	emptyCopy: { flex: 1 },
 	emptyTitle: { fontSize: 17, fontWeight: "900" },
 	emptyText: { marginTop: 4, lineHeight: 19, fontWeight: "700" },
+	linksList: { gap: 12, marginTop: 2 },
+	linkCard: {
+		borderWidth: 1,
+		borderRadius: 22,
+		overflow: "hidden",
+	},
+	linkVisual: {
+		minHeight: 108,
+		padding: 14,
+		justifyContent: "space-between",
+		alignItems: "center",
+		position: "relative",
+	},
+	linkVisualOverlay: {
+		...StyleSheet.absoluteFill,
+		backgroundColor: "rgba(255,255,255,0.08)",
+	},
+	linkImage: { width: 110, height: 56, zIndex: 1, marginTop: 2 },
+	linkBadge: {
+		zIndex: 1,
+		alignSelf: "flex-start",
+		minHeight: 28,
+		paddingHorizontal: 10,
+		borderRadius: 8,
+		backgroundColor: "rgba(255,255,255,0.18)",
+		justifyContent: "center",
+	},
+	linkBadgeText: { color: "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 0.2 },
+	linkVisualUrl: { zIndex: 1, alignSelf: "flex-start", marginTop: 8, color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: "700" },
+	linkBody: { padding: 14 },
+	linkBodyHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+	linkTitle: { flex: 1, fontSize: 18, fontWeight: "900" },
+	linkDescription: { marginTop: 6, lineHeight: 18, fontWeight: "700" },
 });

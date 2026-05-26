@@ -9,7 +9,7 @@
 		"ios": "npx expo run:ios",
 		"prebuild": "npx expo prebuild",
 		"apk": "npm run apk:build && npm run apk:copy",
-		"apk:build": "cd android && gradlew.bat assembleRelease",
+		"apk:build": "set \"NODE_ENV=production\" && set \"JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr\" && set \"PATH=%JAVA_HOME%\\bin;%PATH%\" && cd android && gradlew.bat assembleRelease",
 		"apk:clean": "cd android && gradlew.bat clean",
 		"apk:copy": "node -e \"const fs=require('fs'); const pkg=require('./package.json'); fs.copyFileSync('android/app/build/outputs/apk/release/app-release.apk', `EpiTime-${pkg.version}-release.apk`); console.log(`APK copied to EpiTime-${pkg.version}-release.apk`);\"",
 		"apk:rebuild": "npm run apk:clean && npm run apk",

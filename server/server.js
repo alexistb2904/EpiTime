@@ -35,6 +35,7 @@ const subscriptions = new Map();
 const mobileSubscriptions = new Map();
 const sentNotifications = new Map();
 const eventsCache = new Map();
+const storeWriteQueues = new Map();
 
 const isExpoPushToken = (token) => /^Expo(nent)?PushToken\[[^\]]+\]$/.test(String(token || ""));
 
@@ -58,11 +59,29 @@ const normalizeNotificationSettings = (settings = {}) => {
 
 const mobileSubscriptionKey = (userId, expoPushToken) => `${userId}:${expoPushToken}`;
 
-const writeJsonStore = async (storePath, rows) => {
+const writeJsonStoreUnsafe = async (storePath, rows) => {
 	await fs.promises.mkdir(path.dirname(storePath), { recursive: true });
-	const tmpPath = `${storePath}.${process.pid}.tmp`;
+
+	const tmpPath = `${storePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+
 	await fs.promises.writeFile(tmpPath, JSON.stringify(rows, null, 2), "utf8");
 	await fs.promises.rename(tmpPath, storePath);
+};
+
+const writeJsonStore = async (storePath, rows) => {
+	const previousWrite = storeWriteQueues.get(storePath) || Promise.resolve();
+
+	const currentWrite = previousWrite.catch(() => {}).then(() => writeJsonStoreUnsafe(storePath, rows));
+
+	storeWriteQueues.set(storePath, currentWrite);
+
+	try {
+		await currentWrite;
+	} finally {
+		if (storeWriteQueues.get(storePath) === currentWrite) {
+			storeWriteQueues.delete(storePath);
+		}
+	}
 };
 
 const loadWebSubscriptions = async () => {

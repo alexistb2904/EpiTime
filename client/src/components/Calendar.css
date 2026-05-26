@@ -213,6 +213,20 @@
 	border-color: var(--accent-light);
 }
 
+.sidebar-download-btn {
+	background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
+	color: #ffffff;
+	border-color: transparent;
+	box-shadow: 0 10px 20px rgba(91, 95, 239, 0.18);
+}
+
+.sidebar-download-btn:hover {
+	background: linear-gradient(135deg, var(--accent-hover), var(--accent-color));
+	color: #ffffff;
+	border-color: transparent;
+	box-shadow: 0 12px 24px rgba(91, 95, 239, 0.24);
+}
+
 .main-content {
 	flex: 1;
 	display: flex;
