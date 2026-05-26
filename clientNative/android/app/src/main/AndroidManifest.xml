@@ -43,5 +43,6 @@
       </intent-filter>
       <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_upcoming_courses_info"/>
     </receiver>
+    <receiver android:name=".live.LiveCourseNotificationReceiver" android:exported="false"/>
   </application>
 </manifest>

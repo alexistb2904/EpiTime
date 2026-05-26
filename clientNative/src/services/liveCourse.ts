@@ -21,7 +21,6 @@ const LiveCourse = NativeModules.EpiTimeLiveCourse as
 	  }
 	| undefined;
 
-let lastSignature: string | null = null;
 const eventSources = new Map<string, ZeusEvent[]>();
 
 export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date.now(), source = "default") {
@@ -29,7 +28,6 @@ export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date
 	const settings = await getLiveCourseNotificationSettings();
 	if (!settings.progressEnabled) {
 		eventSources.clear();
-		lastSignature = null;
 		await LiveCourse.stop().catch(() => false);
 		return;
 	}
@@ -37,10 +35,7 @@ export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date
 	eventSources.set(source, events);
 	const activeCourse = getActiveCourse(Array.from(eventSources.values()).flat(), now);
 	if (!activeCourse) {
-		if (lastSignature !== null) {
-			lastSignature = null;
-			await LiveCourse.stop().catch(() => false);
-		}
+		await LiveCourse.stop().catch(() => false);
 		return;
 	}
 
@@ -54,18 +49,27 @@ export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date
 	const endTime = new Date(endMillis).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 	const title = getEventTitle(activeCourse);
 	const description = `${room} · fin à ${endTime}`;
-	const signature = `${activeCourse.idReservation || activeCourse.id || title}-${activeCourse.startDate}-${Math.floor(progress / 2)}`;
 
-	if (signature === lastSignature) return;
-	lastSignature = signature;
 	await LiveCourse.showCourseProgress(title, description, progress, remainingText, remainingMillis).catch(() => false);
 }
 
 export async function stopLiveCourseNotification() {
 	if (Platform.OS !== "android" || !LiveCourse?.stop) return;
 	eventSources.clear();
-	lastSignature = null;
 	await LiveCourse.stop().catch(() => false);
+}
+
+export async function showDebugLiveCourseNotification(progress = 42) {
+	if (Platform.OS !== "android" || !LiveCourse?.showCourseProgress) return false;
+	const roundedProgress = Number.isFinite(progress) ? Math.round(progress) : 42;
+	await LiveCourse.showCourseProgress(
+		"Mode debug",
+		"Salle debug · fin dans 30 min",
+		Math.max(0, Math.min(100, roundedProgress)),
+		"30 min",
+		30 * minute
+	);
+	return true;
 }
 
 export async function getLiveCourseNotificationSettings() {

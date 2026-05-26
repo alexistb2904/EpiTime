@@ -40,16 +40,18 @@ async function ensureAndroidChannel() {
 	});
 }
 
+async function requestNotificationPermission() {
+	const { status: existing } = await Notifications.getPermissionsAsync();
+	if (existing === "granted") return true;
+	const { status } = await Notifications.requestPermissionsAsync();
+	return status === "granted";
+}
+
 export async function requestPushToken() {
 	if (Platform.OS === "web") return null;
 	if (!Device.isDevice) return null;
-	const { status: existing } = await Notifications.getPermissionsAsync();
-	let status = existing;
-	if (status !== "granted") {
-		const res = await Notifications.requestPermissionsAsync();
-		status = res.status;
-	}
-	if (status !== "granted") return null;
+	const granted = await requestNotificationPermission();
+	if (!granted) return null;
 	await ensureAndroidChannel();
 	const projectId = publicConfig.expoProjectId || Constants.expoConfig?.extra?.eas?.projectId;
 	if (!projectId) throw new Error("Expo projectId manquant");
@@ -102,6 +104,8 @@ export async function clearLocalCourseNotifications() {
 
 export async function sendLocalTestNotification() {
 	if (Platform.OS === "web") return false;
+	const granted = await requestNotificationPermission();
+	if (!granted) return false;
 	await ensureAndroidChannel();
 	await Notifications.scheduleNotificationAsync({
 		content: {
@@ -109,6 +113,27 @@ export async function sendLocalTestNotification() {
 			body: "Les rappels locaux EpiTime sont actifs.",
 			sound: "default",
 			data: { type: "local-test", timestamp: Date.now() },
+		},
+		trigger: {
+			type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+			seconds: 1,
+			...(Platform.OS === "android" ? { channelId: COURSES_CHANNEL_ID } : {}),
+		},
+	});
+	return true;
+}
+
+export async function sendDebugCourseReminderNotification(minutesBefore = 15) {
+	if (Platform.OS === "web") return false;
+	const granted = await requestNotificationPermission();
+	if (!granted) return false;
+	await ensureAndroidChannel();
+	await Notifications.scheduleNotificationAsync({
+		content: {
+			title: "Cours bientôt",
+			body: `Mode debug : cours de test commence dans ${minutesBefore} min`,
+			sound: "default",
+			data: { type: "debug-course-reminder", timestamp: Date.now() },
 		},
 		trigger: {
 			type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
