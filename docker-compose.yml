@@ -22,11 +22,11 @@ services:
             RYBBIT_API_KEY: ${RYBBIT_API_KEY:-}
             RYBBIT_TIME_ZONE: ${RYBBIT_TIME_ZONE:-Europe/Paris}
         volumes:
-            - ./server/data/web-push-subscriptions.json:/app/data/web-push-subscriptions.json
-            - ./server/data/mobile-push-subscriptions.json:/app/data/mobile-push-subscriptions.json
+            - epitime-data:/app/data
+
         restart: unless-stopped
         healthcheck:
-            test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+            test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => { if (r.statusCode !== 200) throw new Error(r.statusCode) })"]
             interval: 30s
             timeout: 10s
             retries: 3
@@ -36,3 +36,5 @@ services:
             options:
                 max-size: "10m"
                 max-file: "3"
+volumes:
+    epitime-data:

@@ -247,17 +247,18 @@ const Login = () => {
 					</div>
 				</section>
 
-				{selectedPreview && createPortal(
-					<div className="preview-lightbox" role="dialog" aria-modal="true" aria-label={selectedPreview.alt} onClick={closePreview}>
-						<button className="preview-lightbox-close" type="button" onClick={closePreview} aria-label="Fermer l’image agrandie">
-							×
-						</button>
-						<div className="preview-lightbox-panel" onClick={(event) => event.stopPropagation()}>
-							<img src={selectedPreview.src} alt={selectedPreview.alt} className="preview-lightbox-image" />
-						</div>
-					</div>,
-					document.body
-				)}
+				{selectedPreview &&
+					createPortal(
+						<div className="preview-lightbox" role="dialog" aria-modal="true" aria-label={selectedPreview.alt} onClick={closePreview}>
+							<button className="preview-lightbox-close" type="button" onClick={closePreview} aria-label="Fermer l’image agrandie">
+								×
+							</button>
+							<div className="preview-lightbox-panel" onClick={(event) => event.stopPropagation()}>
+								<img src={selectedPreview.src} alt={selectedPreview.alt} className="preview-lightbox-image" />
+							</div>
+						</div>,
+						document.body
+					)}
 
 				<footer className="login-footer">
 					<p className="footer-disclaimer">
