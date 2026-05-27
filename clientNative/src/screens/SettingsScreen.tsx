@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { BellRing, Bug, ChevronRight, Code2, Download, Info, LogOut, Moon, RefreshCw, Shield, Smartphone, Sun, User } from "lucide-react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { BellRing, Bug, ChevronRight, Code2, Download, Info, LogOut, Moon, RefreshCw, RotateCcw, Shield, Smartphone, Sun, User } from "lucide-react-native";
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useVersion } from "../context/VersionContext";
+import { getDeletedRealEventsCount, restoreDeletedRealEvents } from "../services/localEvents";
 import { getLiveCourseNotificationSettings, setLiveCourseProgressNotificationEnabled } from "../services/liveCourse";
 
 export default function SettingsScreen() {
@@ -12,6 +14,7 @@ export default function SettingsScreen() {
 	const { theme, mode, toggleTheme } = useTheme();
 	const { currentVersion, latestVersion, updateAvailable, checking, error, lastCheckedAt, checkForUpdates, openLatestRelease } = useVersion();
 	const [liveCourseProgressEnabled, setLiveCourseProgressEnabled] = useState(true);
+	const [deletedEventsCount, setDeletedEventsCount] = useState(0);
 	const account = session?.account as { displayName?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
 	const versionStatus = updateAvailable ? "Mise à jour disponible" : error ? "Vérification indisponible" : "Application à jour";
 	const versionDetails = updateAvailable
@@ -26,6 +29,14 @@ export default function SettingsScreen() {
 			.catch(() => {});
 	}, []);
 
+	useFocusEffect(
+		useCallback(() => {
+			getDeletedRealEventsCount()
+				.then(setDeletedEventsCount)
+				.catch(() => {});
+		}, [])
+	);
+
 	const toggleLiveCourseProgress = async (enabled: boolean) => {
 		setLiveCourseProgressEnabled(enabled);
 		try {
@@ -33,6 +44,11 @@ export default function SettingsScreen() {
 		} catch {
 			setLiveCourseProgressEnabled(!enabled);
 		}
+	};
+	const restoreEvents = async () => {
+		await restoreDeletedRealEvents();
+		setDeletedEventsCount(0);
+		Alert.alert("Agenda restauré", "Les cours supprimés réapparaîtront au prochain chargement de l'agenda.");
 	};
 
 	return (
@@ -77,7 +93,7 @@ export default function SettingsScreen() {
 				</View>
 				<View style={s.settingBody}>
 					<Text style={[s.settingTitle, { color: theme.text }]}>Notification persistante</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>Progression du cours en cours</Text>
+					<Text style={[s.meta, { color: theme.muted }]}>Progression du cours en direct via une notification persistante</Text>
 				</View>
 				<Switch
 					value={liveCourseProgressEnabled}
@@ -86,6 +102,16 @@ export default function SettingsScreen() {
 					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
 				/>
 			</Card>
+
+			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>AGENDA</Text>
+			<View style={s.group}>
+				<Action
+					icon={<RotateCcw color={theme.accent} size={20} />}
+					label={deletedEventsCount ? `Restaurer ${deletedEventsCount} cours supprimé${deletedEventsCount > 1 ? "s" : ""}` : "Aucun cours à restaurer"}
+					onPress={() => void restoreEvents()}
+					disabled={!deletedEventsCount}
+				/>
+			</View>
 
 			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>APPLICATION</Text>
 			<View style={s.group}>
@@ -100,7 +126,9 @@ export default function SettingsScreen() {
 						</View>
 					</View>
 					{updateAvailable ? (
-						<Pressable onPress={() => void openLatestRelease()} style={({ pressed }) => [s.downloadButton, { backgroundColor: theme.warn, opacity: pressed ? 0.82 : 1 }]}>
+						<Pressable
+							onPress={() => void openLatestRelease()}
+							style={({ pressed }) => [s.downloadButton, { backgroundColor: theme.warn, opacity: pressed ? 0.82 : 1 }]}>
 							<Download color="#fff" size={18} />
 							<Text style={s.downloadText}>Télécharger la version correcte</Text>
 						</Pressable>

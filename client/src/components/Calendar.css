@@ -659,6 +659,29 @@
 	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
+.event-cancelled {
+	filter: grayscale(0.9);
+	opacity: 0.66;
+	border-style: dashed;
+	background-image: repeating-linear-gradient(135deg, rgba(110, 122, 138, 0.16) 0, rgba(110, 122, 138, 0.16) 8px, transparent 8px, transparent 16px);
+}
+
+.event-cancelled .ev-title,
+.event-cancelled .list-title {
+	text-decoration: line-through;
+	color: var(--text-secondary);
+}
+
+.cancelled-badge,
+.cancelled-chip {
+	background: var(--bg-primary);
+	color: var(--text-secondary);
+	border: 1px dashed var(--text-secondary);
+	box-shadow: none;
+	text-transform: uppercase;
+	letter-spacing: 0;
+}
+
 .grid-event:hover {
 	z-index: 1440 !important;
 	transform: scale(1.03);
@@ -797,7 +820,9 @@
 .list-top-row {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
+	justify-content: flex-start;
+	flex-wrap: wrap;
+	gap: 6px;
 	margin-bottom: 6px;
 }
 
@@ -1079,6 +1104,35 @@
 
 .detail-value {
 	font-size: 1rem;
+}
+
+.detail-value-cancelled {
+	color: var(--text-secondary);
+	text-decoration: line-through;
+}
+
+.detail-cancelled-notice {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	margin-bottom: 1rem;
+	padding: 0.9rem 1rem;
+	border: 1px dashed var(--text-secondary);
+	border-radius: 12px;
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+}
+
+.detail-cancelled-badge {
+	display: inline-flex;
+	align-items: center;
+	border-radius: 999px;
+	border: 1px dashed var(--text-secondary);
+	padding: 0.25rem 0.65rem;
+	color: var(--text-secondary);
+	font-weight: 800;
+	text-transform: uppercase;
+	font-size: 0.78rem;
 }
 
 .detail-chip {
@@ -1889,6 +1943,18 @@
 	color: var(--text-primary);
 	border: 1px solid rgba(var(--accent-rgb), 0.22);
 	box-shadow: none;
+}
+
+.event-cancelled {
+	border-style: dashed !important;
+	border-color: var(--text-secondary) !important;
+}
+
+.event-cancelled .cancelled-badge,
+.event-cancelled .cancelled-chip {
+	background: var(--bg-primary);
+	color: var(--text-secondary);
+	border-color: var(--text-secondary);
 }
 
 .current-time-line,

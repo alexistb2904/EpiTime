@@ -77,6 +77,7 @@ export async function scheduleLocalCourseNotifications(events: ZeusEvent[], minu
 	await Notifications.cancelAllScheduledNotificationsAsync();
 	const now = Date.now();
 	for (const ev of events) {
+		if (ev.isCancelled || ev.isCanceled) continue;
 		const startDate = new Date(ev.startDate);
 		if (!selectedDays.includes(startDate.getDay())) continue;
 		const triggerDate = new Date(startDate.getTime() - minutesBefore * 60_000);

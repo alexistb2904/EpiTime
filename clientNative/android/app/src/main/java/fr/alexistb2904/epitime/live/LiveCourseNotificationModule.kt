@@ -1,5 +1,6 @@
 package fr.alexistb2904.epitime.live
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,6 +12,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.util.Log
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -75,6 +77,96 @@ class LiveCourseNotificationModule(
     }
   }
 
+  @ReactMethod
+  fun scheduleCourseProgress(
+    title: String,
+    room: String,
+    startMillis: Double,
+    endMillis: Double,
+    promise: Promise
+  ) {
+    try {
+      val context = reactContext.applicationContext
+      val startAt = startMillis.toLong()
+      val endsAt = endMillis.toLong()
+
+      if (startAt <= 0L || endsAt <= startAt) {
+        promise.resolve(false)
+        return
+      }
+
+      val alarmManager = context.getSystemService(AlarmManager::class.java)
+      val pendingIntent = createStartPendingIntent(
+        context = context,
+        title = title,
+        room = room,
+        startMillis = startAt,
+        endMillis = endsAt,
+        flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      ) ?: run {
+        promise.resolve(false)
+        return
+      }
+
+      val canScheduleExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+
+      if (canScheduleExact) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
+        } else {
+          alarmManager.setExact(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
+        }
+      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
+      } else {
+        alarmManager.set(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
+      }
+
+      Log.d(TAG, "Scheduled live course at $startAt")
+      promise.resolve(true)
+    } catch (error: SecurityException) {
+      try {
+        val context = reactContext.applicationContext
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        val startAt = startMillis.toLong()
+        val pendingIntent = createStartPendingIntent(
+          context = context,
+          title = title,
+          room = room,
+          startMillis = startAt,
+          endMillis = endMillis.toLong(),
+          flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        ) ?: run {
+          promise.resolve(false)
+          return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
+        } else {
+          alarmManager.set(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
+        }
+
+        Log.d(TAG, "Scheduled inexact live course at $startAt")
+        promise.resolve(true)
+      } catch (fallbackError: Exception) {
+        promise.reject("LIVE_COURSE_SCHEDULE_FAILED", fallbackError)
+      }
+    } catch (error: Exception) {
+      promise.reject("LIVE_COURSE_SCHEDULE_FAILED", error)
+    }
+  }
+
+  @ReactMethod
+  fun cancelScheduledCourseProgress(promise: Promise) {
+    try {
+      cancelScheduledCourseProgressInternal(reactContext.applicationContext)
+      promise.resolve(true)
+    } catch (error: Exception) {
+      promise.reject("LIVE_COURSE_CANCEL_SCHEDULE_FAILED", error)
+    }
+  }
+
   private fun getLargeIconBitmap(context: Context): Bitmap? {
     val drawable = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
       context.getDrawable(R.drawable.ic_notification_epitime)
@@ -94,6 +186,7 @@ class LiveCourseNotificationModule(
   }
 
   companion object {
+    private const val TAG = "EpiTimeLiveCourse"
     private const val CHANNEL_ID = "live_course_alerts"
     private const val PREFS_NAME = "live_course_notification"
     private const val KEY_ACTIVE = "active"
@@ -106,7 +199,14 @@ class LiveCourseNotificationModule(
     private const val MAX_CRITICAL_TEXT_LENGTH = 7
 
     internal const val ACTION_RESTORE_LIVE_COURSE = "fr.alexistb2904.epitime.live.RESTORE_LIVE_COURSE"
+    internal const val ACTION_START_LIVE_COURSE = "fr.alexistb2904.epitime.live.START_LIVE_COURSE"
+    internal const val EXTRA_TITLE = "title"
+    internal const val EXTRA_ROOM = "room"
+    internal const val EXTRA_START_MILLIS = "start_millis"
+    internal const val EXTRA_END_MILLIS = "end_millis"
     internal const val NOTIFICATION_ID = 4201
+
+    private const val REQUEST_CODE_START = 4202
 
     internal fun restoreFromSnapshot(context: Context): Boolean {
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -133,6 +233,70 @@ class LiveCourseNotificationModule(
       )
       manager.notify(NOTIFICATION_ID, notification)
       return true
+    }
+
+    internal fun showFromReceiver(
+      context: Context,
+      title: String,
+      description: String,
+      progress: Int,
+      chipText: String,
+      timeoutMillis: Long
+    ): Boolean {
+      val manager = context.getSystemService(NotificationManager::class.java)
+      ensureChannel(context, manager)
+
+      val clampedProgress = progress.coerceIn(0, 100)
+      val timeout = timeoutMillis.coerceAtLeast(1_000L)
+      val expiresAtMillis = System.currentTimeMillis() + timeout
+      val notification = buildNotification(
+        context = context,
+        title = title,
+        description = description,
+        progress = clampedProgress,
+        chipText = chipText,
+        timeoutMillis = timeout,
+        expiresAtMillis = expiresAtMillis
+      )
+
+      saveSnapshot(context, title, description, clampedProgress, chipText, expiresAtMillis)
+      manager.notify(NOTIFICATION_ID, notification)
+      return true
+    }
+
+    internal fun cancelScheduledCourseProgressInternal(context: Context) {
+      val pendingIntent = createStartPendingIntent(
+        context = context,
+        title = "",
+        room = "",
+        startMillis = 0L,
+        endMillis = 0L,
+        flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+      ) ?: return
+
+      val alarmManager = context.getSystemService(AlarmManager::class.java)
+      alarmManager.cancel(pendingIntent)
+      pendingIntent.cancel()
+      Log.d(TAG, "Canceled scheduled live course")
+    }
+
+    private fun createStartPendingIntent(
+      context: Context,
+      title: String,
+      room: String,
+      startMillis: Long,
+      endMillis: Long,
+      flags: Int
+    ): PendingIntent? {
+      val intent = Intent(context, LiveCourseNotificationReceiver::class.java).apply {
+        action = ACTION_START_LIVE_COURSE
+        putExtra(EXTRA_TITLE, title)
+        putExtra(EXTRA_ROOM, room)
+        putExtra(EXTRA_START_MILLIS, startMillis)
+        putExtra(EXTRA_END_MILLIS, endMillis)
+      }
+
+      return PendingIntent.getBroadcast(context, REQUEST_CODE_START, intent, flags)
     }
 
     private fun ensureChannel(context: Context, manager: NotificationManager) {

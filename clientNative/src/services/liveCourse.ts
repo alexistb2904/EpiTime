@@ -17,6 +17,8 @@ const defaultLiveCourseNotificationSettings: LiveCourseNotificationSettings = {
 const LiveCourse = NativeModules.EpiTimeLiveCourse as
 	| {
 			showCourseProgress?: (title: string, description: string, progress: number, chipText: string, timeoutMillis: number) => Promise<boolean>;
+			scheduleCourseProgress?: (title: string, room: string, startMillis: number, endMillis: number) => Promise<boolean>;
+			cancelScheduledCourseProgress?: () => Promise<boolean>;
 			stop?: () => Promise<boolean>;
 	  }
 	| undefined;
@@ -28,12 +30,30 @@ export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date
 	const settings = await getLiveCourseNotificationSettings();
 	if (!settings.progressEnabled) {
 		eventSources.clear();
+		await LiveCourse.cancelScheduledCourseProgress?.().catch(() => false);
 		await LiveCourse.stop().catch(() => false);
 		return;
 	}
 
-	eventSources.set(source, events);
-	const activeCourse = getActiveCourse(Array.from(eventSources.values()).flat(), now);
+	eventSources.set(
+		source,
+		events.filter((event) => !event.isCancelled && !event.isCanceled)
+	);
+	const allEvents = Array.from(eventSources.values()).flat();
+	const nextCourse = getNextCourse(allEvents, now);
+
+	if (nextCourse) {
+		const startMillis = new Date(nextCourse.startDate).getTime();
+		const endMillis = new Date(nextCourse.endDate).getTime();
+		const title = getEventTitle(nextCourse);
+		const room = nextCourse.rooms?.map(getRoomName).filter(Boolean).join(", ") || "Lieu à confirmer";
+
+		await LiveCourse.scheduleCourseProgress?.(title, room, startMillis, endMillis).catch(() => false);
+	} else {
+		await LiveCourse.cancelScheduledCourseProgress?.().catch(() => false);
+	}
+
+	const activeCourse = getActiveCourse(allEvents, now);
 	if (!activeCourse) {
 		await LiveCourse.stop().catch(() => false);
 		return;
@@ -56,6 +76,7 @@ export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date
 export async function stopLiveCourseNotification() {
 	if (Platform.OS !== "android" || !LiveCourse?.stop) return;
 	eventSources.clear();
+	await LiveCourse.cancelScheduledCourseProgress?.().catch(() => false);
 	await LiveCourse.stop().catch(() => false);
 }
 
@@ -91,6 +112,20 @@ function getActiveCourse(events: ZeusEvent[], now: number) {
 			endMillis: new Date(event.endDate).getTime(),
 		}))
 		.filter(({ startMillis, endMillis }) => Number.isFinite(startMillis) && Number.isFinite(endMillis) && startMillis <= now && endMillis > now)
+		.sort((a, b) => a.startMillis - b.startMillis)[0]?.event;
+}
+
+function getNextCourse(events: ZeusEvent[], now: number) {
+	return [...events]
+		.map((event) => ({
+			event,
+			startMillis: new Date(event.startDate).getTime(),
+			endMillis: new Date(event.endDate).getTime(),
+		}))
+		.filter(
+			({ startMillis, endMillis }) =>
+				Number.isFinite(startMillis) && Number.isFinite(endMillis) && startMillis > now && endMillis > startMillis
+		)
 		.sort((a, b) => a.startMillis - b.startMillis)[0]?.event;
 }
 

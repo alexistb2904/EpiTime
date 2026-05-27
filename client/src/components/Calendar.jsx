@@ -28,6 +28,33 @@ const generatePastelColor = (str) => {
 	return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
+const getEventCacheKey = (event) => `${event.idReservation || event.id || "event"}-${event.startDate || event.start || ""}`;
+
+const isEventCancelled = (event) => Boolean(event?.isCancelled || event?.isCanceled);
+
+const stripCancellationState = (event) => {
+	const { isCancelled, isCanceled, cancelledAt, cancellationReason, ...cleanEvent } = event;
+	return cleanEvent;
+};
+
+const reconcileEventsWithCache = (freshEvents = [], cachedEvents = []) => {
+	const fresh = freshEvents.map(stripCancellationState);
+	const freshKeys = new Set(fresh.map(getEventCacheKey));
+	const cancelledFromCache = cachedEvents
+		.filter((event) => !freshKeys.has(getEventCacheKey(event)))
+		.map((event) => ({
+			...event,
+			isCancelled: true,
+			isCanceled: true,
+			cancelledAt: event.cancelledAt || new Date().toISOString(),
+			cancellationReason: event.cancellationReason || "Absent du dernier retour Zeus",
+		}));
+
+	const byKey = new Map();
+	[...fresh, ...cancelledFromCache].forEach((event) => byKey.set(getEventCacheKey(event), event));
+	return Array.from(byKey.values());
+};
+
 const Calendar = () => {
 	const { zeusToken, logout, user } = useAuth();
 	const { theme, toggleTheme } = useTheme();
@@ -88,13 +115,13 @@ const Calendar = () => {
 	useEffect(() => {
 		if (!notificationSettings.enabled || events.length === 0) return;
 
-		const eventsToCheck = events.filter((event) => shouldNotifyForEvent(event));
+		const eventsToCheck = events.filter((event) => !isEventCancelled(event) && shouldNotifyForEvent(event));
 		if (eventsToCheck.length > 0) {
 			checkNotifications(eventsToCheck);
 		}
 
 		const interval = setInterval(() => {
-			const eventsToCheck = events.filter((event) => shouldNotifyForEvent(event));
+			const eventsToCheck = events.filter((event) => !isEventCancelled(event) && shouldNotifyForEvent(event));
 			if (eventsToCheck.length > 0) {
 				checkNotifications(eventsToCheck);
 			}
@@ -154,6 +181,7 @@ const Calendar = () => {
 	};
 
 	const loadCalendar = async () => {
+		let cacheKey = "";
 		try {
 			setLoading(true);
 			let start, end;
@@ -182,7 +210,7 @@ const Calendar = () => {
 				scheduleContext.ids.forEach((id) => params.append("rooms", id));
 			}
 
-			const cacheKey = `zeus_events_${scheduleContext.type}_${scheduleContext.ids.join("_")}_${start.toISOString()}_${end.toISOString()}`;
+			cacheKey = `zeus_events_${scheduleContext.type}_${scheduleContext.ids.join("_")}_${start.toISOString()}_${end.toISOString()}`;
 
 			const res = await fetch(`/api/events?${params.toString()}`, {
 				headers: { Authorization: `Bearer ${zeusToken}` },
@@ -206,11 +234,13 @@ const Calendar = () => {
 					setError("Aucune donnée en cache disponible pour cette période");
 				}
 			} else {
-				setEvents(data || []);
-				localStorage.setItem(cacheKey, JSON.stringify(data || []));
+				const cachedEvents = JSON.parse(localStorage.getItem(cacheKey) || "[]");
+				const apiEvents = Array.isArray(data) ? data : [];
+				const reconciledEvents = reconcileEventsWithCache(apiEvents, Array.isArray(cachedEvents) ? cachedEvents : []);
+				setEvents(reconciledEvents);
+				localStorage.setItem(cacheKey, JSON.stringify(reconciledEvents));
 			}
 		} catch (err) {
-			const cacheKey = `zeus_events_${scheduleContext.type}_${scheduleContext.ids.join("_")}`;
 			const cachedEvents = localStorage.getItem(cacheKey);
 			if (cachedEvents) {
 				setEvents(JSON.parse(cachedEvents) || []);
@@ -236,6 +266,11 @@ const Calendar = () => {
 		});
 		setSelectedEventLoading(true);
 		setSelectedEvent({ ...ev, loadingDetails: true });
+		if (isEventCancelled(ev)) {
+			setSelectedEvent({ ...ev, loadingDetails: false });
+			setSelectedEventLoading(false);
+			return;
+		}
 
 		try {
 			const res = await fetch(`/api/reservation/${ev.idReservation}/details`, {
@@ -528,6 +563,7 @@ const Calendar = () => {
 					))}
 
 					{dayEvents.map((ev, idx) => {
+						const cancelled = isEventCancelled(ev);
 						let borderColor = ev.courseColor || "var(--accent-color)";
 						if (borderColor.startsWith("hsl")) {
 							borderColor = borderColor.replace(/hsl\((\d+),\s*(\d+)%?,\s*(\d+)%?\)/, (h, hue, sat, light) => `hsl(${hue}, ${sat}%, ${Math.max(0, light - 20)}%)`);
@@ -535,13 +571,14 @@ const Calendar = () => {
 						return (
 							<div
 								key={idx}
-								className={`grid-event ${ev.isOnline ? "event-online" : ""}`}
+								className={`grid-event ${ev.isOnline ? "event-online" : ""} ${cancelled ? "event-cancelled" : ""}`}
 								onClick={() => handleEventClick(ev)}
 								style={{
 									...ev.style,
-									borderColor: borderColor,
-									backgroundColor: ev.courseColor || "var(--bg-secondary)",
+									borderColor: cancelled ? "var(--text-secondary)" : borderColor,
+									backgroundColor: cancelled ? "var(--bg-secondary)" : ev.courseColor || "var(--bg-secondary)",
 								}}>
+								{cancelled && <div className="event-badge cancelled-badge">Annulé</div>}
 								{ev.isOnline && <div className="event-badge">💻 En ligne</div>}
 								<div className="ev-time">
 									{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} -{" "}
@@ -584,20 +621,24 @@ const Calendar = () => {
 
 									return (
 										<div key={dayIdx} style={{ flex: 1, minHeight: dayMultiDayEvents.length > 0 ? "auto" : "0" }} className="multi-day-col">
-											{dayMultiDayEvents.map((ev, idx) => (
-												<div
-													key={idx}
-													className="multi-day-event-item"
-													onClick={() => handleEventClick(ev)}
-													style={{
-														backgroundColor: ev.courseColor || "var(--bg-secondary)",
-														borderColor: ev.courseColor || "var(--accent-color)",
-														marginBottom: "2px",
-													}}>
-													<div className="ev-title">{ev.name || ev.typeName}</div>
-													<div className="ev-room">{ev.rooms?.map((r) => r.name).join(", ")}</div>
-												</div>
-											))}
+											{dayMultiDayEvents.map((ev, idx) => {
+												const cancelled = isEventCancelled(ev);
+												return (
+													<div
+														key={idx}
+														className={`multi-day-event-item ${cancelled ? "event-cancelled" : ""}`}
+														onClick={() => handleEventClick(ev)}
+														style={{
+															backgroundColor: cancelled ? "var(--bg-secondary)" : ev.courseColor || "var(--bg-secondary)",
+															borderColor: cancelled ? "var(--text-secondary)" : ev.courseColor || "var(--accent-color)",
+															marginBottom: "2px",
+														}}>
+														{cancelled && <div className="event-badge cancelled-badge">Annulé</div>}
+														<div className="ev-title">{ev.name || ev.typeName}</div>
+														<div className="ev-room">{ev.rooms?.map((r) => r.name).join(", ")}</div>
+													</div>
+												);
+											})}
 										</div>
 									);
 								})}
@@ -674,56 +715,60 @@ const Calendar = () => {
 						<div key={dateLabel} className="list-section" ref={isToday ? todayRef : null}>
 							<h3 className="list-date-sticky">{isToday ? `${dateLabel} (Aujourd'hui)` : dateLabel}</h3>
 							<div className="list-events">
-								{evs.map((ev, i) => (
-									<div
-										key={i}
-										className={`list-card ${ev.isOnline ? "list-card-online" : ""} ${ev.isMultiDay ? "list-card-multiday" : ""}`}
-										onClick={() => handleEventClick(ev)}
-										style={{
-											borderLeftColor: ev.courseColor || "var(--accent-color)",
-											backgroundColor: ev.courseColor ? ev.courseColor.replace("hsl", "hsla").replace("%)", "%, 0.2)") : "transparent",
-										}}>
-										<div className="list-top-row">
-											{ev.isOnline && <span className="chip online-chip">💻 En ligne</span>}
-											{ev.isMultiDay && <span className="chip multi-day-chip">📅 Multi-jours</span>}
-										</div>
-										<div className="list-time">
-											{ev.startObj.toDateString() === ev.endObj.toDateString() ? (
-												<>
-													{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}-
-													{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-												</>
-											) : (
-												<>
-													Du {ev.startObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
-													{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-													<br />
-													au {ev.endObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
-													{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-												</>
-											)}
-										</div>
-										<div className="list-title">{ev.name || ev.typeName}</div>
-										<div className="list-meta">
-											{ev.rooms?.map((r) => (
-												<span className="chip" key={r.id}>
-													📍 {r.name}
-												</span>
-											))}
-										</div>
-										{ev.teachers?.length > 0 && (
-											<div className="list-teachers">
-												{ev.teachers.map((t) => (
-													<div className="teacher-line" key={t.id}>
-														<span className="teacher-name">
-															🎓 {t.firstname} {t.name}
-														</span>
-													</div>
+								{evs.map((ev, i) => {
+									const cancelled = isEventCancelled(ev);
+									return (
+										<div
+											key={i}
+											className={`list-card ${ev.isOnline ? "list-card-online" : ""} ${ev.isMultiDay ? "list-card-multiday" : ""} ${cancelled ? "event-cancelled" : ""}`}
+											onClick={() => handleEventClick(ev)}
+											style={{
+												borderLeftColor: cancelled ? "var(--text-secondary)" : ev.courseColor || "var(--accent-color)",
+												backgroundColor: cancelled ? "var(--bg-secondary)" : ev.courseColor ? ev.courseColor.replace("hsl", "hsla").replace("%)", "%, 0.2)") : "transparent",
+											}}>
+											<div className="list-top-row">
+												{cancelled && <span className="chip cancelled-chip">Annulé</span>}
+												{ev.isOnline && <span className="chip online-chip">💻 En ligne</span>}
+												{ev.isMultiDay && <span className="chip multi-day-chip">📅 Multi-jours</span>}
+											</div>
+											<div className="list-time">
+												{ev.startObj.toDateString() === ev.endObj.toDateString() ? (
+													<>
+														{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}-
+														{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+													</>
+												) : (
+													<>
+														Du {ev.startObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
+														{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+														<br />
+														au {ev.endObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
+														{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+													</>
+												)}
+											</div>
+											<div className="list-title">{ev.name || ev.typeName}</div>
+											<div className="list-meta">
+												{ev.rooms?.map((r) => (
+													<span className="chip" key={r.id}>
+														📍 {r.name}
+													</span>
 												))}
 											</div>
-										)}
-									</div>
-								))}
+											{ev.teachers?.length > 0 && (
+												<div className="list-teachers">
+													{ev.teachers.map((t) => (
+														<div className="teacher-line" key={t.id}>
+															<span className="teacher-name">
+																🎓 {t.firstname} {t.name}
+															</span>
+														</div>
+													))}
+												</div>
+											)}
+										</div>
+									);
+								})}
 							</div>
 						</div>
 					);

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import Animated, { FadeInDown, FadeInUp, Layout, runOnJS } from "react-native-reanimated";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
@@ -21,13 +21,16 @@ import {
 	Search,
 	SlidersHorizontal,
 	Sparkles,
+	Trash2,
 	Users,
 	WifiOff,
 	X,
 } from "lucide-react-native";
 import Card from "../components/Card";
+import DatePickerModal from "../components/DatePickerModal";
 import { useTheme } from "../context/ThemeContext";
 import { getAvailableRooms, getCourseType, getEvents, getGroups, getLocations, getReservationDetails, getRooms, getRoomTypes } from "../services/api";
+import { deleteLocalEvent, getLocalEventKey, isEventCancelled, isManualEvent, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
 import { getJSON, setJSON } from "../services/storage";
 import { syncLiveCourseNotification } from "../services/liveCourse";
 import { getNotificationSettings, scheduleLocalCourseNotifications } from "../services/notifications";
@@ -89,27 +92,18 @@ const flattenLocations = (nodes: LocationNode[] = []): Array<{ id: string | numb
 	return Array.from(new Map(result.map((item) => [String(item.id), item])).values());
 };
 
-const sameDay = (a: Date, b: Date) => startOfDay(a).getTime() === startOfDay(b).getTime();
-
-const buildMonthGrid = (monthRef: Date) => {
-	const first = new Date(monthRef.getFullYear(), monthRef.getMonth(), 1);
-	const offset = (first.getDay() + 6) % 7;
-	const gridStart = new Date(first);
-	gridStart.setDate(first.getDate() - offset);
-	return Array.from({ length: 42 }, (_, index) => {
-		const date = new Date(gridStart);
-		date.setDate(gridStart.getDate() + index);
-		return date;
-	});
-};
-
 const dayKey = (date: Date) => startOfDay(date).toISOString();
-
-const getEventKey = (event: Pick<ZeusEvent, "id" | "idReservation" | "startDate">) => `${event.idReservation || event.id || "event"}-${event.startDate}`;
 
 const getTargetEventKey = (params?: CalendarRouteParams) => {
 	if (!params?.eventStartDate) return null;
 	return `${params.eventReservationId || params.eventId || "event"}-${params.eventStartDate}`;
+};
+
+const getCourseProgress = (startMillis: number, endMillis: number, now: number) => {
+	const duration = endMillis - startMillis;
+	if (!Number.isFinite(duration) || duration <= 0) return 0;
+	const progress = ((now - startMillis) / duration) * 100;
+	return Math.max(0, Math.min(100, Math.round(progress)));
 };
 
 export default function CalendarScreen() {
@@ -133,44 +127,51 @@ export default function CalendarScreen() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [usingCache, setUsingCache] = useState(false);
+	const [now, setNow] = useState(Date.now());
 
 	const loadCalendar = useCallback(
 		async (nextContext = context, nextDate = currentDate, nextView = viewMode) => {
 			setLoading(true);
 			setError("");
+			const { start, end } = rangeFor(nextDate, nextView);
 			try {
-				const { start, end } = rangeFor(nextDate, nextView);
 				const query =
 					nextContext.type === "teacher" ? { teachers: nextContext.ids } : nextContext.type === "room" ? { rooms: nextContext.ids } : { groups: nextContext.ids };
 				if (!query.groups?.length && !query.teachers?.length && !query.rooms?.length) {
-					setEvents([]);
+					setEvents(await mergeEventsWithLocal([], start, end));
 					return;
 				}
 
 				const cacheKey = `events_${start.toISOString()}_${end.toISOString()}_${JSON.stringify(query)}`;
 				const cachedData = await getJSON<any[] | null>(cacheKey, null);
 				if (cachedData && Array.isArray(cachedData)) {
-					setEvents(cachedData);
+					setEvents(await mergeEventsWithLocal(cachedData, start, end));
 					setUsingCache(true);
 				}
 
 				const data = await getEvents(start, end, query);
 				const safeData = Array.isArray(data) ? data : [];
+				const reconciledData = reconcileEventsWithCache(safeData, cachedData);
+				const visibleData = await mergeEventsWithLocal(reconciledData, start, end);
 
-				const hasChanges = JSON.stringify(safeData) !== JSON.stringify(cachedData);
+				const hasChanges = JSON.stringify(reconciledData) !== JSON.stringify(cachedData);
+				setEvents(visibleData);
 				if (hasChanges) {
-					setEvents(safeData);
-					await setJSON(cacheKey, safeData);
-					await setJSON("lastEvents", safeData);
+					await setJSON(cacheKey, reconciledData);
+					await setJSON("lastEvents", reconciledData);
 					const notificationSettings = await getNotificationSettings();
 					if (notificationSettings.enabled) {
-						await scheduleLocalCourseNotifications(safeData, notificationSettings.minutesBefore, notificationSettings.selectedDays);
+						await scheduleLocalCourseNotifications(
+							visibleData.filter((event) => !isEventCancelled(event)),
+							notificationSettings.minutesBefore,
+							notificationSettings.selectedDays
+						);
 					}
 				}
 				setUsingCache(false);
 			} catch (err: any) {
 				const cached = await getJSON<ZeusEvent[]>("lastEvents", []);
-				setEvents(cached);
+				setEvents(await mergeEventsWithLocal(cached, start, end));
 				setUsingCache(true);
 				setError("");
 			} finally {
@@ -196,10 +197,10 @@ export default function CalendarScreen() {
 				setFocusedDay(startOfDay(initialDate));
 				const initialContext = { type: "group" as const, ids: savedGroups, label: "Mes groupes" };
 				setContext(initialContext);
-				if (savedGroups.length) await loadCalendar(initialContext, initialDate, savedMode);
+				await loadCalendar(initialContext, initialDate, savedMode);
 			} catch {
 				setGroups(await getJSON("lastGroups", []));
-				setEvents(await getJSON("lastEvents", []));
+				setEvents(await mergeEventsWithLocal(await getJSON("lastEvents", [])));
 				setUsingCache(true);
 			} finally {
 				setLoading(false);
@@ -230,15 +231,20 @@ export default function CalendarScreen() {
 	}, [currentDate]);
 
 	const sortedEvents = useMemo(() => [...events].sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate)), [events]);
+	const activeScheduleEvents = useMemo(() => sortedEvents.filter((event) => !isEventCancelled(event)), [sortedEvents]);
 	useEffect(() => {
-		syncLiveCourseNotification(sortedEvents, Date.now(), "calendar").catch(() => {});
-		const timer = setInterval(() => syncLiveCourseNotification(sortedEvents, Date.now(), "calendar").catch(() => {}), minute);
+		syncLiveCourseNotification(activeScheduleEvents, Date.now(), "calendar").catch(() => {});
+		const timer = setInterval(() => syncLiveCourseNotification(activeScheduleEvents, Date.now(), "calendar").catch(() => {}), minute);
 		return () => clearInterval(timer);
-	}, [sortedEvents]);
+	}, [activeScheduleEvents]);
+	useEffect(() => {
+		const timer = setInterval(() => setNow(Date.now()), minute);
+		return () => clearInterval(timer);
+	}, []);
 	useEffect(() => {
 		const targetKey = getTargetEventKey(routeParams);
 		if (!targetKey) return;
-		const exists = sortedEvents.some((event) => getEventKey(event) === targetKey);
+		const exists = sortedEvents.some((event) => getLocalEventKey(event) === targetKey);
 		if (exists) setHighlightedEventKey(targetKey);
 	}, [routeParams?.eventId, routeParams?.eventReservationId, routeParams?.eventStartDate, sortedEvents]);
 
@@ -264,14 +270,24 @@ export default function CalendarScreen() {
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
 	const selectedDay = viewMode === "day" ? startOfDay(currentDate) : focusedDay;
 	const selectedDayEvents = sortedEvents.filter((event) => dayKey(new Date(event.startDate)) === dayKey(selectedDay));
-	const now = Date.now();
-	const activeEventForDay = selectedDayEvents.find((event) => new Date(event.startDate).getTime() <= now && new Date(event.endDate).getTime() > now);
-	const nextEventForDay = selectedDayEvents.find((event) => new Date(event.startDate).getTime() > now);
+	const selectedDayActiveEvents = selectedDayEvents.filter((event) => !isEventCancelled(event));
+	const selectedDayCancelledCount = selectedDayEvents.length - selectedDayActiveEvents.length;
+	const activeEventForDay = selectedDayActiveEvents.find((event) => new Date(event.startDate).getTime() <= now && new Date(event.endDate).getTime() > now);
+	const nextEventForDay = selectedDayActiveEvents.find((event) => new Date(event.startDate).getTime() > now);
 	const activeEvent = activeEventForDay || null;
-	const nextEvent = activeEventForDay || nextEventForDay || sortedEvents.find((event) => new Date(event.endDate).getTime() > now);
+	const nextEvent = activeEventForDay || nextEventForDay || activeScheduleEvents.find((event) => new Date(event.endDate).getTime() > now);
 	const contextLabel = context.type === "group" ? selectedLabels.slice(0, 2).join(", ").replace("_", " ") || "Aucun groupe" : context.label;
 	const compactDate = selectedDay.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 	const nextEventColor = nextEvent ? getCourseColor(nextEvent) : theme.accent;
+	const nextEventStart = nextEvent ? new Date(nextEvent.startDate) : null;
+	const nextEventEnd = nextEvent ? new Date(nextEvent.endDate) : null;
+	const nextEventStartMillis = nextEventStart?.getTime() ?? Number.NaN;
+	const nextEventEndMillis = nextEventEnd?.getTime() ?? Number.NaN;
+	const nextEventIsNow = Number.isFinite(nextEventStartMillis) && Number.isFinite(nextEventEndMillis) && nextEventStartMillis <= now && nextEventEndMillis > now;
+	const nextEventProgress = getCourseProgress(nextEventStartMillis, nextEventEndMillis, now);
+	const nextEventRooms = nextEvent?.rooms?.map(getRoomName).filter(Boolean).join(", ");
+	const nextEventStartTime = nextEventStart?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) || "";
+	const nextEventEndTime = nextEventEnd?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) || "";
 	const headerTitle =
 		viewMode === "day"
 			? currentDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
@@ -282,6 +298,13 @@ export default function CalendarScreen() {
 					getWeekRange(currentDate).end.getTime() - 86400000
 				).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`
 			: currentDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+	const selectedDayStatus = activeEvent
+		? "En cours"
+		: selectedDayActiveEvents.length
+			? `${selectedDayActiveEvents.length} cours planifié${selectedDayActiveEvents.length > 1 ? "s" : ""}`
+			: selectedDayCancelledCount
+				? `${selectedDayCancelledCount} cours annulé${selectedDayCancelledCount > 1 ? "s" : ""}`
+				: "Journée libre";
 
 	const applyDate = (date: Date) => {
 		const next = startOfDay(date);
@@ -336,7 +359,7 @@ export default function CalendarScreen() {
 
 	const openDetails = async (event: ZeusEvent) => {
 		setSelectedEvent(event);
-		if (!event.idReservation) return;
+		if (!event.idReservation || isManualEvent(event) || isEventCancelled(event)) return;
 		try {
 			const details = await getReservationDetails(event.idReservation);
 			let courseTypeName = details?.courseTypeName;
@@ -348,6 +371,26 @@ export default function CalendarScreen() {
 		} catch {
 			setSelectedEvent(event);
 		}
+	};
+	const deleteEvent = (event: ZeusEvent) => {
+		const manual = isManualEvent(event);
+		Alert.alert(
+			"Supprimer l'événement",
+			manual ? "Cet événement perso sera supprimé définitivement." : "Ce cours sera masqué localement. Tu pourras le restaurer depuis les réglages.",
+			[
+				{ text: "Annuler", style: "cancel" },
+				{
+					text: "Supprimer",
+					style: "destructive",
+					onPress: async () => {
+						await deleteLocalEvent(event);
+						const key = getLocalEventKey(event);
+						setEvents((items) => items.filter((item) => getLocalEventKey(item) !== key));
+						setSelectedEvent(null);
+					},
+				},
+			]
+		);
 	};
 
 	const swipeGesture = Gesture.Pan()
@@ -394,26 +437,64 @@ export default function CalendarScreen() {
 									{compactDate} · {contextLabel}
 								</Text>
 								<Text style={[s.overviewTitle, { color: theme.text }]} numberOfLines={2}>
-									{activeEvent
-										? "Cours en cours"
-										: selectedDayEvents.length
-											? `${selectedDayEvents.length} cours planifié${selectedDayEvents.length > 1 ? "s" : ""}`
-											: "Journée libre"}
+									{selectedDayStatus}
 								</Text>
 							</View>
 						</View>
 						{nextEvent ? (
-							<View style={[s.nextStrip, { backgroundColor: hexToRgba(nextEventColor, 0.13), borderColor: hexToRgba(nextEventColor, 0.34) }]}>
-								<View style={[s.nextDot, { backgroundColor: nextEventColor }]} />
-								<View style={s.nextCopy}>
-									<Text style={[s.nextLabel, { color: nextEventColor }]}>{activeEvent ? "Maintenant" : "Prochain"}</Text>
-									<Text style={[s.nextTitle, { color: theme.text }]} numberOfLines={1}>
-										{getEventTitle(nextEvent)}
-									</Text>
-								</View>
-								<Text style={[s.nextTime, { color: theme.text }]}>
-									{new Date(nextEvent.startDate).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-								</Text>
+							<View
+								style={[
+									s.nextStrip,
+									nextEventIsNow && s.nextStripLive,
+									{ backgroundColor: hexToRgba(nextEventColor, 0.13), borderColor: hexToRgba(nextEventColor, 0.34) },
+								]}>
+								{nextEventIsNow ? (
+									<>
+										<View style={s.nextLiveTop}>
+											<View style={[s.nextDot, { backgroundColor: nextEventColor }]} />
+											<View style={s.nextCopy}>
+												<Text style={[s.nextLabel, { color: nextEventColor }]}>Maintenant jusqu'à {nextEventEndTime}</Text>
+												<Text style={[s.nextTitle, { color: theme.text }]} numberOfLines={1}>
+													{getEventTitle(nextEvent)}
+												</Text>
+											</View>
+										</View>
+										<View style={s.nextLiveMeta}>
+											<View style={[s.nextLivePill, { backgroundColor: hexToRgba(nextEventColor, 0.14) }]}>
+												<MapPin color={nextEventColor} size={14} />
+												<Text style={[s.nextLivePillText, { color: theme.text }]} numberOfLines={1}>
+													{nextEventRooms || "Lieu à confirmer"}
+												</Text>
+											</View>
+										</View>
+										<View style={[s.nextProgressTrack, { backgroundColor: hexToRgba(nextEventColor, 0.16) }]}>
+											<View style={[s.nextProgressFill, { width: `${nextEventProgress}%`, backgroundColor: nextEventColor }]} />
+										</View>
+									</>
+								) : (
+									<>
+										<View style={[s.nextDot, { backgroundColor: nextEventColor }]} />
+										<View style={s.nextCopy}>
+											<Text style={[s.nextLabel, { color: nextEventColor }]}>Prochain</Text>
+											<Text style={[s.nextTitle, { color: theme.text }]} numberOfLines={1}>
+												{getEventTitle(nextEvent)}
+											</Text>
+										</View>
+										<View
+											style={[
+												{
+													backgroundColor: hexToRgba(nextEventColor, 0.14),
+													borderRadius: 8,
+													padding: 2,
+													flexDirection: "column",
+													alignItems: "flex-start",
+												},
+											]}>
+											<Text style={[s.nextTime, { color: theme.text }]}>{nextEventStartTime}</Text>
+											<Text style={[s.nextTime, { color: theme.text, fontSize: 12 }]}>{nextEventEndTime}</Text>
+										</View>
+									</>
+								)}
 							</View>
 						) : null}
 					</Animated.View>
@@ -487,7 +568,11 @@ export default function CalendarScreen() {
 											{dayEvents.slice(0, 4).map((event, index) => (
 												<View
 													key={`${event.idReservation || event.id || index}`}
-													style={[s.dayDot, { backgroundColor: active ? "#fff" : getCourseColor(event) }]}
+													style={[
+														s.dayDot,
+														isEventCancelled(event) && s.dayDotCancelled,
+														{ backgroundColor: active ? "#fff" : isEventCancelled(event) ? theme.muted : getCourseColor(event) },
+													]}
 												/>
 											))}
 										</View>
@@ -512,7 +597,8 @@ export default function CalendarScreen() {
 								key={`${event.idReservation || event.id || index}-${event.startDate}`}
 								event={event}
 								index={index}
-								highlighted={highlightedEventKey === getEventKey(event)}
+								highlighted={highlightedEventKey === getLocalEventKey(event)}
+								now={now}
 								onPress={() => openDetails(event)}
 							/>
 						))
@@ -538,7 +624,7 @@ export default function CalendarScreen() {
 					onToday={() => applyDate(new Date())}
 					onClose={() => setShowDatePicker(false)}
 				/>
-				<EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onApplyContext={applyContext} />
+				<EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onApplyContext={applyContext} onDelete={deleteEvent} />
 				<RoomFinderModal
 					visible={showRooms}
 					selectedGroups={selectedGroups}
@@ -563,35 +649,52 @@ function StatPill({ label, value }: { label: string; value: string }) {
 	);
 }
 
-function EventCard({ event, index, highlighted, onPress }: { event: ZeusEvent; index: number; highlighted?: boolean; onPress: () => void }) {
+function EventCard({ event, index, highlighted, now, onPress }: { event: ZeusEvent; index: number; highlighted?: boolean; now: number; onPress: () => void }) {
 	const { theme } = useTheme();
 	const rooms = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
 	const teachers = event.teachers?.map(getTeacherName).filter(Boolean).slice(0, 2).join(", ");
 	const color = getCourseColor(event);
 	const start = new Date(event.startDate);
 	const end = new Date(event.endDate);
-	const isNow = start.getTime() <= Date.now() && end.getTime() > Date.now();
+	const startMillis = start.getTime();
+	const endMillis = end.getTime();
+	const isNow = startMillis <= now && endMillis > now;
+	const progress = getCourseProgress(startMillis, endMillis, now);
 	const typeName = getCourseTypeLabel(event);
+	const cancelled = isEventCancelled(event);
+	const visualColor = cancelled ? theme.muted : color;
 	return (
 		<Animated.View entering={FadeInDown.delay(Math.min(index, 12) * 35).duration(320)} layout={Layout.springify()}>
 			<Card
-				style={[s.eventCard, highlighted && s.eventCardHighlighted, { borderColor: highlighted || isNow ? color : theme.border }]}
+				style={[
+					s.eventCard,
+					cancelled && s.eventCardCancelled,
+					highlighted && s.eventCardHighlighted,
+					{ borderColor: cancelled ? theme.muted : highlighted || isNow ? color : theme.border, backgroundColor: cancelled ? theme.surfaceSoft : theme.surface },
+				]}
 				variant="flat"
 				accent
-				accentColor={color}
+				accentColor={visualColor}
 				onPress={onPress}>
 				<View style={s.eventShell}>
-					<View style={[s.timeBlock, { backgroundColor: hexToRgba(color, theme.mode === "dark" ? 0.18 : 0.12) }]}>
-						<Text style={[s.eventTime, { color }]}>{start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</Text>
+					<View style={[s.timeBlock, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, theme.mode === "dark" ? 0.18 : 0.12) }]}>
+						<Text style={[s.eventTime, { color: visualColor }]}>{start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</Text>
 						<Text style={[s.eventEnd, { color: theme.muted }]}>{end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</Text>
 					</View>
 					<View style={s.eventContent}>
 						<View style={s.eventTop}>
-							<View style={[s.typeChip, { backgroundColor: hexToRgba(color, 0.14) }]}>
-								<Text style={[s.typeText, { color }]} numberOfLines={1}>
-									{typeName}
-								</Text>
-							</View>
+							{cancelled ? (
+								<View style={[s.cancelledChip, { backgroundColor: theme.bg, borderColor: theme.muted }]}>
+									<X color={theme.muted} size={13} />
+									<Text style={[s.cancelledText, { color: theme.muted }]}>Annulé</Text>
+								</View>
+							) : (
+								<View style={[s.typeChip, { backgroundColor: hexToRgba(color, 0.14) }]}>
+									<Text style={[s.typeText, { color }]} numberOfLines={1}>
+										{typeName}
+									</Text>
+								</View>
+							)}
 							{event.isOnline ? (
 								<View style={[s.onlineChip, { backgroundColor: theme.accentSoft }]}>
 									<Bell color={theme.accent} size={13} />
@@ -599,137 +702,40 @@ function EventCard({ event, index, highlighted, onPress }: { event: ZeusEvent; i
 								</View>
 							) : null}
 						</View>
-						<Text style={[s.eventTitle, { color: theme.text }]} numberOfLines={2}>
+						<Text style={[s.eventTitle, cancelled && s.eventTitleCancelled, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={2}>
 							{getEventTitle(event)}
 						</Text>
 						<Text style={[s.meta, { color: theme.muted }]} numberOfLines={1}>
-							{formatDateRange(event)}
+							{cancelled ? `Cours annulé · ${formatDateRange(event)}` : formatDateRange(event)}
 						</Text>
 						<View style={s.eventMetaGrid}>
 							{rooms ? (
 								<View style={s.inlineMeta}>
-									<MapPin color={color} size={15} />
-									<Text style={[s.inlineText, { color: theme.text }]} numberOfLines={1}>
+									<MapPin color={visualColor} size={15} />
+									<Text style={[s.inlineText, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={1}>
 										{rooms}
 									</Text>
 								</View>
 							) : null}
 							{teachers ? (
 								<View style={s.inlineMeta}>
-									<Users color={color} size={15} />
-									<Text style={[s.inlineText, { color: theme.text }]} numberOfLines={1}>
+									<Users color={visualColor} size={15} />
+									<Text style={[s.inlineText, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={1}>
 										{teachers}
 									</Text>
 								</View>
 							) : null}
 						</View>
-						{isNow ? (
+						{isNow && !cancelled ? (
 							<View style={[s.nowBar, { backgroundColor: hexToRgba(color, 0.16) }]}>
-								<View style={[s.nowFill, { backgroundColor: color }]} />
-								<Text style={[s.nowText, { color }]}>En cours</Text>
+								<View style={[s.nowFill, { width: `${progress}%`, backgroundColor: color }]} />
+								<Text style={[s.nowText, { backgroundColor: theme.surface, color }]}>En cours</Text>
 							</View>
 						) : null}
 					</View>
 				</View>
 			</Card>
 		</Animated.View>
-	);
-}
-
-function DatePickerModal({
-	visible,
-	currentDate,
-	pickerMonth,
-	onChangeMonth,
-	onSelectDate,
-	onToday,
-	onClose,
-}: {
-	visible: boolean;
-	currentDate: Date;
-	pickerMonth: Date;
-	onChangeMonth: (date: Date) => void;
-	onSelectDate: (date: Date) => void;
-	onToday: () => void;
-	onClose: () => void;
-}) {
-	const { theme } = useTheme();
-	const today = new Date();
-	const monthDays = useMemo(() => buildMonthGrid(pickerMonth), [pickerMonth]);
-	const weekDays = ["L", "M", "M", "J", "V", "S", "D"];
-	const monthLabel = pickerMonth.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-
-	const moveMonth = (delta: number) => {
-		const next = new Date(pickerMonth);
-		next.setMonth(next.getMonth() + delta, 1);
-		onChangeMonth(next);
-	};
-
-	return (
-		<Modal visible={visible} animationType="fade" transparent>
-			<View style={s.datePickerOverlay}>
-				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-				<Animated.View entering={FadeInDown.duration(260)} style={[s.datePickerCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-					<View style={s.datePickerHead}>
-						<Pressable style={[s.datePickerNav, { borderColor: theme.border, backgroundColor: theme.surfaceSoft }]} onPress={() => moveMonth(-1)}>
-							<ChevronLeft color={theme.text} size={20} />
-						</Pressable>
-						<View style={s.datePickerTitleWrap}>
-							<Text style={[s.datePickerTitle, { color: theme.text }]}>{monthLabel}</Text>
-							<Text style={[s.datePickerSub, { color: theme.muted }]}>Choisir une date</Text>
-						</View>
-						<Pressable style={[s.datePickerNav, { borderColor: theme.border, backgroundColor: theme.surfaceSoft }]} onPress={() => moveMonth(1)}>
-							<ChevronRight color={theme.text} size={20} />
-						</Pressable>
-					</View>
-
-					<View style={s.weekHeader}>
-						{weekDays.map((day, index) => (
-							<Text key={`${day}-${index}`} style={[s.weekHeaderText, { color: theme.muted }]}>
-								{day}
-							</Text>
-						))}
-					</View>
-
-					<View style={s.dateGrid}>
-						{monthDays.map((date) => {
-							const inMonth = date.getMonth() === pickerMonth.getMonth();
-							const selected = sameDay(date, currentDate);
-							const isToday = sameDay(date, today);
-							return (
-								<Pressable
-									key={date.toISOString()}
-									style={[
-										s.dateCell,
-										{
-											backgroundColor: selected ? theme.accent : isToday ? theme.accentSoft : "transparent",
-											borderColor: selected || isToday ? theme.accent : "transparent",
-										},
-									]}
-									onPress={() => onSelectDate(date)}>
-									<Text
-										style={[
-											s.dateCellText,
-											{
-												color: selected ? "#fff" : inMonth ? theme.text : theme.muted,
-												opacity: inMonth ? 1 : 0.45,
-											},
-										]}>
-										{date.getDate()}
-									</Text>
-									{isToday ? <View style={[s.todayDot, { backgroundColor: selected ? "#fff" : theme.accent }]} /> : null}
-								</Pressable>
-							);
-						})}
-					</View>
-
-					<Pressable style={[s.todayPickerBtn, { backgroundColor: theme.accent }]} onPress={onToday}>
-						<CalendarDays color="#fff" size={18} />
-						<Text style={s.todayPickerText}>Retourner à aujourd'hui</Text>
-					</Pressable>
-				</Animated.View>
-			</View>
-		</Modal>
 	);
 }
 
@@ -798,22 +804,27 @@ function EventModal({
 	event,
 	onClose,
 	onApplyContext,
+	onDelete,
 }: {
 	event: ZeusEvent | null;
 	onClose: () => void;
 	onApplyContext: (type: "single-group" | "teacher" | "room", id?: string | number, label?: string) => void;
+	onDelete: (event: ZeusEvent) => void;
 }) {
 	const { theme } = useTheme();
 	if (!event) return null;
 	const color = getCourseColor(event);
 	const typeName = getCourseTypeLabel(event);
+	const manual = isManualEvent(event);
+	const cancelled = isEventCancelled(event);
+	const visualColor = cancelled ? theme.muted : color;
 	return (
 		<Modal visible animationType="slide" presentationStyle="pageSheet">
 			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
-				<View style={[s.eventHero, { backgroundColor: color }]}>
+				<View style={[s.eventHero, { backgroundColor: visualColor }]}>
 					<View style={s.eventHeroTop}>
 						<View style={s.eventHeroBadge}>
-							<Text style={[s.eventHeroBadgeText, { color }]}>{typeName || "Cours"}</Text>
+							<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{cancelled ? "Annulé" : typeName || "Cours"}</Text>
 						</View>
 						<Pressable style={s.eventHeroClose} onPress={onClose}>
 							<X color="#fff" size={24} />
@@ -829,6 +840,13 @@ function EventModal({
 				</View>
 
 				<ScrollView contentContainerStyle={s.eventModalScroll}>
+					{cancelled ? (
+						<View style={[s.cancelledNotice, { backgroundColor: theme.surfaceSoft, borderColor: theme.muted }]}>
+							<X color={theme.muted} size={18} />
+							<Text style={[s.cancelledNoticeText, { color: theme.text }]}>Ce cours n'est plus présent dans le dernier retour Zeus.</Text>
+						</View>
+					) : null}
+
 					{event.code || event.url ? (
 						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
 							{event.code ? (
@@ -845,7 +863,7 @@ function EventModal({
 
 							{event.url ? (
 								<Pressable style={[s.eventLinkBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openUrl(event.url)}>
-									<ExternalLink color={color} size={20} />
+									<ExternalLink color={visualColor} size={20} />
 									<Text style={[s.eventLinkText, { color: theme.text }]}>Ouvrir le lien du cours</Text>
 								</Pressable>
 							) : null}
@@ -861,7 +879,7 @@ function EventModal({
 									const roomName = getRoomName(room);
 									return (
 										<View key={`${roomId || roomName}`} style={[s.eventItemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-											<MapPin color={color} size={20} />
+											<MapPin color={visualColor} size={20} />
 											<Text style={[s.eventItemName, { color: theme.text }]} numberOfLines={1}>
 												{roomName}
 											</Text>
@@ -888,8 +906,8 @@ function EventModal({
 										key={`${teacher.id || getTeacherName(teacher)}`}
 										style={[s.eventPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
 										onPress={() => onApplyContext("teacher", teacher.id, getTeacherName(teacher))}>
-										<View style={[s.eventPillIcon, { backgroundColor: hexToRgba(color, 0.15) }]}>
-											<Users color={color} size={14} />
+										<View style={[s.eventPillIcon, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, 0.15) }]}>
+											<Users color={visualColor} size={14} />
 										</View>
 										<Text style={[s.eventPillText, { color: theme.text }]}>{getTeacherName(teacher)}</Text>
 									</Pressable>
@@ -907,8 +925,8 @@ function EventModal({
 										key={`${group.id || group.name}`}
 										style={[s.eventPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
 										onPress={() => onApplyContext("single-group", group.id, group.name)}>
-										<View style={[s.eventPillIcon, { backgroundColor: hexToRgba(color, 0.15) }]}>
-											<Users color={color} size={14} />
+										<View style={[s.eventPillIcon, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, 0.15) }]}>
+											<Users color={visualColor} size={14} />
 										</View>
 										<Text style={[s.eventPillText, { color: theme.text }]}>{group.name || String(group.id)}</Text>
 									</Pressable>
@@ -916,6 +934,13 @@ function EventModal({
 							</View>
 						</View>
 					) : null}
+
+					<View style={s.eventDeleteSection}>
+						<Pressable style={[s.eventDeleteBtn, { backgroundColor: theme.danger }]} onPress={() => onDelete(event)}>
+							<Trash2 color="#fff" size={19} />
+							<Text style={s.eventDeleteText}>{manual ? "Supprimer définitivement" : "Supprimer de mon agenda"}</Text>
+						</Pressable>
+					</View>
 				</ScrollView>
 			</View>
 		</Modal>
@@ -1173,7 +1198,7 @@ function RoomFinderModal({
 							</View>
 						</View>
 						<Text style={[s.roomHeroText, { color: theme.muted }]}>
-							Les campus, types, capacité et texte filtrent l’annuaire immédiatement. Le bouton chercher vérifie ensuite les disponibilités réelles maintenant.
+							Les campus, types, capacité et texte filtrent l’annuaire immédiatement. Le bouton chercher vérifie ensuite les disponibilités réelles.
 						</Text>
 
 						<View style={s.roomHeroStats}>
@@ -1556,6 +1581,13 @@ const s = StyleSheet.create({
 	statValue: { fontSize: 21, fontWeight: "900", textAlign: "center" },
 	statLabel: { marginTop: 2, fontSize: 11, fontWeight: "800", textAlign: "center" },
 	nextStrip: { minHeight: 58, borderWidth: 1, borderRadius: 16, marginTop: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+	nextStripLive: { minHeight: 112, paddingVertical: 12, flexDirection: "column", alignItems: "stretch", gap: 10 },
+	nextLiveTop: { flexDirection: "row", alignItems: "center", gap: 10 },
+	nextLiveMeta: { flexDirection: "row", gap: 8 },
+	nextLivePill: { flex: 1, minHeight: 34, borderRadius: 10, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", gap: 6 },
+	nextLivePillText: { flex: 1, fontSize: 12, fontWeight: "900" },
+	nextProgressTrack: { height: 8, borderRadius: 8, overflow: "hidden" },
+	nextProgressFill: { height: "100%", borderRadius: 8 },
 	nextDot: { width: 10, height: 34, borderRadius: 8 },
 	nextCopy: { flex: 1, minWidth: 0 },
 	nextLabel: { fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
@@ -1579,12 +1611,14 @@ const s = StyleSheet.create({
 	dayNum: { fontSize: 24, fontWeight: "900", marginTop: 3 },
 	dayDots: { height: 9, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, marginTop: 6 },
 	dayDot: { width: 5, height: 5, borderRadius: 4 },
+	dayDotCancelled: { opacity: 0.5 },
 	dayCount: { fontSize: 11, fontWeight: "900", marginTop: 3 },
 	loader: { marginVertical: 14 },
 	error: { marginBottom: 10, fontWeight: "700" },
 	emptyCard: { alignItems: "center", gap: 8 },
 	emptyTitle: { fontSize: 20, fontWeight: "900" },
 	eventCard: { marginBottom: 12, padding: 14, borderRadius: 22 },
+	eventCardCancelled: { borderStyle: "dashed", opacity: 0.74 },
 	eventCardHighlighted: {
 		shadowOpacity: 0.18,
 		shadowRadius: 26,
@@ -1598,17 +1632,20 @@ const s = StyleSheet.create({
 	eventTime: { fontSize: 16, fontWeight: "900" },
 	eventEnd: { marginTop: 4, fontSize: 12, fontWeight: "900" },
 	eventTitle: { fontSize: 18, lineHeight: 23, fontWeight: "900", marginTop: 9 },
+	eventTitleCancelled: { textDecorationLine: "line-through" },
 	meta: { marginTop: 6, lineHeight: 19 },
 	eventMetaGrid: { marginTop: 2 },
 	inlineMeta: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 9 },
 	inlineText: { flex: 1, fontWeight: "700" },
 	typeChip: { maxWidth: 150, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5 },
 	typeText: { fontSize: 11, fontWeight: "900" },
+	cancelledChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 5 },
+	cancelledText: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	onlineChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
 	onlineText: { fontSize: 12, fontWeight: "900" },
 	nowBar: { height: 24, borderRadius: 8, overflow: "hidden", marginTop: 11, justifyContent: "center" },
-	nowFill: { position: "absolute", left: 0, top: 0, bottom: 0, width: "42%", borderRadius: 8 },
-	nowText: { alignSelf: "flex-start", marginLeft: 9, fontSize: 11, fontWeight: "900" },
+	nowFill: { position: "absolute", left: 0, top: 0, bottom: 0, width: "100%", borderRadius: 8, zIndex: 0 },
+	nowText: { alignSelf: "flex-start", marginLeft: 7, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, fontSize: 11, fontWeight: "900", zIndex: 1, elevation: 1 },
 	modalRoot: { flex: 1 },
 	modalHeader: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12, borderBottomWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
 	modalTitle: { fontSize: 24, fontWeight: "900" },
@@ -1643,33 +1680,6 @@ const s = StyleSheet.create({
 	primaryBtn: { minHeight: 50, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
 	primaryText: { color: "#fff", fontWeight: "900" },
 	roomCard: { marginTop: 0 },
-	datePickerOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.48)", alignItems: "center", justifyContent: "center", padding: 18 },
-	datePickerCard: {
-		width: "100%",
-		maxWidth: 420,
-		borderWidth: 1,
-		borderRadius: 26,
-		padding: 16,
-		shadowColor: "#000",
-		shadowOpacity: 0.18,
-		shadowRadius: 24,
-		shadowOffset: { width: 0, height: 18 },
-		elevation: 8,
-	},
-	datePickerHead: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
-	datePickerNav: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-	datePickerTitleWrap: { flex: 1, alignItems: "center" },
-	datePickerTitle: { fontSize: 19, fontWeight: "900", textTransform: "capitalize" },
-	datePickerSub: { marginTop: 2, fontSize: 12, fontWeight: "800" },
-	weekHeader: { flexDirection: "row", marginBottom: 6 },
-	weekHeaderText: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: "900" },
-	dateGrid: { flexDirection: "row", flexWrap: "wrap" },
-	dateCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center", borderRadius: 14, borderWidth: 1 },
-	dateCellText: { fontSize: 16, fontWeight: "900" },
-	todayDot: { width: 4, height: 4, borderRadius: 2, marginTop: 3 },
-	todayPickerBtn: { minHeight: 50, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14 },
-	todayPickerText: { color: "#fff", fontSize: 15, fontWeight: "900" },
-
 	eventHero: { paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20 },
 	eventHeroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
 	eventHeroBadge: { backgroundColor: "rgba(255,255,255,0.9)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
@@ -1679,6 +1689,8 @@ const s = StyleSheet.create({
 	eventHeroMeta: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
 	eventHeroMetaText: { color: "rgba(255,255,255,0.9)", fontSize: 15, fontWeight: "800" },
 	eventModalScroll: { padding: 20, paddingBottom: 60 },
+	cancelledNotice: { borderWidth: 1, borderStyle: "dashed", borderRadius: 14, padding: 12, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
+	cancelledNoticeText: { flex: 1, fontSize: 13, fontWeight: "800", lineHeight: 18 },
 	eventSection: { paddingVertical: 16, borderBottomWidth: 1 },
 	eventSectionTitle: { fontSize: 18, fontWeight: "900", marginBottom: 16 },
 	eventDataRow: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -1698,6 +1710,9 @@ const s = StyleSheet.create({
 	eventPill: { flexDirection: "row", alignItems: "center", gap: 8, padding: 6, paddingRight: 14, borderRadius: 20, borderWidth: 1 },
 	eventPillIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
 	eventPillText: { fontSize: 14, fontWeight: "800" },
+	eventDeleteSection: { paddingTop: 18 },
+	eventDeleteBtn: { minHeight: 50, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+	eventDeleteText: { color: "#fff", fontSize: 15, fontWeight: "900" },
 
 	roomFinderScroll: { padding: 18, gap: 14, paddingBottom: 56 },
 	roomHeroCard: {

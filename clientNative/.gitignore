@@ -19,7 +19,7 @@ android/app/.cxx/
 android/app/src/main/java/inline/
 android/**/*.iml
 android/*.hprof
-
+.kotlin/
 ios/Pods/
 ios/build/
 ios/DerivedData/

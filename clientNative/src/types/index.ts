@@ -1,6 +1,7 @@
 export type ZeusEvent = {
 	id?: string | number;
 	idReservation?: string | number;
+	isManual?: boolean;
 	name?: string;
 	typeName?: string;
 	code?: string;
@@ -12,6 +13,10 @@ export type ZeusEvent = {
 	teachers?: Array<{ id?: string | number; displayname?: string; firstname?: string; name?: string }>;
 	groups?: Array<{ id?: string | number; name?: string }>;
 	isOnline?: boolean;
+	isCancelled?: boolean;
+	isCanceled?: boolean;
+	cancelledAt?: string;
+	cancellationReason?: string;
 	courseTypeName?: string;
 	idType?: string | number;
 };

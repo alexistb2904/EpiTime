@@ -2,6 +2,7 @@ import React from "react";
 
 const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 	if (!event) return null;
+	const isCancelled = Boolean(event.isCancelled || event.isCanceled);
 
 	const getRoomMapUrl = (roomName = "") => {
 		const BASE_URL = "https://maps.forge.epita.fr";
@@ -67,6 +68,13 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 					</button>
 				</div>
 				<div className="modal-body">
+					{isCancelled && (
+						<div className="detail-cancelled-notice">
+							<span className="detail-cancelled-badge">Annulé</span>
+							<span>Ce cours n'est plus présent dans le dernier retour Zeus.</span>
+						</div>
+					)}
+
 					{event.isOnline && (
 						<div className="detail-row">
 							<span
@@ -96,7 +104,7 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 						}}>
 						<div className="detail-row" style={{ gridColumn: "1 / -1" }}>
 							<span className="detail-label">Matière</span>
-							<span className="detail-value" style={{ fontWeight: "bold", fontSize: "1.2rem" }}>
+							<span className={`detail-value ${isCancelled ? "detail-value-cancelled" : ""}`} style={{ fontWeight: "bold", fontSize: "1.2rem" }}>
 								{event.name || event.typeName}
 							</span>
 						</div>

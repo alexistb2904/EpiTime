@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
-import { BellRing, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, Clock3, GraduationCap, MapPin, RefreshCw, BellElectric, Users, WifiOff } from "lucide-react-native";
+import { BellRing, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, Clock3, GraduationCap, MapPin, Plus, RefreshCw, BellElectric, Users, WifiOff, X } from "lucide-react-native";
+import DatePickerModal from "../components/DatePickerModal";
 import { useTheme } from "../context/ThemeContext";
 import { getEvents, getGroups } from "../services/api";
+import { addManualEvent, isEventCancelled, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
 import { syncLiveCourseNotification } from "../services/liveCourse";
 import { getJSON, setJSON } from "../services/storage";
 import { syncCourseWidgets } from "../services/widgets";
@@ -72,6 +74,34 @@ const sameDay = (a: Date, b: Date) => startOfDay(a).getTime() === startOfDay(b).
 
 const formatTime = (date: Date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
+const formatInputDate = (date: Date) =>
+	`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const parseLocalDateTime = (dateValue: string, timeValue: string) => {
+	const dateMatch = dateValue.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+	const timeMatch = timeValue.trim().match(/^(\d{1,2}):(\d{2})$/);
+	if (!dateMatch || !timeMatch) return null;
+	const year = Number(dateMatch[1]);
+	const month = Number(dateMatch[2]) - 1;
+	const dayValue = Number(dateMatch[3]);
+	const hour = Number(timeMatch[1]);
+	const minuteValue = Number(timeMatch[2]);
+	const date = new Date(year, month, dayValue, hour, minuteValue, 0, 0);
+	if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== dayValue || date.getHours() !== hour || date.getMinutes() !== minuteValue) return null;
+	return date;
+};
+
+const parseInputDate = (dateValue: string) => {
+	const dateMatch = dateValue.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+	if (!dateMatch) return null;
+	const year = Number(dateMatch[1]);
+	const month = Number(dateMatch[2]) - 1;
+	const dayValue = Number(dateMatch[3]);
+	const date = new Date(year, month, dayValue, 0, 0, 0, 0);
+	if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== dayValue) return null;
+	return date;
+};
+
 const formatDuration = (ms: number) => {
 	const totalMinutes = Math.max(0, Math.round(ms / minute));
 	if (totalMinutes < 60) return `${totalMinutes} min`;
@@ -96,34 +126,47 @@ export default function HomeScreen() {
 	const [refreshing, setRefreshing] = useState(false);
 	const [usingCache, setUsingCache] = useState(false);
 	const [homeTab, setHomeTab] = useState<HomeTab>("today");
+	const [showManualEvent, setShowManualEvent] = useState(false);
+	const [manualTitle, setManualTitle] = useState("");
+	const [manualDate, setManualDate] = useState(formatInputDate(new Date()));
+	const [manualStart, setManualStart] = useState("09:00");
+	const [manualEnd, setManualEnd] = useState("10:00");
+	const [manualRoom, setManualRoom] = useState("");
+	const [savingManual, setSavingManual] = useState(false);
 
 	const refresh = useCallback(async () => {
 		setRefreshing(true);
+		const start = startOfDay(new Date());
+		const end = new Date(start);
+		end.setDate(end.getDate() + 30);
 		try {
 			const ids = await getJSON<(string | number)[]>("selectedGroups", []);
 			setSelectedGroups(ids);
 			const allGroups = await getGroups();
 			setGroups(allGroups);
 			await setJSON("lastGroups", allGroups);
-			const start = startOfDay(new Date());
-			const end = new Date(start);
-			end.setDate(end.getDate() + 30);
 			if (ids.length > 0) {
 				const data = await getEvents(start, end, ids);
-				setEvents(data);
-				await setJSON("lastEvents", data);
-				await syncCourseWidgets(data);
+				const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
+				const safeData = Array.isArray(data) ? data : [];
+				const reconciledEvents = reconcileEventsWithCache(safeData, cachedEvents);
+				const mergedEvents = await mergeEventsWithLocal(reconciledEvents, start, end);
+				setEvents(mergedEvents);
+				await setJSON("lastEvents", reconciledEvents);
+				await syncCourseWidgets(mergedEvents);
 				setUsingCache(false);
 			} else {
-				setEvents([]);
-				await syncCourseWidgets([]);
+				const mergedEvents = await mergeEventsWithLocal([], start, end);
+				setEvents(mergedEvents);
+				await syncCourseWidgets(mergedEvents);
 				setUsingCache(false);
 			}
 		} catch {
 			const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
-			setEvents(cachedEvents);
+			const mergedEvents = await mergeEventsWithLocal(cachedEvents, start, end);
+			setEvents(mergedEvents);
 			setGroups(await getJSON("lastGroups", []));
-			await syncCourseWidgets(cachedEvents);
+			await syncCourseWidgets(mergedEvents);
 			setUsingCache(true);
 		} finally {
 			setRefreshing(false);
@@ -133,19 +176,37 @@ export default function HomeScreen() {
 	useEffect(() => {
 		refresh();
 	}, [refresh]);
+	useFocusEffect(
+		useCallback(() => {
+			let active = true;
+			const start = startOfDay(new Date());
+			const end = new Date(start);
+			end.setDate(end.getDate() + 30);
+			Promise.all([getJSON<ZeusEvent[]>("lastEvents", []), getJSON<(string | number)[]>("selectedGroups", [])])
+				.then(([cachedEvents, ids]) => mergeEventsWithLocal(ids.length ? cachedEvents : [], start, end))
+				.then((mergedEvents) => {
+					if (active) setEvents(mergedEvents);
+				})
+				.catch(() => {});
+			return () => {
+				active = false;
+			};
+		}, [])
+	);
 
 	const now = new Date();
 	const nowMs = now.getTime();
 	const sorted = useMemo(() => [...events].sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate)), [events]);
+	const activeScheduleEvents = useMemo(() => sorted.filter((event) => !isEventCancelled(event)), [sorted]);
 	useEffect(() => {
-		syncLiveCourseNotification(sorted, Date.now()).catch(() => {});
-		const timer = setInterval(() => syncLiveCourseNotification(sorted, Date.now()).catch(() => {}), minute);
+		syncLiveCourseNotification(activeScheduleEvents, Date.now()).catch(() => {});
+		const timer = setInterval(() => syncLiveCourseNotification(activeScheduleEvents, Date.now()).catch(() => {}), minute);
 		return () => clearInterval(timer);
-	}, [sorted]);
+	}, [activeScheduleEvents]);
 	const todayEvents = useMemo(() => sorted.filter((event) => sameDay(new Date(event.startDate), now)), [now, sorted]);
 	const upcomingEvents = useMemo(() => sorted.filter((event) => new Date(event.endDate).getTime() > nowMs).slice(0, 8), [nowMs, sorted]);
-	const currentEvent = sorted.find((event) => new Date(event.startDate).getTime() <= nowMs && new Date(event.endDate).getTime() > nowMs);
-	const nextEvent = currentEvent || sorted.find((event) => new Date(event.startDate).getTime() > nowMs);
+	const currentEvent = activeScheduleEvents.find((event) => new Date(event.startDate).getTime() <= nowMs && new Date(event.endDate).getTime() > nowMs);
+	const nextEvent = currentEvent || activeScheduleEvents.find((event) => new Date(event.startDate).getTime() > nowMs);
 	const visibleEvents = homeTab === "today" ? todayEvents : upcomingEvents;
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
 	const nextStart = nextEvent ? new Date(nextEvent.startDate) : null;
@@ -163,7 +224,8 @@ export default function HomeScreen() {
 				)
 			)
 		: 0;
-	const weekCount = sorted.filter((event) => {
+	const todayActiveCount = todayEvents.filter((event) => !isEventCancelled(event)).length;
+	const weekCount = activeScheduleEvents.filter((event) => {
 		const start = new Date(event.startDate).getTime();
 		return start >= startOfDay(now).getTime() && start < startOfDay(now).getTime() + 7 * day;
 	}).length;
@@ -181,6 +243,30 @@ export default function HomeScreen() {
 			eventReservationId: event.idReservation,
 			eventStartDate: event.startDate,
 		});
+	};
+	const saveManualEvent = async () => {
+		const title = manualTitle.trim();
+		const startDate = parseLocalDateTime(manualDate, manualStart);
+		const endDate = parseLocalDateTime(manualDate, manualEnd);
+		if (!title || !startDate || !endDate || endDate.getTime() <= startDate.getTime()) {
+			Alert.alert("Événement incomplet", "Vérifie le titre, la date et les heures de début/fin.");
+			return;
+		}
+		setSavingManual(true);
+		try {
+			const event = await addManualEvent({ title, startDate, endDate, room: manualRoom });
+			const nextEvents = [...events, event];
+			setEvents(nextEvents);
+			await syncCourseWidgets(nextEvents);
+			setManualTitle("");
+			setManualRoom("");
+			setShowManualEvent(false);
+			openEventInCalendar(event);
+		} catch {
+			Alert.alert("Ajout impossible", "L'événement n'a pas pu être enregistré localement.");
+		} finally {
+			setSavingManual(false);
+		}
 	};
 
 	return (
@@ -251,7 +337,7 @@ export default function HomeScreen() {
 			</Animated.View>
 
 			<Animated.View entering={FadeInDown.delay(140).duration(420)} style={s.metricsRow}>
-				<Metric icon={<CalendarDays color={theme.accent} size={19} />} value={String(todayEvents.length)} label="Cours aujourd'hui" />
+				<Metric icon={<CalendarDays color={theme.accent} size={19} />} value={String(todayActiveCount)} label="Cours aujourd'hui" />
 				<Metric icon={<CalendarClock color={theme.accent} size={19} />} value={String(weekCount)} label="Cours de la semaine" />
 			</Animated.View>
 
@@ -271,6 +357,7 @@ export default function HomeScreen() {
 				<View style={[s.routeDivider, { backgroundColor: theme.border }]} />
 				<View style={s.quickGrid}>
 					<QuickAction icon={<CalendarDays color="#fff" size={18} />} label="Agenda" onPress={() => navigation.navigate("Agenda")} />
+					<QuickAction icon={<Plus color="#fff" size={18} />} label="Ajouter" onPress={() => setShowManualEvent(true)} />
 					<QuickAction icon={<BellRing color="#fff" size={18} />} label="Rappels" onPress={() => navigation.navigate("Notifications")} />
 				</View>
 			</Animated.View>
@@ -328,6 +415,22 @@ export default function HomeScreen() {
 					<UsefulLinkCard key={item.url} item={item} index={index} />
 				))}
 			</View>
+			<ManualEventModal
+				visible={showManualEvent}
+				title={manualTitle}
+				date={manualDate}
+				start={manualStart}
+				end={manualEnd}
+				room={manualRoom}
+				saving={savingManual}
+				onChangeTitle={setManualTitle}
+				onChangeDate={setManualDate}
+				onChangeStart={setManualStart}
+				onChangeEnd={setManualEnd}
+				onChangeRoom={setManualRoom}
+				onSave={saveManualEvent}
+				onClose={() => setShowManualEvent(false)}
+			/>
 		</ScrollView>
 	);
 }
@@ -391,30 +494,164 @@ function QuickAction({ icon, label, onPress }: { icon: React.ReactNode; label: s
 	);
 }
 
+function ManualEventModal({
+	visible,
+	title,
+	date,
+	start,
+	end,
+	room,
+	saving,
+	onChangeTitle,
+	onChangeDate,
+	onChangeStart,
+	onChangeEnd,
+	onChangeRoom,
+	onSave,
+	onClose,
+}: {
+	visible: boolean;
+	title: string;
+	date: string;
+	start: string;
+	end: string;
+	room: string;
+	saving: boolean;
+	onChangeTitle: (value: string) => void;
+	onChangeDate: (value: string) => void;
+	onChangeStart: (value: string) => void;
+	onChangeEnd: (value: string) => void;
+	onChangeRoom: (value: string) => void;
+	onSave: () => void;
+	onClose: () => void;
+}) {
+	const { theme } = useTheme();
+	const selectedDate = parseInputDate(date) || new Date();
+	const [showDatePicker, setShowDatePicker] = useState(false);
+	const [pickerMonth, setPickerMonth] = useState(selectedDate);
+	const selectDate = (nextDate: Date) => {
+		onChangeDate(formatInputDate(nextDate));
+		setPickerMonth(nextDate);
+		setShowDatePicker(false);
+	};
+	const openDatePicker = () => {
+		setPickerMonth(selectedDate);
+		setShowDatePicker(true);
+	};
+
+	return (
+		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+			<View style={[s.manualRoot, { backgroundColor: theme.bg }]}>
+				<View style={[s.manualHeader, { borderBottomColor: theme.border }]}>
+					<Text style={[s.manualTitle, { color: theme.text }]}>Nouvel événement</Text>
+					<Pressable style={[s.manualClose, { borderColor: theme.border }]} onPress={onClose}>
+						<X color={theme.text} size={20} />
+					</Pressable>
+				</View>
+				<ScrollView contentContainerStyle={s.manualContent}>
+					<FormField label="Titre" value={title} onChangeText={onChangeTitle} placeholder="Ex: Projet, entretien..." />
+					<View style={s.formField}>
+						<Text style={[s.formLabel, { color: theme.muted }]}>Date</Text>
+						<Pressable style={[s.dateButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={openDatePicker}>
+							<CalendarDays color={theme.accent} size={18} />
+							<Text style={[s.dateButtonText, { color: theme.text }]}>
+								{selectedDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+							</Text>
+						</Pressable>
+					</View>
+					<View style={s.manualTimeRow}>
+						<FormField label="Début" value={start} onChangeText={onChangeStart} placeholder="09:00" keyboardType="numbers-and-punctuation" compact />
+						<FormField label="Fin" value={end} onChangeText={onChangeEnd} placeholder="10:00" keyboardType="numbers-and-punctuation" compact />
+					</View>
+					<FormField label="Lieu" value={room} onChangeText={onChangeRoom} placeholder="Salle ou adresse" />
+					<Pressable style={[s.manualSave, { backgroundColor: theme.accent, opacity: saving ? 0.7 : 1 }]} onPress={onSave} disabled={saving}>
+						<Plus color="#fff" size={19} />
+						<Text style={s.manualSaveText}>{saving ? "Ajout..." : "Ajouter l'événement"}</Text>
+					</Pressable>
+				</ScrollView>
+				<DatePickerModal
+					visible={showDatePicker}
+					currentDate={selectedDate}
+					pickerMonth={pickerMonth}
+					onChangeMonth={setPickerMonth}
+					onSelectDate={selectDate}
+					onToday={() => selectDate(new Date())}
+					onClose={() => setShowDatePicker(false)}
+				/>
+			</View>
+		</Modal>
+	);
+}
+
+function FormField({
+	label,
+	value,
+	onChangeText,
+	placeholder,
+	keyboardType,
+	compact,
+}: {
+	label: string;
+	value: string;
+	onChangeText: (value: string) => void;
+	placeholder: string;
+	keyboardType?: "default" | "numbers-and-punctuation";
+	compact?: boolean;
+}) {
+	const { theme } = useTheme();
+	return (
+		<View style={[s.formField, compact && s.formFieldCompact]}>
+			<Text style={[s.formLabel, { color: theme.muted }]}>{label}</Text>
+			<TextInput
+				value={value}
+				onChangeText={onChangeText}
+				placeholder={placeholder}
+				placeholderTextColor={theme.muted}
+				keyboardType={keyboardType}
+				style={[s.formInput, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+			/>
+		</View>
+	);
+}
+
 function TimelineRow({ event, index, colored, onPress }: { event: ZeusEvent; index: number; colored?: boolean; onPress: () => void }) {
 	const { theme } = useTheme();
 	const start = new Date(event.startDate);
 	const end = new Date(event.endDate);
 	const rooms = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
 	const isPast = end.getTime() < Date.now();
-	const isNow = start.getTime() <= Date.now() && end.getTime() > Date.now();
+	const cancelled = isEventCancelled(event);
+	const isNow = !cancelled && start.getTime() <= Date.now() && end.getTime() > Date.now();
 	const eventColor = colored ? getCourseColor(event) : theme.border;
-	const activeColor = isNow ? (colored ? eventColor : theme.accent) : eventColor;
+	const activeColor = cancelled ? theme.muted : isNow ? (colored ? eventColor : theme.accent) : eventColor;
 
 	return (
 		<Animated.View entering={FadeInDown.delay(300 + Math.min(index, 5) * 45).duration(360)} layout={Layout.springify()}>
-			<Pressable style={[s.timelineRow, { backgroundColor: theme.surface, borderColor: isNow ? activeColor : theme.border, opacity: isPast ? 0.62 : 1 }]} onPress={onPress}>
+			<Pressable
+				style={[
+					s.timelineRow,
+					cancelled && s.timelineRowCancelled,
+					{ backgroundColor: cancelled ? theme.surfaceSoft : theme.surface, borderColor: isNow || cancelled ? activeColor : theme.border, opacity: isPast || cancelled ? 0.62 : 1 },
+				]}
+				onPress={onPress}>
 				<View style={s.timeCol}>
 					<Text style={[s.timeText, { color: isNow ? activeColor : theme.text }]}>{formatTime(start)}</Text>
 					<Text style={[s.timeEnd, { color: theme.muted }]}>{formatTime(end)}</Text>
 				</View>
 				<View style={[s.timelineMarker, { backgroundColor: activeColor }]}>{isNow ? <View style={s.timelineDot} /> : null}</View>
 				<View style={s.timelineBody}>
-					<Text style={[s.timelineTitle, { color: theme.text }]} numberOfLines={1}>
-						{getEventTitle(event)}
-					</Text>
+					<View style={s.timelineTitleRow}>
+						{cancelled ? (
+							<View style={[s.cancelledBadge, { borderColor: theme.muted }]}>
+								<Text style={[s.cancelledBadgeText, { color: theme.muted }]}>Annulé</Text>
+							</View>
+						) : null}
+						<Text style={[s.timelineTitle, cancelled && s.timelineTitleCancelled, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={1}>
+							{getEventTitle(event)}
+						</Text>
+					</View>
 					<Text style={[s.timelineMeta, { color: theme.muted }]} numberOfLines={1}>
-						{rooms || "Lieu à confirmer"}
+						{cancelled ? `Cours annulé · ${rooms || "Lieu à confirmer"}` : rooms || "Lieu à confirmer"}
 					</Text>
 				</View>
 				<ChevronRight color={theme.muted} size={18} />
@@ -474,6 +711,20 @@ const s = StyleSheet.create({
 	quickGrid: { flexDirection: "row", gap: 10 },
 	quickAction: { flex: 1, minHeight: 48, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
 	quickText: { color: "#fff", fontWeight: "900" },
+	manualRoot: { flex: 1 },
+	manualHeader: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12, borderBottomWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+	manualTitle: { fontSize: 24, fontWeight: "900" },
+	manualClose: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+	manualContent: { padding: 18, gap: 14, paddingBottom: 52 },
+	manualTimeRow: { flexDirection: "row", gap: 12 },
+	formField: { gap: 8 },
+	formFieldCompact: { flex: 1 },
+	formLabel: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+	formInput: { minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, fontSize: 16, fontWeight: "800" },
+	dateButton: { minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9 },
+	dateButtonText: { flex: 1, fontSize: 16, fontWeight: "800", textTransform: "capitalize" },
+	manualSave: { minHeight: 52, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, marginTop: 6 },
+	manualSaveText: { color: "#fff", fontSize: 16, fontWeight: "900" },
 	sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 24, marginBottom: 12 },
 	sectionEyebrow: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	sectionTitle: { fontSize: 26, fontWeight: "900", letterSpacing: 0 },
@@ -483,14 +734,19 @@ const s = StyleSheet.create({
 	segmentText: { fontSize: 12, fontWeight: "900" },
 	timeline: { gap: 10 },
 	timelineRow: { borderWidth: 1, borderRadius: 18, minHeight: 82, padding: 12, flexDirection: "row", alignItems: "center", gap: 12 },
+	timelineRowCancelled: { borderStyle: "dashed" },
 	timeCol: { width: 48 },
 	timeText: { fontSize: 15, fontWeight: "900" },
 	timeEnd: { marginTop: 4, fontSize: 12, fontWeight: "800" },
 	timelineMarker: { width: 10, alignSelf: "stretch", borderRadius: 10, alignItems: "center", justifyContent: "center" },
 	timelineDot: { width: 4, height: 24, borderRadius: 4, backgroundColor: "#fff" },
 	timelineBody: { flex: 1, minWidth: 0 },
+	timelineTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
 	timelineTitle: { fontSize: 16, fontWeight: "900" },
+	timelineTitleCancelled: { flex: 1, textDecorationLine: "line-through" },
 	timelineMeta: { marginTop: 5, fontSize: 13, fontWeight: "700" },
+	cancelledBadge: { borderWidth: 1, borderStyle: "dashed", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
+	cancelledBadgeText: { fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
 	emptyPanel: { borderWidth: 1, borderRadius: 20, padding: 16, flexDirection: "row", gap: 12, alignItems: "center" },
 	emptyCopy: { flex: 1 },
 	emptyTitle: { fontSize: 17, fontWeight: "900" },

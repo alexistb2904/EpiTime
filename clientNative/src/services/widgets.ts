@@ -4,6 +4,7 @@ import { publicConfig } from "./config";
 import { getSession, getJSON, setJSON } from "./storage";
 import { ZeusEvent } from "../types";
 import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, startOfDay } from "../utils/calendar";
+import { isEventCancelled, reconcileEventsWithCache } from "./localEvents";
 
 const WidgetData = NativeModules.EpiTimeWidgetData as
 	| {
@@ -54,9 +55,11 @@ export async function refreshCourseWidgetsForGroups(groups: (string | number)[])
 	end.setDate(end.getDate() + 30);
 	const events = await getEvents(start, end, groups);
 	const safeEvents = Array.isArray(events) ? events : [];
-	await setJSON("lastEvents", safeEvents);
-	await syncCourseWidgets(safeEvents);
-	return safeEvents;
+	const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
+	const reconciledEvents = reconcileEventsWithCache(safeEvents, cachedEvents);
+	await setJSON("lastEvents", reconciledEvents);
+	await syncCourseWidgets(reconciledEvents);
+	return reconciledEvents;
 }
 
 export async function refreshCourseWidgets() {
@@ -75,7 +78,7 @@ function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
 			const endMillis = new Date(event.endDate).getTime();
 			return { event, startMillis, endMillis };
 		})
-		.filter(({ startMillis, endMillis }) => Number.isFinite(startMillis) && Number.isFinite(endMillis) && endMillis > now)
+		.filter(({ event, startMillis, endMillis }) => !isEventCancelled(event) && Number.isFinite(startMillis) && Number.isFinite(endMillis) && endMillis > now)
 		.sort((a, b) => a.startMillis - b.startMillis)
 		.slice(0, 8)
 		.map(({ event, startMillis, endMillis }) => ({
