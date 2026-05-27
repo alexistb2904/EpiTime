@@ -25,10 +25,4 @@ class EpiTimeWidgetData: NSObject {
     WidgetCenter.shared.reloadAllTimelines()
     resolve(true)
   }
-
-  @objc(refreshWidgets:rejecter:)
-  func refreshWidgets(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
-    WidgetCenter.shared.reloadAllTimelines()
-    resolve(true)
-  }
 }

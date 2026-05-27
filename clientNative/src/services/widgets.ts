@@ -1,15 +1,18 @@
+import React from "react";
 import { NativeModules, Platform } from "react-native";
+import { requestWidgetUpdate } from "react-native-android-widget";
 import { getEvents } from "./api";
 import { publicConfig } from "./config";
 import { getSession, getJSON, setJSON } from "./storage";
 import { ZeusEvent } from "../types";
 import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, startOfDay } from "../utils/calendar";
 import { isEventCancelled, reconcileEventsWithCache } from "./localEvents";
+import { NextCourseWidget } from "../widgets/NextCourseWidget";
+import { UpcomingCoursesWidget } from "../widgets/UpcomingCoursesWidget";
 
 const WidgetData = NativeModules.EpiTimeWidgetData as
 	| {
 			updateCourses?: (rawJson: string) => Promise<boolean>;
-			refreshWidgets?: () => Promise<boolean>;
 	  }
 	| undefined;
 
@@ -26,20 +29,33 @@ export type WidgetCourse = {
 	color: string;
 };
 
-export async function syncCourseWidgets(events: ZeusEvent[]) {
-	if (!WidgetData?.updateCourses || (Platform.OS !== "android" && Platform.OS !== "ios")) return;
+export type CourseWidgetPayload = {
+	generatedAt: number;
+	courses: WidgetCourse[];
+	apiBase?: string;
+	zeusToken?: string;
+	groups: string[];
+};
+
+export const COURSE_WIDGET_PAYLOAD_KEY = "epitime.courseWidgetPayload";
+
+type SyncCourseWidgetsOptions = {
+	requestAndroidUpdate?: boolean;
+};
+
+export async function syncCourseWidgets(events: ZeusEvent[], options: SyncCourseWidgetsOptions = {}) {
+	if (Platform.OS !== "android" && Platform.OS !== "ios") return;
 	const courses = normalizeWidgetCourses(events);
 	try {
 		const [session, groups] = await Promise.all([getSession(), getJSON<(string | number)[]>("selectedGroups", [])]);
-		await WidgetData.updateCourses(
-			JSON.stringify({
-				generatedAt: Date.now(),
-				courses,
-				apiBase: publicConfig.apiBase,
-				zeusToken: session?.zeusToken,
-				groups: groups.map(String),
-			})
-		);
+		const payload: CourseWidgetPayload = {
+			generatedAt: Date.now(),
+			courses,
+			apiBase: publicConfig.apiBase,
+			zeusToken: session?.zeusToken,
+			groups: groups.map(String),
+		};
+		await persistCourseWidgetPayload(payload, options.requestAndroidUpdate ?? true);
 	} catch {
 		// Widgets are an optional native surface; the app must keep working if native sync is unavailable.
 	}
@@ -62,15 +78,38 @@ export async function refreshCourseWidgetsForGroups(groups: (string | number)[])
 	return reconciledEvents;
 }
 
-export async function refreshCourseWidgets() {
+export async function getStoredCourseWidgetPayload() {
+	return getJSON<CourseWidgetPayload | null>(COURSE_WIDGET_PAYLOAD_KEY, null);
+}
+
+export async function refreshCourseWidgetsFromStoredConfig() {
+	const stored = await getStoredCourseWidgetPayload();
+	if (!stored?.apiBase || !stored.zeusToken || !stored.groups.length) return stored;
+
+	const start = startOfDay(new Date());
+	const end = new Date(start);
+	end.setDate(end.getDate() + 30);
+
 	try {
-		await WidgetData?.refreshWidgets?.();
+		const events = await fetchWidgetEvents(stored.apiBase, stored.zeusToken, start, end, stored.groups);
+		const safeEvents = Array.isArray(events) ? events : [];
+		const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
+		const reconciledEvents = reconcileEventsWithCache(safeEvents, cachedEvents);
+		await setJSON("lastEvents", reconciledEvents);
+
+		const nextPayload: CourseWidgetPayload = {
+			...stored,
+			generatedAt: Date.now(),
+			courses: normalizeWidgetCourses(reconciledEvents),
+		};
+		await persistCourseWidgetPayload(nextPayload, false);
+		return nextPayload;
 	} catch {
-		// Best effort only.
+		return stored;
 	}
 }
 
-function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
+export function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
 	const now = Date.now();
 	return events
 		.map((event) => {
@@ -93,4 +132,53 @@ function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
 			endMillis,
 			color: getCourseColor(event),
 		}));
+}
+
+async function persistCourseWidgetPayload(payload: CourseWidgetPayload, requestAndroidUpdate: boolean) {
+	await setJSON(COURSE_WIDGET_PAYLOAD_KEY, payload);
+
+	if (Platform.OS === "ios" && WidgetData?.updateCourses) {
+		await WidgetData.updateCourses(JSON.stringify(payload));
+		return;
+	}
+
+	if (Platform.OS === "android" && requestAndroidUpdate) {
+		await requestCourseWidgetUpdates(payload);
+	}
+}
+
+async function requestCourseWidgetUpdates(payload: CourseWidgetPayload) {
+	await Promise.all([
+		requestWidgetUpdate({
+			widgetName: "NextCourse",
+			renderWidget: () => ({
+				light: React.createElement(NextCourseWidget, { payload, theme: "light" }),
+				dark: React.createElement(NextCourseWidget, { payload, theme: "dark" }),
+			}),
+			widgetNotFound: () => {},
+		}),
+		requestWidgetUpdate({
+			widgetName: "UpcomingCourses",
+			renderWidget: () => ({
+				light: React.createElement(UpcomingCoursesWidget, { payload, theme: "light" }),
+				dark: React.createElement(UpcomingCoursesWidget, { payload, theme: "dark" }),
+			}),
+			widgetNotFound: () => {},
+		}),
+	]);
+}
+
+async function fetchWidgetEvents(apiBase: string, zeusToken: string, start: Date, end: Date, groups: string[]) {
+	const base = apiBase.replace(/\/$/, "");
+	const params = new URLSearchParams({ start: start.toISOString(), end: end.toISOString() });
+	groups.forEach((group) => params.append("groups", group));
+
+	const response = await fetch(`${base}/api/events?${params.toString()}`, {
+		headers: {
+			Accept: "application/json",
+			Authorization: `Bearer ${zeusToken}`,
+		},
+	});
+	if (!response.ok) throw new Error(`Widget refresh failed: HTTP ${response.status}`);
+	return (await response.json()) as ZeusEvent[];
 }

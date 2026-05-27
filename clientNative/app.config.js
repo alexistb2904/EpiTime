@@ -38,9 +38,38 @@ module.exports = ({ config }) => {
 
 	const expoProjectId = read("EXPO_PUBLIC_EXPO_PROJECT_ID", extra.eas?.projectId);
 	const appGroupIdentifier = "group.fr.alexistb2904.epitime";
+	const androidWidgetConfig = {
+		widgets: [
+			{
+				name: "NextCourse",
+				label: "Prochain cours",
+				description: "Affiche le prochain cours EpiTime.",
+				minWidth: "180dp",
+				minHeight: "110dp",
+				targetCellWidth: 3,
+				targetCellHeight: 2,
+				resizeMode: "horizontal|vertical",
+				previewImage: "./assets/widget-preview/nextcourse.png",
+				updatePeriodMillis: 1800000,
+			},
+			{
+				name: "UpcomingCourses",
+				label: "Prochains cours",
+				description: "Affiche les prochains cours EpiTime.",
+				minWidth: "180dp",
+				minHeight: "110dp",
+				targetCellWidth: 3,
+				targetCellHeight: 2,
+				resizeMode: "horizontal|vertical",
+				previewImage: "./assets/widget-preview/upcomingcourses.png",
+				updatePeriodMillis: 1800000,
+			},
+		],
+	};
 
 	return {
 		...config,
+		plugins: [...Array.from(new Set([...(config.plugins || []), "expo-background-task"])), ["react-native-android-widget", androidWidgetConfig]],
 		ios: {
 			...config.ios,
 			entitlements: {

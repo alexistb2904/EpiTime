@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, AppState, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
-import { BellRing, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, Clock3, GraduationCap, MapPin, Plus, RefreshCw, BellElectric, Users, WifiOff, X } from "lucide-react-native";
+import { BellRing, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, Clock3, GraduationCap, MapPin, Plus, RefreshCw, BellElectric, WifiOff, X } from "lucide-react-native";
 import DatePickerModal from "../components/DatePickerModal";
 import { useTheme } from "../context/ThemeContext";
 import { getEvents, getGroups } from "../services/api";
 import { addManualEvent, isEventCancelled, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
 import { syncLiveCourseNotification } from "../services/liveCourse";
+import { getNotificationSettings, scheduleLocalCourseNotifications } from "../services/notifications";
 import { getJSON, setJSON } from "../services/storage";
 import { syncCourseWidgets } from "../services/widgets";
 import { Group, ZeusEvent } from "../types";
@@ -74,8 +75,7 @@ const sameDay = (a: Date, b: Date) => startOfDay(a).getTime() === startOfDay(b).
 
 const formatTime = (date: Date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-const formatInputDate = (date: Date) =>
-	`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const formatInputDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
 const parseLocalDateTime = (dateValue: string, timeValue: string) => {
 	const dateMatch = dateValue.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -112,6 +112,7 @@ const formatDuration = (ms: number) => {
 
 const greetingFor = (date: Date) => {
 	const hour = date.getHours();
+	if (hour < 5) return "Réveille-toi, il est tard !";
 	if (hour < 12) return "Bonjour";
 	if (hour < 18) return "Bon après-midi";
 	return "Bonsoir";
@@ -133,6 +134,7 @@ export default function HomeScreen() {
 	const [manualEnd, setManualEnd] = useState("10:00");
 	const [manualRoom, setManualRoom] = useState("");
 	const [savingManual, setSavingManual] = useState(false);
+	const [nowMs, setNowMs] = useState(Date.now());
 
 	const refresh = useCallback(async () => {
 		setRefreshing(true);
@@ -154,6 +156,15 @@ export default function HomeScreen() {
 				setEvents(mergedEvents);
 				await setJSON("lastEvents", reconciledEvents);
 				await syncCourseWidgets(mergedEvents);
+				const notificationSettings = await getNotificationSettings();
+				if (notificationSettings.enabled) {
+					await scheduleLocalCourseNotifications(
+						mergedEvents.filter((event) => !isEventCancelled(event)),
+						notificationSettings.minutesBefore,
+						notificationSettings.selectedDays,
+						notificationSettings.notificationType
+					);
+				}
 				setUsingCache(false);
 			} else {
 				const mergedEvents = await mergeEventsWithLocal([], start, end);
@@ -176,9 +187,22 @@ export default function HomeScreen() {
 	useEffect(() => {
 		refresh();
 	}, [refresh]);
+	useEffect(() => {
+		const updateClock = () => setNowMs(Date.now());
+		updateClock();
+		const timer = setInterval(updateClock, 30_000);
+		const subscription = AppState.addEventListener("change", (state) => {
+			if (state === "active") updateClock();
+		});
+		return () => {
+			clearInterval(timer);
+			subscription.remove();
+		};
+	}, []);
 	useFocusEffect(
 		useCallback(() => {
 			let active = true;
+			setNowMs(Date.now());
 			const start = startOfDay(new Date());
 			const end = new Date(start);
 			end.setDate(end.getDate() + 30);
@@ -194,8 +218,7 @@ export default function HomeScreen() {
 		}, [])
 	);
 
-	const now = new Date();
-	const nowMs = now.getTime();
+	const now = useMemo(() => new Date(nowMs), [nowMs]);
 	const sorted = useMemo(() => [...events].sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate)), [events]);
 	const activeScheduleEvents = useMemo(() => sorted.filter((event) => !isEventCancelled(event)), [sorted]);
 	useEffect(() => {
@@ -203,6 +226,15 @@ export default function HomeScreen() {
 		const timer = setInterval(() => syncLiveCourseNotification(activeScheduleEvents, Date.now()).catch(() => {}), minute);
 		return () => clearInterval(timer);
 	}, [activeScheduleEvents]);
+	useEffect(() => {
+		const nextBoundary = activeScheduleEvents
+			.flatMap((event) => [new Date(event.startDate).getTime(), new Date(event.endDate).getTime()])
+			.filter((time) => Number.isFinite(time) && time > nowMs)
+			.sort((a, b) => a - b)[0];
+		if (!nextBoundary) return;
+		const timer = setTimeout(() => setNowMs(Date.now()), Math.min(nextBoundary - nowMs + 250, 2_147_483_647));
+		return () => clearTimeout(timer);
+	}, [activeScheduleEvents, nowMs]);
 	const todayEvents = useMemo(() => sorted.filter((event) => sameDay(new Date(event.startDate), now)), [now, sorted]);
 	const upcomingEvents = useMemo(() => sorted.filter((event) => new Date(event.endDate).getTime() > nowMs).slice(0, 8), [nowMs, sorted]);
 	const currentEvent = activeScheduleEvents.find((event) => new Date(event.startDate).getTime() <= nowMs && new Date(event.endDate).getTime() > nowMs);
@@ -631,7 +663,11 @@ function TimelineRow({ event, index, colored, onPress }: { event: ZeusEvent; ind
 				style={[
 					s.timelineRow,
 					cancelled && s.timelineRowCancelled,
-					{ backgroundColor: cancelled ? theme.surfaceSoft : theme.surface, borderColor: isNow || cancelled ? activeColor : theme.border, opacity: isPast || cancelled ? 0.62 : 1 },
+					{
+						backgroundColor: cancelled ? theme.surfaceSoft : theme.surface,
+						borderColor: isNow || cancelled ? activeColor : theme.border,
+						opacity: isPast || cancelled ? 0.62 : 1,
+					},
 				]}
 				onPress={onPress}>
 				<View style={s.timeCol}>

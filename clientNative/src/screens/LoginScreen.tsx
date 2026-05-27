@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
-import { BellRing, CalendarDays, DoorOpen, LogIn, ShieldCheck, Sparkles } from "lucide-react-native";
+import { BellRing, CalendarDays, DoorOpen, LogIn, ShieldCheck } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 

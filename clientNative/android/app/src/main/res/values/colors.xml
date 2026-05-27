@@ -2,16 +2,4 @@
   <color name="splashscreen_background">#FFFFFF</color>
   <color name="colorPrimary">#023c69</color>
   <color name="iconBackground">#023c69</color>
-  <color name="widget_accent">#475D92</color>
-  <color name="widget_accent_secondary">#575E71</color>
-  <color name="widget_accent_tertiary">#745470</color>
-  <color name="widget_accent_container">#D9E2FF</color>
-  <color name="widget_on_accent_container">#001945</color>
-  <color name="widget_surface">#FEFBFF</color>
-  <color name="widget_row_active">#D9E2FF</color>
-  <color name="widget_row_muted">#F0F0FA</color>
-  <color name="widget_text">#1A1B20</color>
-  <color name="widget_text_muted">#44464F</color>
-  <color name="widget_text_disabled">#757780</color>
-  <color name="widget_outline">#C5C6D0</color>
 </resources>

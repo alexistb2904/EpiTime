@@ -5,7 +5,6 @@ import Animated, { FadeInDown, FadeInUp, Layout, runOnJS } from "react-native-re
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import {
 	Bell,
-	Building2,
 	CalendarDays,
 	Check,
 	ChevronLeft,
@@ -20,7 +19,6 @@ import {
 	RotateCcw,
 	Search,
 	SlidersHorizontal,
-	Sparkles,
 	Trash2,
 	Users,
 	WifiOff,
@@ -37,8 +35,6 @@ import { getNotificationSettings, scheduleLocalCourseNotifications } from "../se
 import { refreshCourseWidgetsForGroups } from "../services/widgets";
 import { Group, LocationNode, Room, RoomType, ZeusEvent } from "../types";
 import {
-	coursePalette,
-	courseTypeLabels,
 	formatDateRange,
 	getCourseColor,
 	getCourseTypeLabel,
@@ -47,7 +43,6 @@ import {
 	getRoomName,
 	getTeacherName,
 	getWeekRange,
-	hashString,
 	hexToRgba,
 	openUrl,
 	startOfDay,
@@ -164,7 +159,8 @@ export default function CalendarScreen() {
 						await scheduleLocalCourseNotifications(
 							visibleData.filter((event) => !isEventCancelled(event)),
 							notificationSettings.minutesBefore,
-							notificationSettings.selectedDays
+							notificationSettings.selectedDays,
+							notificationSettings.notificationType
 						);
 					}
 				}
@@ -636,16 +632,6 @@ export default function CalendarScreen() {
 				/>
 			</View>
 		</GestureDetector>
-	);
-}
-
-function StatPill({ label, value }: { label: string; value: string }) {
-	const { theme } = useTheme();
-	return (
-		<View style={[s.statPill, { backgroundColor: theme.surfaceSoft }]}>
-			<Text style={[s.statValue, { color: theme.text }]}>{value}</Text>
-			<Text style={[s.statLabel, { color: theme.muted }]}>{label}</Text>
-		</View>
 	);
 }
 
@@ -1482,73 +1468,6 @@ function ModalHeader({ title, onClose }: { title: string; onClose: () => void })
 	);
 }
 
-function InfoLine({ label, value }: { label: string; value: string }) {
-	const { theme } = useTheme();
-	return (
-		<View style={s.infoLine}>
-			<Text style={[s.infoLabel, { color: theme.muted }]}>{label}</Text>
-			<Text style={[s.infoValue, { color: theme.text }]}>{value}</Text>
-		</View>
-	);
-}
-
-function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
-	const { theme } = useTheme();
-	return (
-		<Card>
-			<Text style={[s.sectionTitle, { color: theme.text }]}>{title}</Text>
-			<View style={s.chipWrap}>{children}</View>
-		</Card>
-	);
-}
-
-function Chip({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress: () => void }) {
-	const { theme } = useTheme();
-	return (
-		<Pressable style={[s.detailChip, { backgroundColor: theme.accentSoft }]} onPress={onPress}>
-			{icon}
-			<Text style={[s.detailChipText, { color: theme.text }]} numberOfLines={1}>
-				{label}
-			</Text>
-		</Pressable>
-	);
-}
-
-function ChipScroller({
-	title,
-	items,
-	selected,
-	onSelect,
-}: {
-	title: string;
-	items: Array<{ id: string | number; name: string }>;
-	selected: string | number | null;
-	onSelect: (value: string | number | null) => void;
-}) {
-	const { theme } = useTheme();
-	return (
-		<View>
-			<Text style={[s.sectionTitle, { color: theme.text }]}>{title}</Text>
-			<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
-				<Pressable style={[s.filterChip, { backgroundColor: !selected ? theme.accent : theme.surface, borderColor: theme.border }]} onPress={() => onSelect(null)}>
-					<Text style={[s.filterText, { color: !selected ? "#fff" : theme.text }]}>Tous</Text>
-				</Pressable>
-				{items.slice(0, 40).map((item) => {
-					const active = String(selected) === String(item.id);
-					return (
-						<Pressable
-							key={String(item.id)}
-							style={[s.filterChip, { backgroundColor: active ? theme.accent : theme.surface, borderColor: theme.border }]}
-							onPress={() => onSelect(item.id)}>
-							<Text style={[s.filterText, { color: active ? "#fff" : theme.text }]}>{item.name}</Text>
-						</Pressable>
-					);
-				})}
-			</ScrollView>
-		</View>
-	);
-}
-
 const s = StyleSheet.create({
 	root: { flex: 1 },
 	content: { padding: 18, paddingTop: 58, paddingBottom: 108 },
@@ -1577,9 +1496,6 @@ const s = StyleSheet.create({
 	overviewLabel: { fontSize: 13, fontWeight: "800", textTransform: "capitalize" },
 	overviewTitle: { marginTop: 3, fontSize: 24, lineHeight: 29, fontWeight: "900", letterSpacing: 0 },
 	overviewStats: { flexDirection: "row", gap: 8, marginTop: 14 },
-	statPill: { flex: 1, minHeight: 58, borderRadius: 14, paddingHorizontal: 10, justifyContent: "center" },
-	statValue: { fontSize: 21, fontWeight: "900", textAlign: "center" },
-	statLabel: { marginTop: 2, fontSize: 11, fontWeight: "800", textAlign: "center" },
 	nextStrip: { minHeight: 58, borderWidth: 1, borderRadius: 16, marginTop: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 10 },
 	nextStripLive: { minHeight: 112, paddingVertical: 12, flexDirection: "column", alignItems: "stretch", gap: 10 },
 	nextLiveTop: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -1658,25 +1574,16 @@ const s = StyleSheet.create({
 	groupName: { flex: 1, fontWeight: "800" },
 	detailTitle: { fontSize: 24, fontWeight: "900" },
 	modalColorBadge: { alignSelf: "flex-start", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 12 },
-	infoLine: { marginTop: 14 },
-	infoLabel: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
-	infoValue: { fontSize: 16, fontWeight: "800", marginTop: 4 },
 	linkBtn: { minHeight: 44, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14 },
 	linkText: { fontWeight: "900" },
 	sectionTitle: { fontSize: 17, fontWeight: "900", marginBottom: 10 },
-	chipWrap: { gap: 8 },
 	detailActions: { flexDirection: "row", gap: 8 },
-	detailChip: { minHeight: 42, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, flex: 1 },
-	detailChipText: { flex: 1, fontWeight: "800" },
 	mapBtn: { width: 44, height: 42, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 	stepper: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
 	stepBtn: { width: 44, height: 42, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 	stepText: { fontSize: 22, fontWeight: "900" },
 	durationText: { flex: 1, textAlign: "center", fontSize: 20, fontWeight: "900" },
 	input: { borderWidth: 1, borderRadius: 8, minHeight: 46, paddingHorizontal: 12, fontSize: 16 },
-	filterRow: { gap: 8, paddingBottom: 12 },
-	filterChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, minHeight: 38, alignItems: "center", justifyContent: "center" },
-	filterText: { fontWeight: "800" },
 	primaryBtn: { minHeight: 50, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
 	primaryText: { color: "#fff", fontWeight: "900" },
 	roomCard: { marginTop: 0 },

@@ -1,5 +1,5 @@
 <resources>
   <string name="app_name">EpiTime</string>
-  <string name="widget_next_course_description">Affiche le prochain cours EpiTime.</string>
-  <string name="widget_upcoming_courses_description">Affiche les prochains cours EpiTime.</string>
+  <string name="widget_nextcourse_description" translatable="false">Affiche le prochain cours EpiTime.</string>
+  <string name="widget_upcomingcourses_description" translatable="false">Affiche les prochains cours EpiTime.</string>
 </resources>

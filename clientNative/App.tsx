@@ -8,6 +8,7 @@ import { Bell, CalendarDays, Home, Settings } from "lucide-react-native";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { VersionProvider } from "./src/context/VersionContext";
+import { registerPlanningNotificationBackgroundSync, unregisterPlanningNotificationBackgroundSync } from "./src/services/backgroundSync";
 import { stopLiveCourseNotification } from "./src/services/liveCourse";
 import { getJSON } from "./src/services/storage";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -46,13 +47,14 @@ const linking: LinkingOptions<RootTabParamList> = {
 const Tab = createBottomTabNavigator<RootTabParamList>();
 function Root() {
 	const { session, loading } = useAuth();
-	const { theme, mode } = useTheme();
+	const { theme, resolvedMode } = useTheme();
 	const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 	const [onboardingReady, setOnboardingReady] = useState(false);
 
 	useEffect(() => {
 		if (!session) {
 			stopLiveCourseNotification().catch(() => {});
+			unregisterPlanningNotificationBackgroundSync().catch(() => {});
 			setCheckingOnboarding(false);
 			setOnboardingReady(false);
 			return;
@@ -64,6 +66,11 @@ function Root() {
 			})
 			.finally(() => setCheckingOnboarding(false));
 	}, [session]);
+
+	useEffect(() => {
+		if (!session || !onboardingReady) return;
+		registerPlanningNotificationBackgroundSync().catch(() => {});
+	}, [session, onboardingReady]);
 
 	if (loading || !session) return <LoginScreen />;
 	if (checkingOnboarding) {
@@ -78,7 +85,7 @@ function Root() {
 		<NavigationContainer
 			linking={linking}
 			theme={{
-				dark: mode === "dark",
+				dark: resolvedMode === "dark",
 				colors: {
 					primary: theme.accent,
 					background: theme.bg,
@@ -94,7 +101,7 @@ function Root() {
 					heavy: { fontFamily: "System", fontWeight: "900" },
 				},
 			}}>
-			<StatusBar style={mode === "dark" ? "light" : "dark"} />
+			<StatusBar style={resolvedMode === "dark" ? "light" : "dark"} />
 			<Tab.Navigator
 				screenOptions={{
 					headerShown: false,

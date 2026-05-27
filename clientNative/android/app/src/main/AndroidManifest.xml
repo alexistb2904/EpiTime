@@ -1,49 +1,69 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
-  <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
-  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-  <uses-permission android:name="android.permission.VIBRATE"/>
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+    android:maxSdkVersion="32" tools:replace="android:maxSdkVersion" />
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <uses-permission android:name="android.permission.VIBRATE" />
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    android:maxSdkVersion="32" tools:replace="android:maxSdkVersion" />
   <queries>
     <intent>
-      <action android:name="android.intent.action.VIEW"/>
-      <category android:name="android.intent.category.BROWSABLE"/>
-      <data android:scheme="https"/>
+      <action android:name="android.intent.action.VIEW" />
+      <category android:name="android.intent.category.BROWSABLE" />
+      <data android:scheme="https" />
     </intent>
   </queries>
-  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false" android:fullBackupContent="@xml/secure_store_backup_rules" android:dataExtractionRules="@xml/secure_store_data_extraction_rules">
-    <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
-    <meta-data android:name="expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT" android:value="true"/>
-    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
-    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
-    <service android:name=".widgets.UpcomingCoursesWidgetService" android:permission="android.permission.BIND_REMOTEVIEWS"/>
-    <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
+  <application android:name=".MainApplication" android:label="@string/app_name"
+    android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
+    android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true"
+    android:enableOnBackInvokedCallback="false"
+    android:fullBackupContent="@xml/secure_store_backup_rules"
+    android:dataExtractionRules="@xml/secure_store_data_extraction_rules">
+    <meta-data android:name="expo.modules.updates.ENABLED" android:value="false" />
+    <meta-data android:name="expo.modules.updates.ENABLE_BSDIFF_PATCH_SUPPORT" android:value="true" />
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH"
+      android:value="ALWAYS" />
+    <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0" />
+    <service android:name="com.reactnativeandroidwidget.RNWidgetCollectionService"
+      android:permission="android.permission.BIND_REMOTEVIEWS" />
+    <activity android:name=".MainActivity"
+      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize"
+      android:launchMode="singleTask" android:windowSoftInputMode="adjustResize"
+      android:theme="@style/Theme.App.SplashScreen" android:exported="true"
+      android:screenOrientation="portrait">
       <intent-filter>
-        <action android:name="android.intent.action.MAIN"/>
-        <category android:name="android.intent.category.LAUNCHER"/>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
       <intent-filter>
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="epitime"/>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="epitime" />
       </intent-filter>
     </activity>
-    <receiver android:name=".widgets.NextCourseWidgetProvider" android:exported="true">
+    <receiver android:name=".widget.NextCourse" android:exported="false"
+      android:label="Prochain cours">
       <intent-filter>
-        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="fr.alexistb2904.epitime.WIDGET_CLICK" />
       </intent-filter>
-      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_next_course_info"/>
+      <meta-data android:name="android.appwidget.provider"
+        android:resource="@xml/widgetprovider_nextcourse" />
     </receiver>
-    <receiver android:name=".widgets.UpcomingCoursesWidgetProvider" android:exported="true">
+    <receiver android:name=".widget.UpcomingCourses" android:exported="false"
+      android:label="Liste des prochains cours">
       <intent-filter>
-        <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="fr.alexistb2904.epitime.WIDGET_CLICK" />
       </intent-filter>
-      <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_upcoming_courses_info"/>
+      <meta-data android:name="android.appwidget.provider"
+        android:resource="@xml/widgetprovider_upcomingcourses" />
     </receiver>
-    <receiver android:name=".live.LiveCourseNotificationReceiver" android:exported="false"/>
+    <receiver android:name=".live.LiveCourseNotificationReceiver" android:exported="false" />
   </application>
 </manifest>

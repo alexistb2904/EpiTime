@@ -80,19 +80,6 @@ export async function stopLiveCourseNotification() {
 	await LiveCourse.stop().catch(() => false);
 }
 
-export async function showDebugLiveCourseNotification(progress = 42) {
-	if (Platform.OS !== "android" || !LiveCourse?.showCourseProgress) return false;
-	const roundedProgress = Number.isFinite(progress) ? Math.round(progress) : 42;
-	await LiveCourse.showCourseProgress(
-		"Mode debug",
-		"Salle debug · fin dans 30 min",
-		Math.max(0, Math.min(100, roundedProgress)),
-		"30 min",
-		30 * minute
-	);
-	return true;
-}
-
 export async function getLiveCourseNotificationSettings() {
 	const saved = await getJSON<Partial<LiveCourseNotificationSettings>>(LIVE_COURSE_NOTIFICATION_SETTINGS_KEY, defaultLiveCourseNotificationSettings);
 	return { ...defaultLiveCourseNotificationSettings, ...saved };
@@ -122,10 +109,7 @@ function getNextCourse(events: ZeusEvent[], now: number) {
 			startMillis: new Date(event.startDate).getTime(),
 			endMillis: new Date(event.endDate).getTime(),
 		}))
-		.filter(
-			({ startMillis, endMillis }) =>
-				Number.isFinite(startMillis) && Number.isFinite(endMillis) && startMillis > now && endMillis > startMillis
-		)
+		.filter(({ startMillis, endMillis }) => Number.isFinite(startMillis) && Number.isFinite(endMillis) && startMillis > now && endMillis > startMillis)
 		.sort((a, b) => a.startMillis - b.startMillis)[0]?.event;
 }
 

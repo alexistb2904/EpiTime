@@ -1,27 +1,40 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { BellRing, Bug, ChevronRight, Code2, Download, Info, LogOut, Moon, RefreshCw, RotateCcw, Shield, Smartphone, Sun, User } from "lucide-react-native";
+import { BellRing, Bug, ChevronRight, Code2, Download, Info, LogOut, Moon, RefreshCw, RotateCcw, Shield, ShieldCheck, Smartphone, Sun, User } from "lucide-react-native";
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useVersion } from "../context/VersionContext";
+import { registerExpoPushToken } from "../services/api";
+import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { getDeletedRealEventsCount, restoreDeletedRealEvents } from "../services/localEvents";
 import { getLiveCourseNotificationSettings, setLiveCourseProgressNotificationEnabled } from "../services/liveCourse";
+import { getNotificationSettings, requestPushToken, scheduleLocalCourseNotifications } from "../services/notifications";
+import { getRequiredAppPermissions, openAppPermissionSettings, requestRequiredAppPermissions, type RequiredPermissionsResult } from "../services/permissions";
+import { getJSON } from "../services/storage";
+import { ZeusEvent } from "../types";
 
 export default function SettingsScreen() {
 	const { logout, session } = useAuth();
-	const { theme, mode, toggleTheme } = useTheme();
+	const { theme, mode, resolvedMode, setThemeMode, materialYouEnabled, materialYouAvailable, materialYouActive, setMaterialYouEnabled } = useTheme();
 	const { currentVersion, latestVersion, updateAvailable, checking, error, lastCheckedAt, checkForUpdates, openLatestRelease } = useVersion();
 	const [liveCourseProgressEnabled, setLiveCourseProgressEnabled] = useState(true);
 	const [deletedEventsCount, setDeletedEventsCount] = useState(0);
-	const account = session?.account as { displayName?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
+	const [permissionState, setPermissionState] = useState<RequiredPermissionsResult | null>(null);
+	const [permissionsLoading, setPermissionsLoading] = useState(false);
+	const account = session?.account as { displayName?: string; id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
+	const userId = account?.id || account?.userPrincipalName || account?.mail || "";
+	const missingPermissionsCount = permissionState?.missing.length ?? 0;
+	const permissionsKnown = permissionState !== null;
 	const versionStatus = updateAvailable ? "Mise à jour disponible" : error ? "Vérification indisponible" : "Application à jour";
 	const versionDetails = updateAvailable
 		? `Version installée ${currentVersion} · Release ${latestVersion}`
 		: error
 			? `Version installée ${currentVersion} · ${error}`
 			: `Version installée ${currentVersion}${lastCheckedAt ? ` · Vérifiée à ${lastCheckedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}`;
+	const modeLabel = mode === "system" ? "Système" : mode === "dark" ? "Sombre" : "Clair";
+	const materialYouDetails = materialYouActive ? "Couleurs dynamiques actives" : materialYouAvailable ? "Désactivé" : "Non disponible sur cet appareil";
 
 	useEffect(() => {
 		getLiveCourseNotificationSettings()
@@ -33,6 +46,9 @@ export default function SettingsScreen() {
 		useCallback(() => {
 			getDeletedRealEventsCount()
 				.then(setDeletedEventsCount)
+				.catch(() => {});
+			getRequiredAppPermissions()
+				.then(setPermissionState)
 				.catch(() => {});
 		}, [])
 	);
@@ -51,6 +67,52 @@ export default function SettingsScreen() {
 		Alert.alert("Agenda restauré", "Les cours supprimés réapparaîtront au prochain chargement de l'agenda.");
 	};
 
+	const refreshNotificationServices = async () => {
+		const [notificationSettings, events, groups] = await Promise.all([
+			getNotificationSettings(),
+			getJSON<ZeusEvent[]>("lastEvents", []),
+			getJSON<(string | number)[]>("selectedGroups", []),
+		]);
+
+		if (!notificationSettings.enabled) return;
+
+		await scheduleLocalCourseNotifications(events, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType, {
+			requestPermission: false,
+		}).catch(() => {});
+		await registerPlanningNotificationBackgroundSync().catch(() => {});
+		if (!userId) return;
+		const token = await requestPushToken().catch(() => null);
+		if (token) await registerExpoPushToken(token, userId, groups, notificationSettings).catch(() => {});
+	};
+
+	const requestMissingPermissions = async () => {
+		setPermissionsLoading(true);
+		try {
+			const result = await requestRequiredAppPermissions();
+			setPermissionState(result);
+			if (!result.missing.length) {
+				await refreshNotificationServices();
+				Alert.alert("Permissions accordées", "Les rappels et synchronisations nécessaires sont prêts.");
+				return;
+			}
+
+			const blocked = result.missing.some((permission) => !permission.canAskAgain);
+			if (blocked) {
+				Alert.alert("Permission à activer", "Active les notifications dans les réglages système pour que les rappels EpiTime fonctionnent.", [
+					{ text: "Plus tard", style: "cancel" },
+					{ text: "Ouvrir les réglages", onPress: () => void openAppPermissionSettings() },
+				]);
+				return;
+			}
+
+			Alert.alert("Permission manquante", "La permission notification n'a pas été accordée.");
+		} catch (err: any) {
+			Alert.alert("Permissions indisponibles", err?.message || "Impossible de vérifier les permissions.");
+		} finally {
+			setPermissionsLoading(false);
+		}
+	};
+
 	return (
 		<ScrollView style={[s.root, { backgroundColor: theme.bg }]} contentContainerStyle={s.content}>
 			<View style={s.header}>
@@ -60,7 +122,7 @@ export default function SettingsScreen() {
 				</View>
 			</View>
 
-			<Card style={s.profileCard} variant="glass" glow={true} accent>
+			<Card style={s.profileCard} glow={true} accent>
 				<View style={[s.avatar, { backgroundColor: theme.bg }]}>
 					<User color={theme.accent} size={28} />
 				</View>
@@ -75,15 +137,60 @@ export default function SettingsScreen() {
 			</Card>
 
 			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>APPARENCE</Text>
+			<Card style={s.settingCard} variant="default" glow={false}>
+				<View style={s.settingHeader}>
+					<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
+						{mode === "system" ? (
+							<Smartphone color={theme.accent} size={20} />
+						) : resolvedMode === "dark" ? (
+							<Moon color={theme.accent} size={20} />
+						) : (
+							<Sun color={theme.accent} size={20} />
+						)}
+					</View>
+					<View style={s.settingBody}>
+						<Text style={[s.settingTitle, { color: theme.text }]}>Mode {modeLabel}</Text>
+						<Text style={[s.meta, { color: theme.muted }]}>Système, clair ou sombre</Text>
+					</View>
+				</View>
+				<View style={s.modeOptions}>
+					{[
+						{ value: "system" as const, label: "Système" },
+						{ value: "light" as const, label: "Clair" },
+						{ value: "dark" as const, label: "Sombre" },
+					].map((item) => {
+						const active = mode === item.value;
+						return (
+							<Pressable
+								key={item.value}
+								onPress={() => void setThemeMode(item.value)}
+								style={({ pressed }) => [
+									s.modeOption,
+									{
+										backgroundColor: active ? theme.accent : pressed ? theme.surfaceSoft : theme.bg,
+										borderColor: active ? theme.accent : theme.border,
+									},
+								]}>
+								<Text style={[s.modeOptionLabel, { color: active ? "#fff" : theme.text }]}>{item.label}</Text>
+							</Pressable>
+						);
+					})}
+				</View>
+			</Card>
 			<Card style={s.settingRow} variant="default" glow={false}>
 				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-					{mode === "dark" ? <Moon color={theme.accent} size={20} /> : <Sun color={theme.accent} size={20} />}
+					<Smartphone color={theme.accent} size={20} />
 				</View>
 				<View style={s.settingBody}>
-					<Text style={[s.settingTitle, { color: theme.text }]}>Mode {mode === "dark" ? "Sombre" : "Clair"}</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>Ajuste l'apparence globale</Text>
+					<Text style={[s.settingTitle, { color: theme.text }]}>Material You</Text>
+					<Text style={[s.meta, { color: theme.muted }]}>{materialYouDetails}</Text>
 				</View>
-				<Switch value={mode === "dark"} onValueChange={toggleTheme} thumbColor={theme.accent} trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }} />
+				<Switch
+					value={materialYouEnabled}
+					onValueChange={(enabled) => void setMaterialYouEnabled(enabled)}
+					thumbColor={theme.accent}
+					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
+				/>
 			</Card>
 
 			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>COURS EN DIRECT</Text>
@@ -102,6 +209,24 @@ export default function SettingsScreen() {
 					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
 				/>
 			</Card>
+
+			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>PERMISSIONS</Text>
+			<View style={s.group}>
+				<Action
+					icon={permissionsLoading ? <ActivityIndicator color={theme.accent} /> : <ShieldCheck color={theme.accent} size={20} />}
+					label={
+						permissionsLoading
+							? "Vérification des permissions"
+							: !permissionsKnown
+								? "Vérifier les permissions"
+								: missingPermissionsCount
+									? `Redemander ${missingPermissionsCount} permission${missingPermissionsCount > 1 ? "s" : ""}`
+									: "Toutes les permissions accordées"
+					}
+					onPress={() => void requestMissingPermissions()}
+					disabled={permissionsLoading || (permissionsKnown && !missingPermissionsCount)}
+				/>
+			</View>
 
 			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>AGENDA</Text>
 			<View style={s.group}>
@@ -221,10 +346,15 @@ const s = StyleSheet.create({
 	sectionHeader: { fontSize: 12, fontWeight: "800", letterSpacing: 1, marginTop: 12, marginBottom: 12, paddingLeft: 4 },
 	group: { gap: 12, marginBottom: 24 },
 
+	settingCard: { gap: 16, marginBottom: 12 },
+	settingHeader: { flexDirection: "row", alignItems: "center", gap: 16 },
 	settingRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 24 },
 	iconBox: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
 	settingBody: { flex: 1, gap: 2 },
 	settingTitle: { fontWeight: "800", fontSize: 16 },
+	modeOptions: { flexDirection: "row", gap: 8 },
+	modeOption: { flex: 1, minHeight: 40, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+	modeOptionLabel: { fontSize: 13, fontWeight: "800" },
 
 	infoCard: { padding: 20 },
 	infoHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },

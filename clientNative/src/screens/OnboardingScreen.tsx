@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeInUp, Layout, SlideInRight } from "react-native-reanimated";
-import { BellRing, CalendarDays, Check, DoorOpen, LogOut, Search, ShieldCheck, Sparkles, Users } from "lucide-react-native";
+import { BellRing, CalendarDays, Check, DoorOpen, LogOut, Search, ShieldCheck, Users } from "lucide-react-native";
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { getEvents, getGroups, registerExpoPushToken } from "../services/api";
+import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { getNotificationSettings, requestPushToken, scheduleLocalCourseNotifications, setNotificationSettings } from "../services/notifications";
+import { requestRequiredAppPermissions } from "../services/permissions";
 import { getJSON, setJSON } from "../services/storage";
 import { syncCourseWidgets } from "../services/widgets";
 import { Group, ZeusEvent } from "../types";
@@ -88,8 +90,15 @@ export default function OnboardingScreen({ onDone }: Props) {
 	const enableDefaultNotifications = async (events: ZeusEvent[]) => {
 		const notificationSettings = { ...(await getNotificationSettings()), enabled: true };
 		await setNotificationSettings(notificationSettings);
-		const token = await requestPushToken().catch(() => null);
-		await scheduleLocalCourseNotifications(events, notificationSettings.minutesBefore, notificationSettings.selectedDays).catch(() => {});
+		const permissions = await requestRequiredAppPermissions().catch(() => null);
+		const notificationsGranted = permissions ? !permissions.missing.some((permission) => permission.id === "notifications") : false;
+		const token = notificationsGranted ? await requestPushToken().catch(() => null) : null;
+		if (notificationsGranted) {
+			await scheduleLocalCourseNotifications(events, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType, {
+				requestPermission: false,
+			}).catch(() => {});
+			await registerPlanningNotificationBackgroundSync().catch(() => {});
+		}
 		if (token && userId) await registerExpoPushToken(token, userId, selected, notificationSettings).catch(() => {});
 	};
 
