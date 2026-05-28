@@ -8,6 +8,7 @@ type ReminderSelectorModalProps = {
 	visible: boolean;
 	eventStartDate: string | Date;
 	currentOffsetMinutes: number;
+	hasReminder?: boolean;
 	onClose: () => void;
 	onApply: (next: { enabled: boolean; offsetMinutes: number }) => void | Promise<void>;
 };
@@ -61,7 +62,7 @@ const buildMonthGrid = (monthRef: Date) => {
 	});
 };
 
-export default function ReminderSelectorModal({ visible, eventStartDate, currentOffsetMinutes, onClose, onApply }: ReminderSelectorModalProps) {
+export default function ReminderSelectorModal({ visible, eventStartDate, currentOffsetMinutes, hasReminder = false, onClose, onApply }: ReminderSelectorModalProps) {
 	const { theme } = useTheme();
 	const eventStart = useMemo(() => new Date(eventStartDate), [eventStartDate]);
 	const eventStartMillis = eventStart.getTime();
@@ -108,14 +109,19 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 		setPickerMonth(next);
 	};
 
-	const applyRelative = () => {
-		void onApply({ enabled: true, offsetMinutes: relativeOffset });
+	const applyRelative = async () => {
+		await onApply({ enabled: true, offsetMinutes: relativeOffset });
 		onClose();
 	};
 
-	const applyExact = () => {
+	const applyExact = async () => {
 		if (!exactValid) return;
-		void onApply({ enabled: true, offsetMinutes: exactOffset });
+		await onApply({ enabled: true, offsetMinutes: exactOffset });
+		onClose();
+	};
+
+	const removeReminder = async () => {
+		await onApply({ enabled: false, offsetMinutes: currentOffsetMinutes });
 		onClose();
 	};
 
@@ -290,14 +296,19 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 					</ScrollView>
 
 					<View style={s.footer}>
+						{hasReminder ? (
+							<Pressable style={[s.dangerBtn, { borderColor: theme.danger, backgroundColor: theme.surfaceSoft }]} onPress={() => void removeReminder()}>
+								<Text style={[s.dangerText, { color: theme.danger, textAlign: "center" }]}>Enlever le rappel</Text>
+							</Pressable>
+						) : null}
 						<Pressable style={[s.secondaryBtn, { borderColor: theme.border, backgroundColor: theme.surfaceSoft }]} onPress={onClose}>
 							<Text style={[s.secondaryText, { color: theme.text }]}>Annuler</Text>
 						</Pressable>
 						<Pressable
 							style={[s.primaryBtn, { backgroundColor: theme.accent, opacity: mode === "relative" ? (relativeOffset > 0 ? 1 : 0.45) : exactValid ? 1 : 0.45 }]}
 							disabled={mode === "relative" ? relativeOffset <= 0 : !exactValid}
-							onPress={mode === "relative" ? applyRelative : applyExact}>
-							<Text style={s.primaryText}>Appliquer le rappel</Text>
+							onPress={() => void (mode === "relative" ? applyRelative() : applyExact())}>
+							<Text style={[s.primaryText, { textAlign: "center" }]}>Appliquer le rappel</Text>
 						</Pressable>
 					</View>
 				</Animated.View>
@@ -414,6 +425,8 @@ const s = StyleSheet.create({
 	todayDot: { width: 4, height: 4, borderRadius: 2, marginTop: 3 },
 	timeSection: { flexDirection: "row", gap: 8 },
 	footer: { flexDirection: "row", gap: 10, padding: 16, paddingTop: 0 },
+	dangerBtn: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+	dangerText: { fontSize: 14, fontWeight: "900" },
 	secondaryBtn: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 	secondaryText: { fontSize: 14, fontWeight: "900" },
 	primaryBtn: { flex: 1, minHeight: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" },

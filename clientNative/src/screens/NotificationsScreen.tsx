@@ -25,7 +25,7 @@ export default function NotificationsScreen() {
 	const { theme } = useTheme();
 	const { session } = useAuth();
 	const [settings, setSettings] = useState(defaultNotificationSettings);
-	const [message, setMessage] = useState("Les rappels locaux sont planifiés après chaque synchronisation de l'agenda.");
+	const [message, setMessage] = useState("Les rappels locaux sont planifiés automatiquement.");
 	const [loading, setLoading] = useState(false);
 	const account = session?.account as { id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
 	const userId = account?.id || account?.userPrincipalName || account?.mail || "";

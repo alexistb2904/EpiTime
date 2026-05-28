@@ -192,13 +192,23 @@ async function prepareNoteForSave(event: ZeusEvent, note: CourseNote, options: {
 	const startMillis = new Date(event.startDate).getTime();
 	const offsetMinutes = clampReminderOffset(note.reminder.offsetMinutes);
 	const reminderMillis = startMillis - offsetMinutes * 60_000;
-	if (!Number.isFinite(startMillis) || reminderMillis <= Date.now()) return cancelNoteReminder(note);
+	if (!Number.isFinite(startMillis) || reminderMillis <= Date.now()) {
+		if (options.requestPermission !== false) {
+			throw new Error("Impossible de programmer un rappel dans le passé. Le cours est peut-être déjà terminé.");
+		}
+		return cancelNoteReminder(note);
+	}
 
 	if (note.reminder.notificationId) await Notifications.cancelScheduledNotificationAsync(note.reminder.notificationId).catch(() => undefined);
 
 	const shouldRequestPermission = options.requestPermission ?? true;
 	const granted = shouldRequestPermission ? await requestNotificationPermission() : (await Notifications.getPermissionsAsync()).status === "granted";
-	if (!granted) return { ...note, reminder: { enabled: false, offsetMinutes } };
+	if (!granted) {
+		if (options.requestPermission !== false) {
+			throw new Error("Permission notification refusée.");
+		}
+		return { ...note, reminder: { enabled: false, offsetMinutes } };
+	}
 
 	await ensureAndroidChannel();
 	const room = event.rooms?.map(getRoomName).filter(Boolean).join(", ");

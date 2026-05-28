@@ -210,15 +210,23 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 
 	const updateReminder = async (note: CourseNote, patch: Partial<NonNullable<CourseNote["reminder"]>>) => {
 		const next = {
-			...note,
-			reminder: {
-				enabled: note.reminder?.enabled ?? false,
-				offsetMinutes: note.reminder?.offsetMinutes ?? 15,
-				...patch,
-			},
+			enabled: patch.enabled ?? note.reminder?.enabled ?? false,
+			offsetMinutes: patch.offsetMinutes ?? note.reminder?.offsetMinutes ?? 15,
 		};
-		updateNote(note.id, next);
-		await saveNote(next);
+		try {
+			const saved = await upsertNote(event, { ...note, reminder: next });
+			setNotes((items) => items.map((item) => (item.id === note.id ? saved : item)));
+			setNoteDirtyMap((items) => {
+				const copy = { ...items };
+				delete copy[note.id];
+				delete copy[saved.id];
+				return copy;
+			});
+			onChanged?.();
+		} catch (err: any) {
+			Alert.alert("Rappel", err?.message || "Impossible d'appliquer le rappel.");
+			throw err;
+		}
 	};
 
 	if (loading) {
@@ -271,6 +279,7 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 				visible={Boolean(reminderEditor)}
 				eventStartDate={event.startDate}
 				currentOffsetMinutes={reminderEditor?.reminder?.offsetMinutes ?? 15}
+				hasReminder={Boolean(reminderEditor?.reminder?.enabled)}
 				onClose={() => setReminderEditor(null)}
 				onApply={async (next) => {
 					if (!reminderEditor) return;
@@ -367,9 +376,7 @@ function NoteEditor({
 			/>
 
 			<View style={s.reminderRow}>
-				<Pressable
-					style={[s.reminderToggle, { backgroundColor: reminderEnabled ? theme.accent : theme.surfaceSoft, borderColor: theme.border }]}
-					onPress={() => void onUpdateReminder(note, { enabled: !reminderEnabled, offsetMinutes: reminderOffset })}>
+				<Pressable style={[s.reminderToggle, { backgroundColor: reminderEnabled ? theme.accent : theme.surfaceSoft, borderColor: theme.border }]} onPress={onOpenReminder}>
 					<Bell color={reminderEnabled ? "#fff" : theme.muted} size={16} />
 					<Text style={[s.reminderToggleText, { color: reminderEnabled ? "#fff" : theme.text }]}>Rappel</Text>
 				</Pressable>
