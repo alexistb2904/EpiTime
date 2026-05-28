@@ -66,10 +66,25 @@ module.exports = ({ config }) => {
 			},
 		],
 	};
+	const basePlugins = config.plugins || [];
 
 	return {
 		...config,
-		plugins: [...Array.from(new Set([...(config.plugins || []), "expo-background-task"])), ["react-native-android-widget", androidWidgetConfig]],
+		plugins: [
+			...basePlugins,
+			[
+				"expo-image-picker",
+				{
+					photosPermission: "EpiTime utilise vos photos pour les joindre à vos notes de cours.",
+					cameraPermission: "EpiTime utilise l'appareil photo pour ajouter des photos à vos notes de cours.",
+					microphonePermission: false,
+				},
+			],
+			"expo-document-picker",
+			"expo-file-system",
+			"expo-background-task",
+			["react-native-android-widget", androidWidgetConfig],
+		],
 		ios: {
 			...config.ios,
 			entitlements: {

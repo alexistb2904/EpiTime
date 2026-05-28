@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { getEvents, getGroups, registerExpoPushToken } from "../services/api";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
+import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getNotificationSettings, requestPushToken, scheduleLocalCourseNotifications, setNotificationSettings } from "../services/notifications";
 import { requestRequiredAppPermissions } from "../services/permissions";
 import { getJSON, setJSON } from "../services/storage";
@@ -80,6 +81,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 			const safeEvents = Array.isArray(events) ? events : [];
 			await setJSON("lastEvents", safeEvents);
 			await syncCourseWidgets(safeEvents);
+			await rescheduleCourseNoteReminders(safeEvents);
 			await enableDefaultNotifications(safeEvents);
 			onDone();
 		} finally {

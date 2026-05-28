@@ -16,7 +16,9 @@ const defaultLiveCourseNotificationSettings: LiveCourseNotificationSettings = {
 
 const LiveCourse = NativeModules.EpiTimeLiveCourse as
 	| {
-			showCourseProgress?: (title: string, description: string, progress: number, chipText: string, timeoutMillis: number) => Promise<boolean>;
+			canScheduleExactCourseProgress?: () => Promise<boolean>;
+			requestExactCourseProgressPermission?: () => Promise<boolean>;
+			showCourseProgress?: (title: string, description: string, progress: number, startMillis: number, endMillis: number) => Promise<boolean>;
 			scheduleCourseProgress?: (title: string, room: string, startMillis: number, endMillis: number) => Promise<boolean>;
 			cancelScheduledCourseProgress?: () => Promise<boolean>;
 			stop?: () => Promise<boolean>;
@@ -62,15 +64,13 @@ export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date
 	const startMillis = new Date(activeCourse.startDate).getTime();
 	const endMillis = new Date(activeCourse.endDate).getTime();
 	const duration = Math.max(minute, endMillis - startMillis);
-	const remainingMillis = Math.max(0, endMillis - now);
 	const progress = Math.round(((now - startMillis) / duration) * 100);
-	const remainingText = formatRemaining(remainingMillis);
 	const room = activeCourse.rooms?.map(getRoomName).filter(Boolean).join(", ") || "Lieu à confirmer";
 	const endTime = new Date(endMillis).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 	const title = getEventTitle(activeCourse);
 	const description = `${room} · fin à ${endTime}`;
 
-	await LiveCourse.showCourseProgress(title, description, progress, remainingText, remainingMillis).catch(() => false);
+	await LiveCourse.showCourseProgress(title, description, progress, startMillis, endMillis).catch(() => false);
 }
 
 export async function stopLiveCourseNotification() {
@@ -78,6 +78,41 @@ export async function stopLiveCourseNotification() {
 	eventSources.clear();
 	await LiveCourse.cancelScheduledCourseProgress?.().catch(() => false);
 	await LiveCourse.stop().catch(() => false);
+}
+
+export async function scheduleDebugCourseProgressAt(targetDate: Date, durationMinutes = 90) {
+	if (Platform.OS !== "android" || !LiveCourse?.scheduleCourseProgress) return false;
+	const startMillis = targetDate.getTime();
+	if (!Number.isFinite(startMillis) || startMillis <= Date.now()) throw new Error("Horaire de debug invalide ou déjà passé.");
+	const durationMillis = Math.max(minute, Math.trunc(durationMinutes) * minute);
+	return LiveCourse.scheduleCourseProgress("Debug - cours fictif", "Salle debug", startMillis, startMillis + durationMillis).catch(() => false);
+}
+
+export async function showDebugCourseProgressNow(durationMinutes = 90) {
+	if (Platform.OS !== "android" || !LiveCourse?.showCourseProgress) return false;
+	const now = Date.now();
+	const durationMillis = Math.max(minute, Math.trunc(durationMinutes) * minute);
+	const startMillis = now - Math.min(15 * minute, Math.floor(durationMillis / 3));
+	const endMillis = startMillis + durationMillis;
+	const progress = Math.round(((now - startMillis) / Math.max(minute, endMillis - startMillis)) * 100);
+	const endTime = new Date(endMillis).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+	return LiveCourse.showCourseProgress("Debug - cours fictif", `Salle debug · fin à ${endTime}`, progress, startMillis, endMillis).catch(() => false);
+}
+
+export async function stopDebugCourseProgress() {
+	if (Platform.OS !== "android") return;
+	await LiveCourse?.cancelScheduledCourseProgress?.().catch(() => false);
+	await LiveCourse?.stop?.().catch(() => false);
+}
+
+export async function canScheduleExactLiveCourseNotification() {
+	if (Platform.OS !== "android") return true;
+	return LiveCourse?.canScheduleExactCourseProgress?.().catch(() => false) ?? false;
+}
+
+export async function requestExactLiveCourseNotificationPermission() {
+	if (Platform.OS !== "android") return true;
+	return LiveCourse?.requestExactCourseProgressPermission?.().catch(() => false) ?? false;
 }
 
 export async function getLiveCourseNotificationSettings() {
@@ -111,12 +146,4 @@ function getNextCourse(events: ZeusEvent[], now: number) {
 		}))
 		.filter(({ startMillis, endMillis }) => Number.isFinite(startMillis) && Number.isFinite(endMillis) && startMillis > now && endMillis > startMillis)
 		.sort((a, b) => a.startMillis - b.startMillis)[0]?.event;
-}
-
-function formatRemaining(ms: number) {
-	const totalMinutes = Math.max(1, Math.ceil(ms / minute));
-	if (totalMinutes < 60) return `${totalMinutes} min`;
-	const hours = Math.floor(totalMinutes / 60);
-	const minutes = totalMinutes % 60;
-	return minutes ? `${hours} h ${minutes}` : `${hours} h`;
 }

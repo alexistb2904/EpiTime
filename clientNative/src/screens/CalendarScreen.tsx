@@ -11,23 +11,25 @@ import {
 	ChevronRight,
 	Clock,
 	DoorOpen,
-	ExternalLink,
 	Filter,
 	Layers,
 	MapPin,
 	Navigation,
+	Paperclip,
 	RotateCcw,
 	Search,
 	SlidersHorizontal,
-	Trash2,
+	StickyNote,
 	Users,
 	WifiOff,
 	X,
 } from "lucide-react-native";
 import Card from "../components/Card";
 import DatePickerModal from "../components/DatePickerModal";
+import EventDetailsModal from "../components/EventDetailsModal";
 import { useTheme } from "../context/ThemeContext";
 import { getAvailableRooms, getCourseType, getEvents, getGroups, getLocations, getReservationDetails, getRooms, getRoomTypes } from "../services/api";
+import { CourseNoteSummary, getCourseNoteSummaries, rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { deleteLocalEvent, getLocalEventKey, isEventCancelled, isManualEvent, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
 import { getJSON, setJSON } from "../services/storage";
 import { syncLiveCourseNotification } from "../services/liveCourse";
@@ -123,6 +125,11 @@ export default function CalendarScreen() {
 	const [error, setError] = useState("");
 	const [usingCache, setUsingCache] = useState(false);
 	const [now, setNow] = useState(Date.now());
+	const [noteSummaries, setNoteSummaries] = useState<Record<string, CourseNoteSummary>>({});
+
+	const refreshNoteSummaries = useCallback(async () => {
+		setNoteSummaries(await getCourseNoteSummaries());
+	}, []);
 
 	const loadCalendar = useCallback(
 		async (nextContext = context, nextDate = currentDate, nextView = viewMode) => {
@@ -133,14 +140,20 @@ export default function CalendarScreen() {
 				const query =
 					nextContext.type === "teacher" ? { teachers: nextContext.ids } : nextContext.type === "room" ? { rooms: nextContext.ids } : { groups: nextContext.ids };
 				if (!query.groups?.length && !query.teachers?.length && !query.rooms?.length) {
-					setEvents(await mergeEventsWithLocal([], start, end));
+					const localOnlyEvents = await mergeEventsWithLocal([], start, end);
+					setEvents(localOnlyEvents);
+					await rescheduleCourseNoteReminders(localOnlyEvents);
+					await refreshNoteSummaries();
 					return;
 				}
 
 				const cacheKey = `events_${start.toISOString()}_${end.toISOString()}_${JSON.stringify(query)}`;
 				const cachedData = await getJSON<any[] | null>(cacheKey, null);
 				if (cachedData && Array.isArray(cachedData)) {
-					setEvents(await mergeEventsWithLocal(cachedData, start, end));
+					const cachedVisibleEvents = await mergeEventsWithLocal(cachedData, start, end);
+					setEvents(cachedVisibleEvents);
+					await rescheduleCourseNoteReminders(cachedVisibleEvents);
+					await refreshNoteSummaries();
 					setUsingCache(true);
 				}
 
@@ -164,17 +177,22 @@ export default function CalendarScreen() {
 						);
 					}
 				}
+				await rescheduleCourseNoteReminders(visibleData);
+				await refreshNoteSummaries();
 				setUsingCache(false);
 			} catch (err: any) {
 				const cached = await getJSON<ZeusEvent[]>("lastEvents", []);
-				setEvents(await mergeEventsWithLocal(cached, start, end));
+				const cachedVisibleEvents = await mergeEventsWithLocal(cached, start, end);
+				setEvents(cachedVisibleEvents);
+				await rescheduleCourseNoteReminders(cachedVisibleEvents);
+				await refreshNoteSummaries();
 				setUsingCache(true);
 				setError("");
 			} finally {
 				setLoading(false);
 			}
 		},
-		[context, currentDate, viewMode]
+		[context, currentDate, refreshNoteSummaries, viewMode]
 	);
 
 	useEffect(() => {
@@ -196,7 +214,10 @@ export default function CalendarScreen() {
 				await loadCalendar(initialContext, initialDate, savedMode);
 			} catch {
 				setGroups(await getJSON("lastGroups", []));
-				setEvents(await mergeEventsWithLocal(await getJSON("lastEvents", [])));
+				const cachedVisibleEvents = await mergeEventsWithLocal(await getJSON("lastEvents", []));
+				setEvents(cachedVisibleEvents);
+				await rescheduleCourseNoteReminders(cachedVisibleEvents);
+				await refreshNoteSummaries();
 				setUsingCache(true);
 			} finally {
 				setLoading(false);
@@ -381,7 +402,10 @@ export default function CalendarScreen() {
 					onPress: async () => {
 						await deleteLocalEvent(event);
 						const key = getLocalEventKey(event);
-						setEvents((items) => items.filter((item) => getLocalEventKey(item) !== key));
+						const nextEvents = events.filter((item) => getLocalEventKey(item) !== key);
+						setEvents(nextEvents);
+						await rescheduleCourseNoteReminders(nextEvents);
+						await refreshNoteSummaries();
 						setSelectedEvent(null);
 					},
 				},
@@ -594,6 +618,7 @@ export default function CalendarScreen() {
 								event={event}
 								index={index}
 								highlighted={highlightedEventKey === getLocalEventKey(event)}
+								noteSummary={noteSummaries[getLocalEventKey(event)]}
 								now={now}
 								onPress={() => openDetails(event)}
 							/>
@@ -620,7 +645,13 @@ export default function CalendarScreen() {
 					onToday={() => applyDate(new Date())}
 					onClose={() => setShowDatePicker(false)}
 				/>
-				<EventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onApplyContext={applyContext} onDelete={deleteEvent} />
+				<EventDetailsModal
+					event={selectedEvent}
+					onClose={() => setSelectedEvent(null)}
+					onApplyContext={applyContext}
+					onDelete={deleteEvent}
+					onNotesChanged={refreshNoteSummaries}
+				/>
 				<RoomFinderModal
 					visible={showRooms}
 					selectedGroups={selectedGroups}
@@ -635,7 +666,21 @@ export default function CalendarScreen() {
 	);
 }
 
-function EventCard({ event, index, highlighted, now, onPress }: { event: ZeusEvent; index: number; highlighted?: boolean; now: number; onPress: () => void }) {
+function EventCard({
+	event,
+	index,
+	highlighted,
+	noteSummary,
+	now,
+	onPress,
+}: {
+	event: ZeusEvent;
+	index: number;
+	highlighted?: boolean;
+	noteSummary?: CourseNoteSummary;
+	now: number;
+	onPress: () => void;
+}) {
 	const { theme } = useTheme();
 	const rooms = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
 	const teachers = event.teachers?.map(getTeacherName).filter(Boolean).slice(0, 2).join(", ");
@@ -681,12 +726,30 @@ function EventCard({ event, index, highlighted, now, onPress }: { event: ZeusEve
 									</Text>
 								</View>
 							)}
-							{event.isOnline ? (
-								<View style={[s.onlineChip, { backgroundColor: theme.accentSoft }]}>
-									<Bell color={theme.accent} size={13} />
-									<Text style={[s.onlineText, { color: theme.accent }]}>En ligne</Text>
-								</View>
-							) : null}
+							<View style={s.eventIndicators}>
+								{event.isOnline ? (
+									<View style={[s.onlineChip, { backgroundColor: theme.accentSoft }]}>
+										<Bell color={theme.accent} size={13} />
+										<Text style={[s.onlineText, { color: theme.accent }]}>En ligne</Text>
+									</View>
+								) : null}
+								{noteSummary?.count ? (
+									<View style={[s.noteIndicator, { backgroundColor: theme.surfaceSoft }]}>
+										<StickyNote color={visualColor} size={13} />
+										<Text style={[s.noteIndicatorText, { color: visualColor }]}>{noteSummary.count}</Text>
+									</View>
+								) : null}
+								{noteSummary?.hasAttachments ? (
+									<View style={[s.noteIconIndicator, { backgroundColor: theme.surfaceSoft }]}>
+										<Paperclip color={visualColor} size={13} />
+									</View>
+								) : null}
+								{noteSummary?.hasReminder ? (
+									<View style={[s.noteIconIndicator, { backgroundColor: theme.surfaceSoft }]}>
+										<Bell color={visualColor} size={13} />
+									</View>
+								) : null}
+							</View>
 						</View>
 						<Text style={[s.eventTitle, cancelled && s.eventTitleCancelled, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={2}>
 							{getEventTitle(event)}
@@ -780,153 +843,6 @@ function GroupModal({
 							</Animated.View>
 						);
 					})}
-				</ScrollView>
-			</View>
-		</Modal>
-	);
-}
-
-function EventModal({
-	event,
-	onClose,
-	onApplyContext,
-	onDelete,
-}: {
-	event: ZeusEvent | null;
-	onClose: () => void;
-	onApplyContext: (type: "single-group" | "teacher" | "room", id?: string | number, label?: string) => void;
-	onDelete: (event: ZeusEvent) => void;
-}) {
-	const { theme } = useTheme();
-	if (!event) return null;
-	const color = getCourseColor(event);
-	const typeName = getCourseTypeLabel(event);
-	const manual = isManualEvent(event);
-	const cancelled = isEventCancelled(event);
-	const visualColor = cancelled ? theme.muted : color;
-	return (
-		<Modal visible animationType="slide" presentationStyle="pageSheet">
-			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
-				<View style={[s.eventHero, { backgroundColor: visualColor }]}>
-					<View style={s.eventHeroTop}>
-						<View style={s.eventHeroBadge}>
-							<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{cancelled ? "Annulé" : typeName || "Cours"}</Text>
-						</View>
-						<Pressable style={s.eventHeroClose} onPress={onClose}>
-							<X color="#fff" size={24} />
-						</Pressable>
-					</View>
-
-					<Text style={s.eventHeroTitle}>{getEventTitle(event)}</Text>
-
-					<View style={s.eventHeroMeta}>
-						<CalendarDays color="rgba(255,255,255,0.8)" size={16} />
-						<Text style={s.eventHeroMetaText}>{formatDateRange(event)}</Text>
-					</View>
-				</View>
-
-				<ScrollView contentContainerStyle={s.eventModalScroll}>
-					{cancelled ? (
-						<View style={[s.cancelledNotice, { backgroundColor: theme.surfaceSoft, borderColor: theme.muted }]}>
-							<X color={theme.muted} size={18} />
-							<Text style={[s.cancelledNoticeText, { color: theme.text }]}>Ce cours n'est plus présent dans le dernier retour Zeus.</Text>
-						</View>
-					) : null}
-
-					{event.code || event.url ? (
-						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
-							{event.code ? (
-								<View style={s.eventDataRow}>
-									<View style={[s.eventDataIcon, { backgroundColor: theme.surface }]}>
-										<Filter color={theme.muted} size={18} />
-									</View>
-									<View style={s.eventDataContent}>
-										<Text style={[s.eventDataLabel, { color: theme.muted }]}>Code module</Text>
-										<Text style={[s.eventDataValue, { color: theme.text }]}>{event.code}</Text>
-									</View>
-								</View>
-							) : null}
-
-							{event.url ? (
-								<Pressable style={[s.eventLinkBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openUrl(event.url)}>
-									<ExternalLink color={visualColor} size={20} />
-									<Text style={[s.eventLinkText, { color: theme.text }]}>Ouvrir le lien du cours</Text>
-								</Pressable>
-							) : null}
-						</View>
-					) : null}
-
-					{event.rooms?.length ? (
-						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
-							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Salles</Text>
-							<View style={s.eventCardList}>
-								{event.rooms.map((room) => {
-									const roomId = room.id || room.room?.id;
-									const roomName = getRoomName(room);
-									return (
-										<View key={`${roomId || roomName}`} style={[s.eventItemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-											<MapPin color={visualColor} size={20} />
-											<Text style={[s.eventItemName, { color: theme.text }]} numberOfLines={1}>
-												{roomName}
-											</Text>
-											<Pressable style={s.eventItemAction} onPress={() => openUrl(getRoomMapUrl(roomName))}>
-												<ExternalLink color={theme.muted} size={18} />
-											</Pressable>
-											<Pressable style={[s.eventItemBtn, { backgroundColor: theme.bg }]} onPress={() => onApplyContext("room", roomId, roomName)}>
-												<Filter color={theme.text} size={14} />
-												<Text style={[s.eventItemBtnText, { color: theme.text }]}>Filtrer</Text>
-											</Pressable>
-										</View>
-									);
-								})}
-							</View>
-						</View>
-					) : null}
-
-					{event.teachers?.length ? (
-						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
-							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Intervenants</Text>
-							<View style={s.eventChipGrid}>
-								{event.teachers.map((teacher) => (
-									<Pressable
-										key={`${teacher.id || getTeacherName(teacher)}`}
-										style={[s.eventPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
-										onPress={() => onApplyContext("teacher", teacher.id, getTeacherName(teacher))}>
-										<View style={[s.eventPillIcon, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, 0.15) }]}>
-											<Users color={visualColor} size={14} />
-										</View>
-										<Text style={[s.eventPillText, { color: theme.text }]}>{getTeacherName(teacher)}</Text>
-									</Pressable>
-								))}
-							</View>
-						</View>
-					) : null}
-
-					{event.groups?.length ? (
-						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
-							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Groupes</Text>
-							<View style={s.eventChipGrid}>
-								{event.groups.map((group) => (
-									<Pressable
-										key={`${group.id || group.name}`}
-										style={[s.eventPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
-										onPress={() => onApplyContext("single-group", group.id, group.name)}>
-										<View style={[s.eventPillIcon, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, 0.15) }]}>
-											<Users color={visualColor} size={14} />
-										</View>
-										<Text style={[s.eventPillText, { color: theme.text }]}>{group.name || String(group.id)}</Text>
-									</Pressable>
-								))}
-							</View>
-						</View>
-					) : null}
-
-					<View style={s.eventDeleteSection}>
-						<Pressable style={[s.eventDeleteBtn, { backgroundColor: theme.danger }]} onPress={() => onDelete(event)}>
-							<Trash2 color="#fff" size={19} />
-							<Text style={s.eventDeleteText}>{manual ? "Supprimer définitivement" : "Supprimer de mon agenda"}</Text>
-						</Pressable>
-					</View>
 				</ScrollView>
 			</View>
 		</Modal>
@@ -1545,6 +1461,7 @@ const s = StyleSheet.create({
 	timeBlock: { width: 64, borderRadius: 16, alignItems: "center", justifyContent: "center", paddingVertical: 10 },
 	eventContent: { flex: 1, minWidth: 0 },
 	eventTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+	eventIndicators: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: 5 },
 	eventTime: { fontSize: 16, fontWeight: "900" },
 	eventEnd: { marginTop: 4, fontSize: 12, fontWeight: "900" },
 	eventTitle: { fontSize: 18, lineHeight: 23, fontWeight: "900", marginTop: 9 },
@@ -1559,6 +1476,9 @@ const s = StyleSheet.create({
 	cancelledText: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	onlineChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
 	onlineText: { fontSize: 12, fontWeight: "900" },
+	noteIndicator: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 5 },
+	noteIndicatorText: { fontSize: 12, fontWeight: "900" },
+	noteIconIndicator: { width: 27, height: 27, borderRadius: 8, alignItems: "center", justifyContent: "center" },
 	nowBar: { height: 24, borderRadius: 8, overflow: "hidden", marginTop: 11, justifyContent: "center" },
 	nowFill: { position: "absolute", left: 0, top: 0, bottom: 0, width: "100%", borderRadius: 8, zIndex: 0 },
 	nowText: { alignSelf: "flex-start", marginLeft: 7, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, fontSize: 11, fontWeight: "900", zIndex: 1, elevation: 1 },
@@ -1572,12 +1492,7 @@ const s = StyleSheet.create({
 	groupRow: { borderWidth: 1, borderRadius: 14, padding: 13, flexDirection: "row", alignItems: "center", gap: 10 },
 	check: { width: 22, height: 22, borderWidth: 1, borderRadius: 6, alignItems: "center", justifyContent: "center" },
 	groupName: { flex: 1, fontWeight: "800" },
-	detailTitle: { fontSize: 24, fontWeight: "900" },
 	modalColorBadge: { alignSelf: "flex-start", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 12 },
-	linkBtn: { minHeight: 44, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14 },
-	linkText: { fontWeight: "900" },
-	sectionTitle: { fontSize: 17, fontWeight: "900", marginBottom: 10 },
-	detailActions: { flexDirection: "row", gap: 8 },
 	mapBtn: { width: 44, height: 42, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 	stepper: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
 	stepBtn: { width: 44, height: 42, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
@@ -1587,40 +1502,6 @@ const s = StyleSheet.create({
 	primaryBtn: { minHeight: 50, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
 	primaryText: { color: "#fff", fontWeight: "900" },
 	roomCard: { marginTop: 0 },
-	eventHero: { paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20 },
-	eventHeroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
-	eventHeroBadge: { backgroundColor: "rgba(255,255,255,0.9)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-	eventHeroBadgeText: { fontSize: 13, fontWeight: "900", textTransform: "uppercase" },
-	eventHeroClose: { width: 36, height: 36, backgroundColor: "rgba(0,0,0,0.15)", borderRadius: 18, alignItems: "center", justifyContent: "center" },
-	eventHeroTitle: { color: "#fff", fontSize: 26, fontWeight: "900", lineHeight: 32 },
-	eventHeroMeta: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
-	eventHeroMetaText: { color: "rgba(255,255,255,0.9)", fontSize: 15, fontWeight: "800" },
-	eventModalScroll: { padding: 20, paddingBottom: 60 },
-	cancelledNotice: { borderWidth: 1, borderStyle: "dashed", borderRadius: 14, padding: 12, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
-	cancelledNoticeText: { flex: 1, fontSize: 13, fontWeight: "800", lineHeight: 18 },
-	eventSection: { paddingVertical: 16, borderBottomWidth: 1 },
-	eventSectionTitle: { fontSize: 18, fontWeight: "900", marginBottom: 16 },
-	eventDataRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-	eventDataIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-	eventDataContent: { flex: 1 },
-	eventDataLabel: { fontSize: 12, fontWeight: "800", textTransform: "uppercase" },
-	eventDataValue: { fontSize: 16, fontWeight: "900", marginTop: 2 },
-	eventLinkBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginTop: 16 },
-	eventLinkText: { fontSize: 15, fontWeight: "900" },
-	eventCardList: { gap: 12 },
-	eventItemCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 16, borderWidth: 1 },
-	eventItemName: { flex: 1, fontSize: 16, fontWeight: "800" },
-	eventItemAction: { padding: 8 },
-	eventItemBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
-	eventItemBtnText: { fontSize: 13, fontWeight: "800" },
-	eventChipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-	eventPill: { flexDirection: "row", alignItems: "center", gap: 8, padding: 6, paddingRight: 14, borderRadius: 20, borderWidth: 1 },
-	eventPillIcon: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-	eventPillText: { fontSize: 14, fontWeight: "800" },
-	eventDeleteSection: { paddingTop: 18 },
-	eventDeleteBtn: { minHeight: 50, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
-	eventDeleteText: { color: "#fff", fontSize: 15, fontWeight: "900" },
-
 	roomFinderScroll: { padding: 18, gap: 14, paddingBottom: 56 },
 	roomHeroCard: {
 		borderWidth: 1,

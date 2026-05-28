@@ -3,6 +3,7 @@
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
     android:maxSdkVersion="32" tools:replace="android:maxSdkVersion" />
@@ -65,5 +66,15 @@
         android:resource="@xml/widgetprovider_upcomingcourses" />
     </receiver>
     <receiver android:name=".live.LiveCourseNotificationReceiver" android:exported="false" />
+    <receiver android:name=".widget.CourseWidgetRefreshReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="fr.alexistb2904.epitime.widget.REFRESH_NEXT_COURSE" />
+        <action android:name="fr.alexistb2904.epitime.widget.RESTORE_REFRESHES" />
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

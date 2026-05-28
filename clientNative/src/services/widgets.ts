@@ -16,6 +16,13 @@ const WidgetData = NativeModules.EpiTimeWidgetData as
 	  }
 	| undefined;
 
+const CourseWidgets = NativeModules.EpiTimeCourseWidgets as
+	| {
+			scheduleRefreshes?: (rawPayloadJson: string) => Promise<boolean>;
+			cancelRefreshes?: () => Promise<boolean>;
+	  }
+	| undefined;
+
 export type WidgetCourse = {
 	id?: string | number;
 	title: string;
@@ -142,9 +149,22 @@ async function persistCourseWidgetPayload(payload: CourseWidgetPayload, requestA
 		return;
 	}
 
+	if (Platform.OS === "android") {
+		await syncNativeCourseWidgetRefreshes(payload);
+	}
+
 	if (Platform.OS === "android" && requestAndroidUpdate) {
 		await requestCourseWidgetUpdates(payload);
 	}
+}
+
+async function syncNativeCourseWidgetRefreshes(payload: CourseWidgetPayload) {
+	if (!payload.groups.length || !payload.courses.length) {
+		await CourseWidgets?.cancelRefreshes?.().catch(() => false);
+		return;
+	}
+
+	await CourseWidgets?.scheduleRefreshes?.(JSON.stringify(payload)).catch(() => false);
 }
 
 async function requestCourseWidgetUpdates(payload: CourseWidgetPayload) {

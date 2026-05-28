@@ -6,6 +6,7 @@ import { BellRing, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, Cloc
 import DatePickerModal from "../components/DatePickerModal";
 import { useTheme } from "../context/ThemeContext";
 import { getEvents, getGroups } from "../services/api";
+import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { addManualEvent, isEventCancelled, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
 import { syncLiveCourseNotification } from "../services/liveCourse";
 import { getNotificationSettings, scheduleLocalCourseNotifications } from "../services/notifications";
@@ -156,6 +157,7 @@ export default function HomeScreen() {
 				setEvents(mergedEvents);
 				await setJSON("lastEvents", reconciledEvents);
 				await syncCourseWidgets(mergedEvents);
+				await rescheduleCourseNoteReminders(mergedEvents);
 				const notificationSettings = await getNotificationSettings();
 				if (notificationSettings.enabled) {
 					await scheduleLocalCourseNotifications(
@@ -170,6 +172,7 @@ export default function HomeScreen() {
 				const mergedEvents = await mergeEventsWithLocal([], start, end);
 				setEvents(mergedEvents);
 				await syncCourseWidgets(mergedEvents);
+				await rescheduleCourseNoteReminders(mergedEvents);
 				setUsingCache(false);
 			}
 		} catch {
@@ -178,6 +181,7 @@ export default function HomeScreen() {
 			setEvents(mergedEvents);
 			setGroups(await getJSON("lastGroups", []));
 			await syncCourseWidgets(mergedEvents);
+			await rescheduleCourseNoteReminders(mergedEvents);
 			setUsingCache(true);
 		} finally {
 			setRefreshing(false);

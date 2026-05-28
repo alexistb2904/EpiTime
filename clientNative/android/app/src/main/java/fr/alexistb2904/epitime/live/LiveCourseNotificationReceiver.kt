@@ -7,9 +7,6 @@ import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.ceil
-import kotlin.math.max
-import kotlin.math.roundToInt
 
 class LiveCourseNotificationReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
@@ -32,13 +29,6 @@ class LiveCourseNotificationReceiver : BroadcastReceiver() {
 
         if (endMillis <= now) return
 
-        val durationMillis = max(MINUTE_MILLIS, endMillis - startMillis)
-        val elapsedMillis = max(0L, now - startMillis)
-        val progress = ((elapsedMillis.toDouble() / durationMillis.toDouble()) * 100.0)
-          .roundToInt()
-          .coerceIn(0, 100)
-        val remainingMillis = endMillis - now
-        val chipText = formatRemaining(remainingMillis)
         val endTime = SimpleDateFormat("HH:mm", Locale.FRANCE).format(Date(endMillis))
         val description = "$room · fin à $endTime"
 
@@ -47,25 +37,32 @@ class LiveCourseNotificationReceiver : BroadcastReceiver() {
           context = applicationContext,
           title = title,
           description = description,
-          progress = progress,
-          chipText = chipText,
-          timeoutMillis = remainingMillis
+          startMillis = startMillis,
+          endMillis = endMillis
+        )
+      }
+
+      LiveCourseNotificationModule.ACTION_SHOW_COURSE_START -> {
+        val title = intent.getStringExtra(LiveCourseNotificationModule.EXTRA_TITLE).orEmpty()
+        val room = intent.getStringExtra(LiveCourseNotificationModule.EXTRA_ROOM).orEmpty()
+        val eventId = intent.getStringExtra(LiveCourseNotificationModule.EXTRA_EVENT_ID).orEmpty()
+        val requestCode = intent.getIntExtra(LiveCourseNotificationModule.EXTRA_REQUEST_CODE, 0)
+        val playSound = intent.getBooleanExtra(LiveCourseNotificationModule.EXTRA_PLAY_SOUND, true)
+
+        Log.d(TAG, "Alarm received for course start notification: $title")
+        LiveCourseNotificationModule.showCourseStartFromReceiver(
+          context = applicationContext,
+          title = title,
+          room = room,
+          eventId = eventId,
+          requestCode = requestCode,
+          playSound = playSound
         )
       }
     }
   }
 
-  private fun formatRemaining(ms: Long): String {
-    val totalMinutes = max(1, ceil(ms.toDouble() / MINUTE_MILLIS.toDouble()).toInt())
-    if (totalMinutes < 60) return "$totalMinutes min"
-
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (minutes > 0) "$hours h $minutes" else "$hours h"
-  }
-
   companion object {
     private const val TAG = "EpiTimeLiveCourse"
-    private const val MINUTE_MILLIS = 60_000L
   }
 }

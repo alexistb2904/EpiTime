@@ -1,7 +1,8 @@
 import { Linking, Platform } from "react-native";
+import { canScheduleExactLiveCourseNotification, requestExactLiveCourseNotificationPermission } from "./liveCourse";
 import { getNotificationPermissionStatus, requestNotificationPermission } from "./notifications";
 
-export type RequiredPermissionId = "notifications";
+export type RequiredPermissionId = "notifications" | "exactAlarms";
 
 export type RequiredPermissionState = {
 	id: RequiredPermissionId;
@@ -24,13 +25,19 @@ function buildResult(permissions: RequiredPermissionState[]): RequiredPermission
 
 export async function getRequiredAppPermissions(): Promise<RequiredPermissionsResult> {
 	if (Platform.OS === "web") return buildResult([]);
-	const notifications = await getNotificationPermissionStatus();
+	const [notifications, exactAlarmsGranted] = await Promise.all([getNotificationPermissionStatus(), canScheduleExactLiveCourseNotification()]);
 	return buildResult([
 		{
 			id: "notifications",
 			label: "Notifications",
 			granted: notifications.granted || notifications.status === "granted",
 			canAskAgain: notifications.canAskAgain,
+		},
+		{
+			id: "exactAlarms",
+			label: "Alarmes exactes",
+			granted: exactAlarmsGranted,
+			canAskAgain: true,
 		},
 	]);
 }
@@ -42,6 +49,9 @@ export async function requestRequiredAppPermissions(): Promise<RequiredPermissio
 	for (const permission of current.missing) {
 		if (permission.id === "notifications" && permission.canAskAgain) {
 			await requestNotificationPermission();
+		}
+		if (permission.id === "exactAlarms") {
+			await requestExactLiveCourseNotificationPermission();
 		}
 	}
 

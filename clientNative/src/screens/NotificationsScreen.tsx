@@ -5,7 +5,8 @@ import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { registerExpoPushToken, sendMobileTestNotification } from "../services/api";
-import { registerPlanningNotificationBackgroundSync, unregisterPlanningNotificationBackgroundSync } from "../services/backgroundSync";
+import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
+import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import {
 	clearLocalCourseNotifications,
 	defaultNotificationSettings,
@@ -48,12 +49,13 @@ export default function NotificationsScreen() {
 		setSettings(next);
 		await setNotificationSettings(next);
 		const events = await getJSON<ZeusEvent[]>("lastEvents", []);
+		await rescheduleCourseNoteReminders(events);
 		if (next.enabled) {
 			await scheduleLocalCourseNotifications(events, next.minutesBefore, next.selectedDays, next.notificationType);
 			await registerPlanningNotificationBackgroundSync();
 		} else {
 			await clearLocalCourseNotifications();
-			await unregisterPlanningNotificationBackgroundSync();
+			await registerPlanningNotificationBackgroundSync();
 		}
 	};
 
