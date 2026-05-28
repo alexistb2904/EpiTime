@@ -10,6 +10,10 @@ import { getJSON, setJSON } from "./storage";
 const COURSE_NOTES_KEY = "courseNotesByEvent";
 const COURSE_NOTES_DIR = "course-notes";
 
+const NOTE_PREVIEW_MAX_CHARS = 75;
+const COURSE_TITLE_MAX_CHARS = 55;
+const ROOM_MAX_CHARS = 32;
+
 export type CourseNoteReminder = {
 	enabled: boolean;
 	offsetMinutes: number;
@@ -66,9 +70,11 @@ export async function getCourseNotes(eventKey: string) {
 
 export async function getCourseNoteSummaries() {
 	const byEvent = await getCourseNotesByEvent();
+
 	return Object.fromEntries(
 		Object.entries(byEvent).map(([eventKey, notes]) => {
 			const normalized = normalizeNotes(notes, eventKey);
+
 			return [
 				eventKey,
 				{
@@ -84,6 +90,7 @@ export async function getCourseNoteSummaries() {
 export async function createCourseNote(event: ZeusEvent) {
 	const eventKey = getLocalEventKey(event);
 	const now = new Date().toISOString();
+
 	const note: CourseNote = {
 		id: createLocalId("note"),
 		eventKey,
@@ -93,7 +100,9 @@ export async function createCourseNote(event: ZeusEvent) {
 		createdAt: now,
 		updatedAt: now,
 	};
+
 	await upsertNote(event, note);
+
 	return note;
 }
 
@@ -102,9 +111,18 @@ export async function upsertNote(event: ZeusEvent, note: CourseNote) {
 	const byEvent = await getCourseNotesByEvent();
 	const notes = normalizeNotes(byEvent[eventKey] || [], eventKey);
 	const noteId = note.id.startsWith("draft-") ? createLocalId("note") : note.id;
-	const nextNote = await prepareNoteForSave(event, { ...note, id: noteId, eventKey, updatedAt: new Date().toISOString() });
+
+	const nextNote = await prepareNoteForSave(event, {
+		...note,
+		id: noteId,
+		eventKey,
+		updatedAt: new Date().toISOString(),
+	});
+
 	const nextNotes = notes.some((item) => item.id === nextNote.id) ? notes.map((item) => (item.id === nextNote.id ? nextNote : item)) : [...notes, nextNote];
+
 	await writeNotesForEvent(byEvent, eventKey, nextNotes);
+
 	return nextNote;
 }
 
@@ -112,10 +130,12 @@ export async function deleteCourseNote(eventKey: string, noteId: string) {
 	const byEvent = await getCourseNotesByEvent();
 	const notes = normalizeNotes(byEvent[eventKey] || [], eventKey);
 	const note = notes.find((item) => item.id === noteId);
+
 	if (!note) return;
 
 	await cancelNoteReminder(note);
 	await Promise.all(note.attachments.map((attachment) => deleteCourseNoteAttachmentFile(attachment).catch(() => undefined)));
+
 	await writeNotesForEvent(
 		byEvent,
 		eventKey,
@@ -125,13 +145,17 @@ export async function deleteCourseNote(eventKey: string, noteId: string) {
 
 export async function copyCourseNoteAttachment(input: CopyCourseNoteAttachmentInput) {
 	const root = FileSystem.documentDirectory;
+
 	if (!root) throw new Error("Stockage local indisponible.");
+
 	const dir = `${root}${COURSE_NOTES_DIR}/${safePathPart(input.eventKey)}/${safePathPart(input.noteId)}/`;
+
 	await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
 
 	const name = input.name?.trim() || (input.kind === "photo" ? "photo.jpg" : "fichier");
 	const targetName = `${Date.now()}-${safeFileName(name)}`;
 	const localUri = `${dir}${targetName}`;
+
 	await FileSystem.copyAsync({ from: input.sourceUri, to: localUri });
 
 	return {
@@ -150,9 +174,11 @@ export async function deleteCourseNoteAttachment(event: ZeusEvent, noteId: strin
 	const notes = await getCourseNotes(eventKey);
 	const note = notes.find((item) => item.id === noteId);
 	const attachment = note?.attachments.find((item) => item.id === attachmentId);
+
 	if (!note || !attachment) return;
 
 	await deleteCourseNoteAttachmentFile(attachment).catch(() => undefined);
+
 	await upsertNote(event, {
 		...note,
 		attachments: note.attachments.filter((item) => item.id !== attachmentId),
@@ -161,11 +187,13 @@ export async function deleteCourseNoteAttachment(event: ZeusEvent, noteId: strin
 
 export async function openCourseNoteAttachment(attachment: CourseNoteAttachment) {
 	const uri = Platform.OS === "android" ? await FileSystem.getContentUriAsync(attachment.localUri).catch(() => attachment.localUri) : attachment.localUri;
+
 	await Linking.openURL(uri);
 }
 
 export async function rescheduleCourseNoteReminders(events: ZeusEvent[]) {
 	if (Platform.OS === "web") return;
+
 	const byEvent = await getCourseNotesByEvent();
 	const eventByKey = new Map(events.map((event) => [getLocalEventKey(event), event]));
 	let changed = false;
@@ -174,11 +202,17 @@ export async function rescheduleCourseNoteReminders(events: ZeusEvent[]) {
 		const event = eventByKey.get(eventKey);
 		const notes = normalizeNotes(rawNotes, eventKey);
 		const nextNotes: CourseNote[] = [];
+
 		for (const note of notes) {
 			const nextNote = event ? await prepareNoteForSave(event, note, { requestPermission: false }) : await cancelNoteReminder(note);
-			if (nextNote.reminder?.notificationId !== note.reminder?.notificationId || nextNote.reminder?.enabled !== note.reminder?.enabled) changed = true;
+
+			if (nextNote.reminder?.notificationId !== note.reminder?.notificationId || nextNote.reminder?.enabled !== note.reminder?.enabled) {
+				changed = true;
+			}
+
 			nextNotes.push(nextNote);
 		}
+
 		byEvent[eventKey] = nextNotes;
 	}
 
@@ -192,31 +226,45 @@ async function prepareNoteForSave(event: ZeusEvent, note: CourseNote, options: {
 	const startMillis = new Date(event.startDate).getTime();
 	const offsetMinutes = clampReminderOffset(note.reminder.offsetMinutes);
 	const reminderMillis = startMillis - offsetMinutes * 60_000;
+
 	if (!Number.isFinite(startMillis) || reminderMillis <= Date.now()) {
 		if (options.requestPermission !== false) {
 			throw new Error("Impossible de programmer un rappel dans le passé. Le cours est peut-être déjà terminé.");
 		}
+
 		return cancelNoteReminder(note);
 	}
 
-	if (note.reminder.notificationId) await Notifications.cancelScheduledNotificationAsync(note.reminder.notificationId).catch(() => undefined);
+	if (note.reminder.notificationId) {
+		await Notifications.cancelScheduledNotificationAsync(note.reminder.notificationId).catch(() => undefined);
+	}
 
 	const shouldRequestPermission = options.requestPermission ?? true;
 	const granted = shouldRequestPermission ? await requestNotificationPermission() : (await Notifications.getPermissionsAsync()).status === "granted";
+
 	if (!granted) {
 		if (options.requestPermission !== false) {
 			throw new Error("Permission notification refusée.");
 		}
+
 		return { ...note, reminder: { enabled: false, offsetMinutes } };
 	}
 
 	await ensureAndroidChannel();
+
 	const room = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
+	const reminderBody = buildNoteReminderBody(note, event, room);
+
 	const notificationId = await Notifications.scheduleNotificationAsync({
 		content: {
-			title: "Note de cours",
-			body: `${getEventTitle(event)} dans ${formatReminderOffset(offsetMinutes)}${room ? ` en ${room}` : ""}`,
-			data: { type: "course-note-reminder", eventKey: note.eventKey, noteId: note.id, startsAt: event.startDate },
+			title: "Rappel de note",
+			body: reminderBody,
+			data: {
+				type: "course-note-reminder",
+				eventKey: note.eventKey,
+				noteId: note.id,
+				startsAt: event.startDate,
+			},
 			sound: "default",
 		},
 		trigger: {
@@ -225,6 +273,7 @@ async function prepareNoteForSave(event: ZeusEvent, note: CourseNote, options: {
 			...(Platform.OS === "android" ? { channelId: COURSES_CHANNEL_ID } : {}),
 		},
 	});
+
 	return { ...note, reminder: { enabled: true, offsetMinutes, notificationId } };
 }
 
@@ -232,20 +281,31 @@ async function cancelNoteReminder(note: CourseNote) {
 	if (Platform.OS !== "web" && note.reminder?.notificationId) {
 		await Notifications.cancelScheduledNotificationAsync(note.reminder.notificationId).catch(() => undefined);
 	}
+
 	if (!note.reminder) return note;
-	return { ...note, reminder: { enabled: false, offsetMinutes: clampReminderOffset(note.reminder.offsetMinutes) } };
+
+	return {
+		...note,
+		reminder: {
+			enabled: false,
+			offsetMinutes: clampReminderOffset(note.reminder.offsetMinutes),
+		},
+	};
 }
 
 async function writeNotesForEvent(byEvent: CourseNotesByEvent, eventKey: string, notes: CourseNote[]) {
 	const nextNotes = normalizeNotes(notes, eventKey).filter((note) => hasNoteContent(note));
 	const next = { ...byEvent };
+
 	if (nextNotes.length) next[eventKey] = nextNotes;
 	else delete next[eventKey];
+
 	await setJSON(COURSE_NOTES_KEY, next);
 }
 
 async function deleteCourseNoteAttachmentFile(attachment: CourseNoteAttachment) {
 	if (!attachment.localUri) return;
+
 	await FileSystem.deleteAsync(attachment.localUri, { idempotent: true });
 }
 
@@ -265,15 +325,51 @@ function hasNoteContent(note: CourseNote) {
 	return Boolean(note.body.trim() || note.links.length || note.attachments.length || note.reminder?.enabled);
 }
 
+function buildNoteReminderBody(note: CourseNote, event: ZeusEvent, room?: string) {
+	const notePreview = getNotePreview(note);
+	const courseTitle = truncateNotificationText(getEventTitle(event), COURSE_TITLE_MAX_CHARS);
+	const roomSuffix = room ? ` · ${truncateNotificationText(room, ROOM_MAX_CHARS)}` : "";
+
+	return `${notePreview} pour ${courseTitle}${roomSuffix}`;
+}
+
+function getNotePreview(note: CourseNote) {
+	const body = normalizeNotificationText(note.body);
+
+	if (body) return truncateNotificationText(body, NOTE_PREVIEW_MAX_CHARS);
+
+	if (note.links.length && note.attachments.length) return "Lien et pièce jointe à consulter";
+	if (note.links.length) return "Lien à consulter";
+	if (note.attachments.length > 1) return "Pièces jointes à consulter";
+	if (note.attachments.length === 1) return "Pièce jointe à consulter";
+
+	return "Note à consulter";
+}
+
+function normalizeNotificationText(value: string) {
+	return value.replace(/\s+/g, " ").trim();
+}
+
+function truncateNotificationText(value: string, maxChars: number) {
+	const clean = normalizeNotificationText(value);
+
+	if (clean.length <= maxChars) return clean;
+
+	return `${clean.slice(0, Math.max(0, maxChars - 1)).trimEnd()}…`;
+}
+
 function clampReminderOffset(value: unknown) {
 	const numeric = typeof value === "number" ? value : Number(value);
+
 	if (!Number.isFinite(numeric)) return 15;
+
 	return Math.min(14 * 24 * 60, Math.max(1, Math.trunc(numeric)));
 }
 
 function formatReminderOffset(offsetMinutes: number) {
 	if (offsetMinutes % 1440 === 0) return `${offsetMinutes / 1440} j`;
 	if (offsetMinutes % 60 === 0) return `${offsetMinutes / 60} h`;
+
 	return `${offsetMinutes} min`;
 }
 
@@ -287,5 +383,6 @@ function safePathPart(value: string) {
 
 function safeFileName(value: string) {
 	const cleaned = value.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_").trim();
+
 	return cleaned || "piece-jointe";
 }
