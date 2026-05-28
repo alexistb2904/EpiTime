@@ -475,7 +475,7 @@ export default function SettingsScreen() {
 				</View>
 				<View style={s.settingBody}>
 					<Text style={[s.settingTitle, { color: theme.text }]}>Mode debug notifications</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>Scénarios sensibles avec notifications programmées et progression fictive</Text>
+					<Text style={[s.meta, { color: theme.muted }]}>Jouer avec les notifications programmées et progression</Text>
 				</View>
 				<Switch
 					value={notificationDebugSettings.enabled}
