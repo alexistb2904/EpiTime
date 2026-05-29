@@ -5,6 +5,7 @@ import { NativeModules, Platform } from "react-native";
 import { ZeusEvent } from "../types";
 import { getEventTitle, getRoomName } from "../utils/calendar";
 import { publicConfig } from "./config";
+import { RoomChange } from "./eventsCache";
 import { getJSON, setJSON } from "./storage";
 
 export const COURSES_CHANNEL_ID = "courses";
@@ -12,6 +13,7 @@ const NOTIFICATION_SETTINGS_KEY = "notificationSettings";
 const NOTIFICATION_DEBUG_SETTINGS_KEY = "notificationDebugSettings";
 const SCHEDULED_COURSE_NOTIFICATION_IDS_KEY = "scheduledCourseNotificationIds";
 const SCHEDULED_DEBUG_NOTIFICATION_IDS_KEY = "scheduledDebugNotificationIds";
+const NOTIFIED_ROOM_CHANGES_KEY = "notifiedRoomChanges";
 const COURSE_NOTIFICATION_WINDOW_DAYS = 14;
 
 const LiveCourse = NativeModules.EpiTimeLiveCourse as
@@ -228,6 +230,42 @@ export async function scheduleLocalCourseNotifications(
 export async function clearLocalCourseNotifications() {
 	if (Platform.OS === "web") return;
 	await cancelScheduledCourseNotifications();
+}
+
+export async function notifyRoomChanges(changes: RoomChange[], notificationType: NotificationSettings["notificationType"] = "both") {
+	if (Platform.OS === "web" || !changes.length) return 0;
+
+	const granted = (await Notifications.getPermissionsAsync()).status === "granted";
+	if (!granted) return 0;
+	await ensureAndroidChannel();
+
+	const notified = await getJSON<string[]>(NOTIFIED_ROOM_CHANGES_KEY, []);
+	const notifiedSet = new Set(notified);
+	const freshChanges = changes.filter((change) => !notifiedSet.has(change.key)).slice(0, 4);
+	if (!freshChanges.length) return 0;
+
+	const sound = notificationType === "banner" ? undefined : "default";
+	for (const change of freshChanges) {
+		const start = new Date(change.startDate);
+		const time = Number.isNaN(start.getTime()) ? "" : ` à ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+		await Notifications.scheduleNotificationAsync({
+			content: {
+				title: "Salle modifiée",
+				body: `${change.title}${time} : ${change.oldRooms} -> ${change.newRooms}`,
+				data: { type: "room-change", startsAt: change.startDate },
+				sound,
+			},
+			trigger: {
+				type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+				seconds: 1,
+				...(Platform.OS === "android" ? { channelId: COURSES_CHANNEL_ID } : {}),
+			},
+		});
+		notifiedSet.add(change.key);
+	}
+
+	await setJSON<string[]>(NOTIFIED_ROOM_CHANGES_KEY, Array.from(notifiedSet).slice(-120));
+	return freshChanges.length;
 }
 
 export async function getScheduledNotifications(): Promise<ScheduledNotificationItem[]> {

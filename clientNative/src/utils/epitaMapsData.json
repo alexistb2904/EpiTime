@@ -1,0 +1,1773 @@
+{
+	"baseUrl": "https://maps.forge.epita.fr",
+	"campuses": {
+		"kb": {
+			"id": "kb",
+			"name": "Kremlin-Bicêtre",
+			"city": "Paris",
+			"address": "14-16 rue Voltaire, 94270 Le Kremlin-Bicêtre",
+			"available": true,
+			"url": "https://maps.forge.epita.fr/campus/kb",
+			"aliases": ["kb", "kremlin bicetre", "kremlin-bicetre", "le kremlin bicetre", "le kremlin-bicetre"],
+			"buildings": {
+				"voltaire": {
+					"id": "voltaire",
+					"name": "Voltaire (KB1)",
+					"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire",
+					"aliases": ["batiment voltaire", "kb 1", "kb1", "voltaire", "voltaire kb1"],
+					"floors": {
+						"f-1": {
+							"id": "f-1",
+							"name": "Floor -1",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1",
+							"aliases": ["-1", "basement", "basement 1", "e-1", "etage -1", "f-1", "floor -1", "niveau -1", "sous sol", "sous sol 1", "sous-sol", "sous-sol 1"],
+							"rooms": [
+								{
+									"id": "epimac",
+									"name": "EpiMac",
+									"type": "association"
+								},
+								{
+									"id": "latelier",
+									"name": "L'Atelier",
+									"type": "association"
+								},
+								{
+									"id": "prologin",
+									"name": "Prologin",
+									"type": "association"
+								},
+								{
+									"id": "cycom",
+									"name": "Cycom",
+									"type": "association"
+								},
+								{
+									"id": "ephemere",
+									"name": "Ephemere",
+									"type": "association"
+								},
+								{
+									"id": "evolutek",
+									"name": "Evolutek",
+									"type": "association"
+								},
+								{
+									"id": "heritage",
+									"name": "Heritage",
+									"type": "association"
+								}
+							]
+						},
+						"f0": {
+							"id": "f0",
+							"name": "Ground Floor",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0",
+							"aliases": ["0", "e0", "etage 0", "f0", "floor 0", "ground", "ground floor", "niveau 0", "rdc", "rez de chaussee", "rez-de-chaussee"],
+							"rooms": [
+								{
+									"id": "amphi0",
+									"name": "Amphi 0",
+									"type": "amphitheater"
+								},
+								{
+									"id": "amphi1",
+									"name": "Amphi 1",
+									"type": "amphitheater"
+								},
+								{
+									"id": "amphi2",
+									"name": "Amphi 2",
+									"type": "amphitheater"
+								},
+								{
+									"id": "amphi3",
+									"name": "Amphi 3",
+									"type": "amphitheater"
+								},
+								{
+									"id": "accueil",
+									"name": "Accueil",
+									"type": "other"
+								},
+								{
+									"id": "scolarite-cycle-ingenieur",
+									"name": "Scolarité du cycle ingénieur",
+									"type": "office"
+								},
+								{
+									"id": "christian-chabrerie-office",
+									"name": "Christian Chabrerie Office",
+									"type": "office"
+								}
+							]
+						},
+						"f1": {
+							"id": "f1",
+							"name": "Floor 1",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1",
+							"aliases": ["1", "1e", "1eme", "1er", "1ere", "e1", "etage 1", "f1", "first floor", "floor 1", "niveau 1", "premier"],
+							"rooms": [
+								{
+									"id": "cisco",
+									"name": "Cisco",
+									"type": "machineroom"
+								},
+								{
+									"id": "labmac",
+									"name": "Lab Mac",
+									"type": "machineroom"
+								},
+								{
+									"id": "labsr",
+									"name": "Lab SR",
+									"type": "machineroom"
+								},
+								{
+									"id": "midlab",
+									"name": "MidLab",
+									"type": "machineroom"
+								},
+								{
+									"id": "sm14",
+									"name": "SM14",
+									"type": "machineroom"
+								},
+								{
+									"id": "sm15",
+									"name": "SM15",
+									"type": "machineroom"
+								}
+							]
+						},
+						"f2": {
+							"id": "f2",
+							"name": "Floor 2",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2",
+							"aliases": ["2", "2e", "2eme", "deuxieme", "e2", "etage 2", "f2", "floor 2", "niveau 2", "second floor"],
+							"rooms": [
+								{
+									"id": "kb201",
+									"name": "KB201",
+									"type": "lab",
+									"description": "Labo MTI"
+								},
+								{
+									"id": "kb202",
+									"name": "KB202",
+									"type": "classroom"
+								},
+								{
+									"id": "kb203",
+									"name": "KB203",
+									"type": "classroom"
+								},
+								{
+									"id": "kb204",
+									"name": "KB204",
+									"type": "classroom"
+								},
+								{
+									"id": "forge",
+									"name": "Forge",
+									"type": "office"
+								},
+								{
+									"id": "lab-acu-yaka",
+									"name": "Lab ACU/YAKA",
+									"type": "office"
+								},
+								{
+									"id": "coord-ip-office",
+									"name": "Coordination Informatique Pratique",
+									"type": "office"
+								},
+								{
+									"id": "majeures-office",
+									"name": "Coordination Majeures et DF Mastères",
+									"type": "office"
+								},
+								{
+									"id": "direction-experience-etudiante",
+									"name": "Direction expérience étudiante",
+									"type": "office"
+								},
+								{
+									"id": "coaching-office",
+									"name": "Coaching Office",
+									"type": "office"
+								}
+							]
+						},
+						"f3": {
+							"id": "f3",
+							"name": "Floor 3",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f3",
+							"aliases": ["3", "3e", "3eme", "e3", "etage 3", "f3", "floor 3", "niveau 3", "third floor", "troisieme"],
+							"rooms": [
+								{
+									"id": "terrasse",
+									"name": "Terrasse",
+									"type": "other",
+									"description": "EpiRoof"
+								}
+							]
+						},
+						"f4": {
+							"id": "f4",
+							"name": "Floor 4",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f4",
+							"aliases": ["4", "4e", "4eme", "e4", "etage 4", "f4", "floor 4", "fourth floor", "niveau 4", "quatrieme"],
+							"rooms": [
+								{
+									"id": "kb401",
+									"name": "Amphi KB401",
+									"type": "amphitheater"
+								},
+								{
+									"id": "kb402",
+									"name": "KB402",
+									"type": "classroom"
+								},
+								{
+									"id": "kb403",
+									"name": "KB403",
+									"type": "classroom"
+								},
+								{
+									"id": "kb404",
+									"name": "KB404",
+									"type": "classroom"
+								}
+							]
+						},
+						"f5": {
+							"id": "f5",
+							"name": "Floor 5",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f5",
+							"aliases": ["5", "5e", "5eme", "cinquieme", "e5", "etage 5", "f5", "fifth floor", "floor 5", "niveau 5"],
+							"rooms": [
+								{
+									"id": "kb500a",
+									"name": "KB500A",
+									"type": "office"
+								},
+								{
+									"id": "kb500b",
+									"name": "KB500B",
+									"type": "office"
+								},
+								{
+									"id": "kb501a",
+									"name": "KB501A",
+									"type": "classroom"
+								},
+								{
+									"id": "kb501b",
+									"name": "KB501B",
+									"type": "classroom"
+								},
+								{
+									"id": "kb502a",
+									"name": "KB502A",
+									"type": "classroom"
+								},
+								{
+									"id": "kb502b",
+									"name": "KB502B",
+									"type": "classroom"
+								}
+							]
+						},
+						"f6": {
+							"id": "f6",
+							"name": "Floor 6",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6",
+							"aliases": ["6", "6e", "6eme", "e6", "etage 6", "f6", "floor 6", "niveau 6", "sixieme", "sixth floor"],
+							"rooms": [
+								{
+									"id": "kb601",
+									"name": "KB601",
+									"type": "classroom"
+								},
+								{
+									"id": "kb602",
+									"name": "KB602",
+									"type": "classroom"
+								},
+								{
+									"id": "kb603",
+									"name": "KB603",
+									"type": "classroom"
+								},
+								{
+									"id": "kb604",
+									"name": "KB604",
+									"type": "classroom"
+								},
+								{
+									"id": "kb605",
+									"name": "KB605",
+									"type": "classroom"
+								},
+								{
+									"id": "kb606",
+									"name": "KB606",
+									"type": "classroom"
+								},
+								{
+									"id": "kb607",
+									"name": "KB607",
+									"type": "classroom"
+								},
+								{
+									"id": "kb608",
+									"name": "KB608",
+									"type": "classroom"
+								},
+								{
+									"id": "international-programs",
+									"name": "International Programs Department",
+									"type": "office"
+								}
+							]
+						}
+					}
+				},
+				"pasteur": {
+					"id": "pasteur",
+					"name": "Pasteur (KB2/KB3)",
+					"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur",
+					"aliases": ["batiment pasteur", "kb 2", "kb 3", "kb2", "kb3", "pasteur", "pasteur kb2", "pasteur kb2 kb3", "pasteur kb3"],
+					"floors": {
+						"f-2": {
+							"id": "f-2",
+							"name": "Floor -2",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2",
+							"aliases": ["-2", "basement 2", "e-2", "etage -2", "f-2", "floor -2", "niveau -2", "sous sol 2", "sous-sol 2"],
+							"rooms": [
+								{
+									"id": "bde-epita",
+									"name": "BDE EPITA",
+									"type": "association"
+								},
+								{
+									"id": "bde-epitech",
+									"name": "BDE EPITECH",
+									"type": "association"
+								},
+								{
+									"id": "lateb",
+									"name": "LATEB",
+									"type": "association"
+								},
+								{
+									"id": "unisson",
+									"name": "Unisson",
+									"type": "association"
+								},
+								{
+									"id": "epitanime",
+									"name": "Epitanime",
+									"type": "association"
+								},
+								{
+									"id": "crescendo",
+									"name": "Crescendo",
+									"type": "association"
+								}
+							]
+						},
+						"f-1": {
+							"id": "f-1",
+							"name": "Floor -1",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-1",
+							"aliases": ["-1", "basement", "basement 1", "e-1", "etage -1", "f-1", "floor -1", "niveau -1", "sous sol", "sous sol 1", "sous-sol", "sous-sol 1"],
+							"rooms": [
+								{
+									"id": "creativfabriq1",
+									"name": "CREATIVE FABRIQ1",
+									"type": "lab",
+									"description": "Lab Majeures SRS GISTRE TCOM"
+								}
+							]
+						},
+						"f0": {
+							"id": "f0",
+							"name": "Ground Floor",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f0",
+							"aliases": ["0", "e0", "etage 0", "f0", "floor 0", "ground", "ground floor", "niveau 0", "rdc", "rez de chaussee", "rez-de-chaussee"],
+							"rooms": [
+								{
+									"id": "courpasteur",
+									"name": "Cour Pasteur",
+									"type": "other",
+									"description": ""
+								}
+							]
+						},
+						"f1": {
+							"id": "f1",
+							"name": "Floor 1",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f1",
+							"aliases": ["1", "1e", "1eme", "1er", "1ere", "e1", "etage 1", "f1", "first floor", "floor 1", "niveau 1", "premier"],
+							"rooms": [
+								{
+									"id": "kb301",
+									"name": "KB301",
+									"type": "classroom"
+								},
+								{
+									"id": "kb302",
+									"name": "KB302",
+									"type": "classroom"
+								},
+								{
+									"id": "frederic-touzanne-office",
+									"name": "Frederic Touzanne Office",
+									"type": "office"
+								}
+							]
+						},
+						"f2": {
+							"id": "f2",
+							"name": "Floor 2",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f2",
+							"aliases": ["2", "2e", "2eme", "deuxieme", "e2", "etage 2", "f2", "floor 2", "niveau 2", "second floor"],
+							"rooms": [
+								{
+									"id": "kb303",
+									"name": "KB303",
+									"type": "classroom"
+								},
+								{
+									"id": "kb304",
+									"name": "KB304",
+									"type": "classroom"
+								},
+								{
+									"id": "kb305",
+									"name": "KB305",
+									"type": "classroom"
+								}
+							]
+						}
+					}
+				},
+				"paritalie": {
+					"id": "paritalie",
+					"name": "Paritalie (KB4)",
+					"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie",
+					"aliases": ["batiment paritalie", "kb 4", "kb4", "paritalie", "paritalie kb4", "partialie"],
+					"floors": {
+						"f0": {
+							"id": "f0",
+							"name": "Ground Floor",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f0",
+							"aliases": ["0", "e0", "etage 0", "f0", "floor 0", "ground", "ground floor", "niveau 0", "rdc", "rez de chaussee", "rez-de-chaussee"],
+							"rooms": []
+						},
+						"f1": {
+							"id": "f1",
+							"name": "Floor 1",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f1",
+							"aliases": ["1", "1e", "1eme", "1er", "1ere", "e1", "etage 1", "f1", "first floor", "floor 1", "niveau 1", "premier"],
+							"rooms": []
+						},
+						"f2": {
+							"id": "f2",
+							"name": "Floor 2",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f2",
+							"aliases": ["2", "2e", "2eme", "deuxieme", "e2", "etage 2", "f2", "floor 2", "niveau 2", "second floor"],
+							"rooms": [
+								{
+									"id": "resources-humaines",
+									"name": "Resources Humaines",
+									"type": "office"
+								},
+								{
+									"id": "developpement-marketing",
+									"name": "Développement Marketing",
+									"type": "office"
+								},
+								{
+									"id": "direction-communication",
+									"name": "Direction de la communication",
+									"type": "office"
+								}
+							]
+						},
+						"f3": {
+							"id": "f3",
+							"name": "Floor 3",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3",
+							"aliases": ["3", "3e", "3eme", "e3", "etage 3", "f3", "floor 3", "niveau 3", "third floor", "troisieme"],
+							"rooms": [
+								{
+									"id": "apprentissage1",
+									"name": "Apprentissage 1",
+									"type": "classroom"
+								},
+								{
+									"id": "apprentissage2",
+									"name": "Apprentissage 2",
+									"type": "classroom"
+								},
+								{
+									"id": "apprentissage3",
+									"name": "Apprentissage 3",
+									"type": "classroom"
+								},
+								{
+									"id": "direction-generale",
+									"name": "Direction Générale",
+									"type": "office"
+								},
+								{
+									"id": "direction-sites-paris",
+									"name": "Direction des sites de Paris et direction adjointe",
+									"type": "office"
+								},
+								{
+									"id": "relations-internationales",
+									"name": "Relations Internationales",
+									"type": "office"
+								},
+								{
+									"id": "direction-relations-entreprise",
+									"name": "Direction des relations entreprise",
+									"type": "office"
+								},
+								{
+									"id": "lre",
+									"name": "LRE (Laboratoires de Recherche de l'EPITA)",
+									"type": "office"
+								},
+								{
+									"id": "ofa-scolarite",
+									"name": "OFA Scolarité",
+									"type": "office"
+								},
+								{
+									"id": "direction-ofa",
+									"name": "Direction de l'OFA",
+									"type": "office"
+								}
+							]
+						},
+						"f4": {
+							"id": "f4",
+							"name": "Floor 4",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f4",
+							"aliases": ["4", "4e", "4eme", "e4", "etage 4", "f4", "floor 4", "fourth floor", "niveau 4", "quatrieme"],
+							"rooms": []
+						},
+						"f5": {
+							"id": "f5",
+							"name": "Floor 5",
+							"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f5",
+							"aliases": ["5", "5e", "5eme", "cinquieme", "e5", "etage 5", "f5", "fifth floor", "floor 5", "niveau 5"],
+							"rooms": [
+								{
+									"id": "teachinglab",
+									"name": "TeachingLab",
+									"type": "office"
+								},
+								{
+									"id": "direction-formation-pedagogie",
+									"name": "Direction de Formation et Pédagogie",
+									"type": "office"
+								}
+							]
+						}
+					}
+				}
+			}
+		},
+		"vj": {
+			"id": "vj",
+			"name": "Villejuif",
+			"city": "Paris",
+			"address": "66 Rue Guy Môquet, 94800 Villejuif",
+			"available": true,
+			"url": "https://maps.forge.epita.fr/campus/vj",
+			"aliases": ["villejuif", "vj"],
+			"buildings": {
+				"va": {
+					"id": "va",
+					"name": "VA Building",
+					"url": "https://maps.forge.epita.fr/campus/vj/building/va",
+					"aliases": ["batiment va", "va", "va building", "villejuif va", "vj va"],
+					"floors": {
+						"f0": {
+							"id": "f0",
+							"name": "Ground Floor",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/va/floor/f0",
+							"aliases": ["0", "e0", "etage 0", "f0", "floor 0", "ground", "ground floor", "niveau 0", "rdc", "rez de chaussee", "rez-de-chaussee"],
+							"rooms": []
+						},
+						"f1": {
+							"id": "f1",
+							"name": "Floor 1",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/va/floor/f1",
+							"aliases": ["1", "1e", "1eme", "1er", "1ere", "e1", "etage 1", "f1", "first floor", "floor 1", "niveau 1", "premier"],
+							"rooms": []
+						},
+						"f2": {
+							"id": "f2",
+							"name": "Floor 2",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/va/floor/f2",
+							"aliases": ["2", "2e", "2eme", "deuxieme", "e2", "etage 2", "f2", "floor 2", "niveau 2", "second floor"],
+							"rooms": []
+						},
+						"f3": {
+							"id": "f3",
+							"name": "Floor 3",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/va/floor/f3",
+							"aliases": ["3", "3e", "3eme", "e3", "etage 3", "f3", "floor 3", "niveau 3", "third floor", "troisieme"],
+							"rooms": []
+						}
+					}
+				},
+				"vc": {
+					"id": "vc",
+					"name": "VC Building",
+					"url": "https://maps.forge.epita.fr/campus/vj/building/vc",
+					"aliases": ["batiment vc", "vc", "vc building", "villejuif vc", "vj vc"],
+					"floors": {
+						"f0b": {
+							"id": "f0b",
+							"name": "Ground Floor - Lower",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/vc/floor/f0b",
+							"aliases": ["0b", "f0b", "ground floor - lower", "ground floor lower", "ground lower", "lower", "rdc bas", "rdc inferieur"],
+							"rooms": []
+						},
+						"f0h": {
+							"id": "f0h",
+							"name": "Ground Floor - Upper",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/vc/floor/f0h",
+							"aliases": ["0h", "f0h", "ground floor - upper", "ground floor upper", "ground upper", "rdc haut", "rdc superieur", "upper"],
+							"rooms": []
+						},
+						"f1": {
+							"id": "f1",
+							"name": "Floor 1",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/vc/floor/f1",
+							"aliases": ["1", "1e", "1eme", "1er", "1ere", "e1", "etage 1", "f1", "first floor", "floor 1", "niveau 1", "premier"],
+							"rooms": []
+						},
+						"f2": {
+							"id": "f2",
+							"name": "Floor 2",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/vc/floor/f2",
+							"aliases": ["2", "2e", "2eme", "deuxieme", "e2", "etage 2", "f2", "floor 2", "niveau 2", "second floor"],
+							"rooms": []
+						},
+						"f3": {
+							"id": "f3",
+							"name": "Floor 3",
+							"url": "https://maps.forge.epita.fr/campus/vj/building/vc/floor/f3",
+							"aliases": ["3", "3e", "3eme", "e3", "etage 3", "f3", "floor 3", "niveau 3", "third floor", "troisieme"],
+							"rooms": []
+						}
+					}
+				}
+			}
+		},
+		"rns-ber": {
+			"id": "rns-ber",
+			"name": "Rennes Jean-Louis Bertrand",
+			"city": "Rennes",
+			"address": "12 Rue Jean-Louis Bertrand, 35000 Rennes",
+			"available": false,
+			"url": "https://maps.forge.epita.fr/campus/rns-ber",
+			"aliases": ["rennes jean-louis bertrand", "rns-ber"],
+			"buildings": {}
+		},
+		"stg-hir": {
+			"id": "stg-hir",
+			"name": "Strasbourg Hirn",
+			"city": "Strasbourg",
+			"address": "5 Rue Gustave Adolphe Hirn, 67000 Strasbourg",
+			"available": false,
+			"url": "https://maps.forge.epita.fr/campus/stg-hir",
+			"aliases": ["stg-hir", "strasbourg hirn"],
+			"buildings": {}
+		},
+		"lyn-vai": {
+			"id": "lyn-vai",
+			"name": "Lyon Vaise",
+			"city": "Lyon",
+			"address": "16 rue Jean-Marie Leclair, 69009 Lyon",
+			"available": false,
+			"url": "https://maps.forge.epita.fr/campus/lyn-vai",
+			"aliases": ["lyn-vai", "lyon vaise"],
+			"buildings": {}
+		},
+		"tls-grb": {
+			"id": "tls-grb",
+			"name": "Toulouse Grande Bretagne",
+			"city": "Toulouse",
+			"address": "81 Avenue de Grande Bretagne, 31300 Toulouse",
+			"available": false,
+			"url": "https://maps.forge.epita.fr/campus/tls-grb",
+			"aliases": ["tls-grb", "toulouse grande bretagne"],
+			"buildings": {}
+		}
+	},
+	"roomIndex": {
+		"accueil": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "accueil",
+			"name": "Accueil",
+			"type": "other",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"amphi 0": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "amphi0",
+			"name": "Amphi 0",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"amphi 1": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "amphi1",
+			"name": "Amphi 1",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"amphi 2": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "amphi2",
+			"name": "Amphi 2",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"amphi 3": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "amphi3",
+			"name": "Amphi 3",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"amphi kb401": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f4",
+			"roomId": "kb401",
+			"name": "Amphi KB401",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f4"
+		},
+		"amphi0": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "amphi0",
+			"name": "Amphi 0",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"amphi1": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "amphi1",
+			"name": "Amphi 1",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"amphi2": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "amphi2",
+			"name": "Amphi 2",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"amphi3": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "amphi3",
+			"name": "Amphi 3",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"apprentissage 1": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "apprentissage1",
+			"name": "Apprentissage 1",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"apprentissage 2": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "apprentissage2",
+			"name": "Apprentissage 2",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"apprentissage 3": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "apprentissage3",
+			"name": "Apprentissage 3",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"apprentissage1": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "apprentissage1",
+			"name": "Apprentissage 1",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"apprentissage2": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "apprentissage2",
+			"name": "Apprentissage 2",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"apprentissage3": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "apprentissage3",
+			"name": "Apprentissage 3",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"bde epita": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-2",
+			"roomId": "bde-epita",
+			"name": "BDE EPITA",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2"
+		},
+		"bde epitech": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-2",
+			"roomId": "bde-epitech",
+			"name": "BDE EPITECH",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2"
+		},
+		"bde-epita": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-2",
+			"roomId": "bde-epita",
+			"name": "BDE EPITA",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2"
+		},
+		"bde-epitech": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-2",
+			"roomId": "bde-epitech",
+			"name": "BDE EPITECH",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2"
+		},
+		"christian chabrerie office": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "christian-chabrerie-office",
+			"name": "Christian Chabrerie Office",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"christian-chabrerie-office": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "christian-chabrerie-office",
+			"name": "Christian Chabrerie Office",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"cisco": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f1",
+			"roomId": "cisco",
+			"name": "Cisco",
+			"type": "machineroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1"
+		},
+		"coaching office": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "coaching-office",
+			"name": "Coaching Office",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"coaching-office": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "coaching-office",
+			"name": "Coaching Office",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"coord-ip-office": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "coord-ip-office",
+			"name": "Coordination Informatique Pratique",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"coordination informatique pratique": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "coord-ip-office",
+			"name": "Coordination Informatique Pratique",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"coordination majeures et df masteres": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "majeures-office",
+			"name": "Coordination Majeures et DF Mastères",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"cour pasteur": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f0",
+			"roomId": "courpasteur",
+			"name": "Cour Pasteur",
+			"type": "other",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f0"
+		},
+		"courpasteur": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f0",
+			"roomId": "courpasteur",
+			"name": "Cour Pasteur",
+			"type": "other",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f0"
+		},
+		"creative fabriq1": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-1",
+			"roomId": "creativfabriq1",
+			"name": "CREATIVE FABRIQ1",
+			"type": "lab",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-1"
+		},
+		"creativfabriq1": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-1",
+			"roomId": "creativfabriq1",
+			"name": "CREATIVE FABRIQ1",
+			"type": "lab",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-1"
+		},
+		"crescendo": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-2",
+			"roomId": "crescendo",
+			"name": "Crescendo",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2"
+		},
+		"cycom": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f-1",
+			"roomId": "cycom",
+			"name": "Cycom",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1"
+		},
+		"developpement marketing": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f2",
+			"roomId": "developpement-marketing",
+			"name": "Développement Marketing",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f2"
+		},
+		"developpement-marketing": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f2",
+			"roomId": "developpement-marketing",
+			"name": "Développement Marketing",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f2"
+		},
+		"direction de formation et pedagogie": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f5",
+			"roomId": "direction-formation-pedagogie",
+			"name": "Direction de Formation et Pédagogie",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f5"
+		},
+		"direction de l ofa": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "direction-ofa",
+			"name": "Direction de l'OFA",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"direction de la communication": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f2",
+			"roomId": "direction-communication",
+			"name": "Direction de la communication",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f2"
+		},
+		"direction des relations entreprise": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "direction-relations-entreprise",
+			"name": "Direction des relations entreprise",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"direction des sites de paris et direction adjointe": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "direction-sites-paris",
+			"name": "Direction des sites de Paris et direction adjointe",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"direction experience etudiante": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "direction-experience-etudiante",
+			"name": "Direction expérience étudiante",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"direction generale": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "direction-generale",
+			"name": "Direction Générale",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"direction-communication": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f2",
+			"roomId": "direction-communication",
+			"name": "Direction de la communication",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f2"
+		},
+		"direction-experience-etudiante": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "direction-experience-etudiante",
+			"name": "Direction expérience étudiante",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"direction-formation-pedagogie": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f5",
+			"roomId": "direction-formation-pedagogie",
+			"name": "Direction de Formation et Pédagogie",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f5"
+		},
+		"direction-generale": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "direction-generale",
+			"name": "Direction Générale",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"direction-ofa": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "direction-ofa",
+			"name": "Direction de l'OFA",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"direction-relations-entreprise": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "direction-relations-entreprise",
+			"name": "Direction des relations entreprise",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"direction-sites-paris": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "direction-sites-paris",
+			"name": "Direction des sites de Paris et direction adjointe",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"ephemere": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f-1",
+			"roomId": "ephemere",
+			"name": "Ephemere",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1"
+		},
+		"epimac": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f-1",
+			"roomId": "epimac",
+			"name": "EpiMac",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1"
+		},
+		"epiroof": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f3",
+			"roomId": "terrasse",
+			"name": "Terrasse",
+			"type": "other",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f3"
+		},
+		"epitanime": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-2",
+			"roomId": "epitanime",
+			"name": "Epitanime",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2"
+		},
+		"evolutek": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f-1",
+			"roomId": "evolutek",
+			"name": "Evolutek",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1"
+		},
+		"forge": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "forge",
+			"name": "Forge",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"frederic touzanne office": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f1",
+			"roomId": "frederic-touzanne-office",
+			"name": "Frederic Touzanne Office",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f1"
+		},
+		"frederic-touzanne-office": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f1",
+			"roomId": "frederic-touzanne-office",
+			"name": "Frederic Touzanne Office",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f1"
+		},
+		"heritage": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f-1",
+			"roomId": "heritage",
+			"name": "Heritage",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1"
+		},
+		"international programs department": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "international-programs",
+			"name": "International Programs Department",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"international-programs": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "international-programs",
+			"name": "International Programs Department",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"kb201": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "kb201",
+			"name": "KB201",
+			"type": "lab",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"kb202": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "kb202",
+			"name": "KB202",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"kb203": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "kb203",
+			"name": "KB203",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"kb204": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "kb204",
+			"name": "KB204",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"kb301": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f1",
+			"roomId": "kb301",
+			"name": "KB301",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f1"
+		},
+		"kb302": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f1",
+			"roomId": "kb302",
+			"name": "KB302",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f1"
+		},
+		"kb303": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f2",
+			"roomId": "kb303",
+			"name": "KB303",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f2"
+		},
+		"kb304": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f2",
+			"roomId": "kb304",
+			"name": "KB304",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f2"
+		},
+		"kb305": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f2",
+			"roomId": "kb305",
+			"name": "KB305",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f2"
+		},
+		"kb401": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f4",
+			"roomId": "kb401",
+			"name": "Amphi KB401",
+			"type": "amphitheater",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f4"
+		},
+		"kb402": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f4",
+			"roomId": "kb402",
+			"name": "KB402",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f4"
+		},
+		"kb403": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f4",
+			"roomId": "kb403",
+			"name": "KB403",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f4"
+		},
+		"kb404": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f4",
+			"roomId": "kb404",
+			"name": "KB404",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f4"
+		},
+		"kb500a": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f5",
+			"roomId": "kb500a",
+			"name": "KB500A",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f5"
+		},
+		"kb500b": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f5",
+			"roomId": "kb500b",
+			"name": "KB500B",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f5"
+		},
+		"kb501a": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f5",
+			"roomId": "kb501a",
+			"name": "KB501A",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f5"
+		},
+		"kb501b": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f5",
+			"roomId": "kb501b",
+			"name": "KB501B",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f5"
+		},
+		"kb502a": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f5",
+			"roomId": "kb502a",
+			"name": "KB502A",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f5"
+		},
+		"kb502b": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f5",
+			"roomId": "kb502b",
+			"name": "KB502B",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f5"
+		},
+		"kb601": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "kb601",
+			"name": "KB601",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"kb602": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "kb602",
+			"name": "KB602",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"kb603": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "kb603",
+			"name": "KB603",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"kb604": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "kb604",
+			"name": "KB604",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"kb605": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "kb605",
+			"name": "KB605",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"kb606": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "kb606",
+			"name": "KB606",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"kb607": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "kb607",
+			"name": "KB607",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"kb608": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f6",
+			"roomId": "kb608",
+			"name": "KB608",
+			"type": "classroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f6"
+		},
+		"l atelier": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f-1",
+			"roomId": "latelier",
+			"name": "L'Atelier",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1"
+		},
+		"lab acu yaka": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "lab-acu-yaka",
+			"name": "Lab ACU/YAKA",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"lab mac": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f1",
+			"roomId": "labmac",
+			"name": "Lab Mac",
+			"type": "machineroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1"
+		},
+		"lab majeures srs gistre tcom": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-1",
+			"roomId": "creativfabriq1",
+			"name": "CREATIVE FABRIQ1",
+			"type": "lab",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-1"
+		},
+		"lab sr": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f1",
+			"roomId": "labsr",
+			"name": "Lab SR",
+			"type": "machineroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1"
+		},
+		"lab-acu-yaka": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "lab-acu-yaka",
+			"name": "Lab ACU/YAKA",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"labmac": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f1",
+			"roomId": "labmac",
+			"name": "Lab Mac",
+			"type": "machineroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1"
+		},
+		"labo mti": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "kb201",
+			"name": "KB201",
+			"type": "lab",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"labsr": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f1",
+			"roomId": "labsr",
+			"name": "Lab SR",
+			"type": "machineroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1"
+		},
+		"lateb": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-2",
+			"roomId": "lateb",
+			"name": "LATEB",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2"
+		},
+		"latelier": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f-1",
+			"roomId": "latelier",
+			"name": "L'Atelier",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1"
+		},
+		"lre": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "lre",
+			"name": "LRE (Laboratoires de Recherche de l'EPITA)",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"lre laboratoires de recherche de l epita": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "lre",
+			"name": "LRE (Laboratoires de Recherche de l'EPITA)",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"majeures-office": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f2",
+			"roomId": "majeures-office",
+			"name": "Coordination Majeures et DF Mastères",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f2"
+		},
+		"midlab": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f1",
+			"roomId": "midlab",
+			"name": "MidLab",
+			"type": "machineroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1"
+		},
+		"ofa scolarite": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "ofa-scolarite",
+			"name": "OFA Scolarité",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"ofa-scolarite": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "ofa-scolarite",
+			"name": "OFA Scolarité",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"prologin": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f-1",
+			"roomId": "prologin",
+			"name": "Prologin",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f-1"
+		},
+		"relations internationales": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "relations-internationales",
+			"name": "Relations Internationales",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"relations-internationales": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f3",
+			"roomId": "relations-internationales",
+			"name": "Relations Internationales",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f3"
+		},
+		"resources humaines": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f2",
+			"roomId": "resources-humaines",
+			"name": "Resources Humaines",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f2"
+		},
+		"resources-humaines": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f2",
+			"roomId": "resources-humaines",
+			"name": "Resources Humaines",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f2"
+		},
+		"scolarite du cycle ingenieur": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "scolarite-cycle-ingenieur",
+			"name": "Scolarité du cycle ingénieur",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"scolarite-cycle-ingenieur": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f0",
+			"roomId": "scolarite-cycle-ingenieur",
+			"name": "Scolarité du cycle ingénieur",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f0"
+		},
+		"sm14": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f1",
+			"roomId": "sm14",
+			"name": "SM14",
+			"type": "machineroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1"
+		},
+		"sm15": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f1",
+			"roomId": "sm15",
+			"name": "SM15",
+			"type": "machineroom",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f1"
+		},
+		"teachinglab": {
+			"campusId": "kb",
+			"buildingId": "paritalie",
+			"floorId": "f5",
+			"roomId": "teachinglab",
+			"name": "TeachingLab",
+			"type": "office",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/paritalie/floor/f5"
+		},
+		"terrasse": {
+			"campusId": "kb",
+			"buildingId": "voltaire",
+			"floorId": "f3",
+			"roomId": "terrasse",
+			"name": "Terrasse",
+			"type": "other",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/voltaire/floor/f3"
+		},
+		"unisson": {
+			"campusId": "kb",
+			"buildingId": "pasteur",
+			"floorId": "f-2",
+			"roomId": "unisson",
+			"name": "Unisson",
+			"type": "association",
+			"url": "https://maps.forge.epita.fr/campus/kb/building/pasteur/floor/f-2"
+		}
+	}
+}

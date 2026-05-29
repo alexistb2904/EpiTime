@@ -3,8 +3,9 @@ import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 import { getEvents } from "./api";
 import { rescheduleCourseNoteReminders } from "./courseNotes";
+import { findRoomChanges } from "./eventsCache";
 import { mergeEventsWithLocal, reconcileEventsWithCache, isEventCancelled } from "./localEvents";
-import { getNotificationSettings, scheduleLocalCourseNotifications } from "./notifications";
+import { getNotificationSettings, notifyRoomChanges, scheduleLocalCourseNotifications } from "./notifications";
 import { getJSON, getSession, setJSON } from "./storage";
 import { syncCourseWidgets } from "./widgets";
 import { ZeusEvent } from "../types";
@@ -26,6 +27,7 @@ async function syncPlanningNotificationsInBackground() {
 	const cachedEvents = await getJSON<ZeusEvent[] | null>("lastEvents", null);
 	const freshEvents = await getEvents(start, end, { groups: selectedGroups });
 	const reconciledEvents = reconcileEventsWithCache(Array.isArray(freshEvents) ? freshEvents : [], cachedEvents);
+	const roomChanges = findRoomChanges(cachedEvents, reconciledEvents);
 
 	await setJSON("lastEvents", reconciledEvents);
 	await syncCourseWidgets(reconciledEvents);
@@ -39,6 +41,7 @@ async function syncPlanningNotificationsInBackground() {
 			notificationSettings.notificationType,
 			{ requestPermission: false, windowDays: BACKGROUND_NOTIFICATION_WINDOW_DAYS }
 		);
+		if (roomChanges.length) await notifyRoomChanges(roomChanges, notificationSettings.notificationType);
 	}
 	await setJSON(LAST_BACKGROUND_SYNC_KEY, new Date().toISOString());
 
@@ -59,11 +62,7 @@ if (!TaskManager.isTaskDefined(PLANNING_NOTIFICATION_SYNC_TASK)) {
 export async function registerPlanningNotificationBackgroundSync() {
 	if (Platform.OS === "web") return false;
 
-	const [session, selectedGroups, status] = await Promise.all([
-		getSession(),
-		getJSON<(string | number)[]>("selectedGroups", []),
-		BackgroundTask.getStatusAsync(),
-	]);
+	const [session, selectedGroups, status] = await Promise.all([getSession(), getJSON<(string | number)[]>("selectedGroups", []), BackgroundTask.getStatusAsync()]);
 
 	if (!session?.zeusToken || !selectedGroups.length || status !== BackgroundTask.BackgroundTaskStatus.Available) {
 		await unregisterPlanningNotificationBackgroundSync();

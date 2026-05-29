@@ -4,6 +4,7 @@ import { LocationNode, Room, RoomType } from "../types";
 import { publicConfig } from "./config";
 
 const API_BASE = (publicConfig.apiBase || "").replace(/\/$/, "");
+const REQUEST_TIMEOUT_MS = 15_000;
 
 async function request<T>(path: string, init: RequestInit = {}) {
 	if (!API_BASE && Platform.OS !== "web") throw new Error("EXPO_PUBLIC_API_BASE manquant");
@@ -11,7 +12,23 @@ async function request<T>(path: string, init: RequestInit = {}) {
 	const headers = new Headers(init.headers);
 	headers.set("Content-Type", headers.get("Content-Type") || "application/json");
 	if (session?.zeusToken) headers.set("Authorization", `Bearer ${session.zeusToken}`);
-	const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+	let res: Response;
+	try {
+		res = await fetch(`${API_BASE}${path}`, {
+			...init,
+			headers,
+			signal: init.signal || controller.signal,
+		});
+	} catch (err: any) {
+		if (err?.name === "AbortError") throw new Error("Requête expirée");
+		throw err;
+	} finally {
+		clearTimeout(timeout);
+	}
+
 	const text = await res.text();
 	let data: any = null;
 	try {
@@ -61,14 +78,7 @@ export async function getRoomTypes() {
 export async function getLocations() {
 	return request<LocationNode[]>("/api/locations");
 }
-export async function getAvailableRooms(payload: {
-	startDate: string;
-	endDate: string;
-	groups?: number[];
-	location?: number;
-	roomType?: number;
-	capacity?: number;
-}) {
+export async function getAvailableRooms(payload: { startDate: string; endDate: string; groups?: number[]; location?: number; roomType?: number; capacity?: number }) {
 	return request<Room[]>("/api/rooms/available", { method: "POST", body: JSON.stringify(payload) });
 }
 export async function getUniqueUsers() {

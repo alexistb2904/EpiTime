@@ -103,29 +103,6 @@ export function formatDateRange(event: ZeusEvent) {
 	})} au ${end.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} ${end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-export function getRoomMapUrl(roomName = "") {
-	const baseUrl = "https://maps.forge.epita.fr";
-	const normalized = roomName.toLowerCase();
-	const upper = roomName.toUpperCase();
-
-	if (normalized.includes("paritalie") || normalized.includes("partialie")) {
-		let floor = "f0";
-		if (normalized.includes("1er")) floor = "f1";
-		else if (normalized.includes("2ème") || normalized.includes("2eme")) floor = "f2";
-		else if (normalized.includes("3ème") || normalized.includes("3eme")) floor = "f3";
-		else if (normalized.includes("4ème") || normalized.includes("4eme")) floor = "f4";
-		else if (normalized.includes("5ème") || normalized.includes("5eme")) floor = "f5";
-		return `${baseUrl}/campus/kb/building/paritalie/floor/${floor}`;
-	}
-	if (normalized.includes("pasteur")) return `${baseUrl}/campus/kb/building/pasteur`;
-	if (upper.includes("KB")) {
-		const kbMatch = upper.match(/KB\s*([0-6])/);
-		if (kbMatch) return `${baseUrl}/campus/kb/building/voltaire/floor/f${kbMatch[1]}`;
-		return `${baseUrl}/campus/kb/building/voltaire`;
-	}
-	return baseUrl;
-}
-
 export function openUrl(url?: string) {
 	if (!url) return;
 	Linking.openURL(url).catch(() => {});

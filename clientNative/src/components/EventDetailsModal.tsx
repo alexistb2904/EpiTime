@@ -4,7 +4,8 @@ import { CalendarDays, ExternalLink, Filter, MapPin, Trash2, Users, X } from "lu
 import { useTheme } from "../context/ThemeContext";
 import { isEventCancelled, isManualEvent } from "../services/localEvents";
 import { ZeusEvent } from "../types";
-import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, getRoomMapUrl, getRoomName, getTeacherName, hexToRgba, openUrl } from "../utils/calendar";
+import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba, openUrl } from "../utils/calendar";
+import { getRoomMapUrl } from "../utils/rooms";
 import CourseNotesSection from "./CourseNotesSection";
 
 type EventDetailsModalProps = {

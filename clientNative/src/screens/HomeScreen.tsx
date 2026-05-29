@@ -1,16 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
 import { BellRing, CalendarClock, CalendarDays, CheckCircle2, ChevronRight, Clock3, GraduationCap, MapPin, Plus, RefreshCw, BellElectric, WifiOff, X } from "lucide-react-native";
 import DatePickerModal from "../components/DatePickerModal";
 import { useTheme } from "../context/ThemeContext";
+import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { getEvents, getGroups } from "../services/api";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { addManualEvent, isEventCancelled, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
 import { syncLiveCourseNotification } from "../services/liveCourse";
-import { getNotificationSettings, scheduleLocalCourseNotifications } from "../services/notifications";
+import { getNotificationSettings, notifyRoomChanges, scheduleLocalCourseNotifications } from "../services/notifications";
 import { getJSON, setJSON } from "../services/storage";
+import { buildEventsCacheKey, eventsDiffer, findRoomChanges, readEventsCache, RoomChange, writeEventsCache } from "../services/eventsCache";
+import { getNetworkState, isNetworkOnline } from "../services/networkStatus";
 import { syncCourseWidgets } from "../services/widgets";
 import { Group, ZeusEvent } from "../types";
 import { formatDateRange, getEventTitle, getRoomName, startOfDay, getCourseColor } from "../utils/calendar";
@@ -121,12 +124,14 @@ const greetingFor = (date: Date) => {
 
 export default function HomeScreen() {
 	const { theme } = useTheme();
+	const { isOffline, isOnline } = useNetworkStatus();
 	const navigation = useNavigation<any>();
 	const [events, setEvents] = useState<ZeusEvent[]>([]);
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [selectedGroups, setSelectedGroups] = useState<(string | number)[]>([]);
 	const [refreshing, setRefreshing] = useState(false);
 	const [usingCache, setUsingCache] = useState(false);
+	const [roomChanges, setRoomChanges] = useState<RoomChange[]>([]);
 	const [homeTab, setHomeTab] = useState<HomeTab>("today");
 	const [showManualEvent, setShowManualEvent] = useState(false);
 	const [manualTitle, setManualTitle] = useState("");
@@ -136,36 +141,82 @@ export default function HomeScreen() {
 	const [manualRoom, setManualRoom] = useState("");
 	const [savingManual, setSavingManual] = useState(false);
 	const [nowMs, setNowMs] = useState(Date.now());
+	const refreshingRef = useRef(false);
 
 	const refresh = useCallback(async () => {
+		if (refreshingRef.current) return;
+		refreshingRef.current = true;
 		setRefreshing(true);
 		const start = startOfDay(new Date());
 		const end = new Date(start);
 		end.setDate(end.getDate() + 30);
+		let ids: (string | number)[] = [];
+		let cacheKey = "";
+		let cachedEvents: ZeusEvent[] = [];
 		try {
-			const ids = await getJSON<(string | number)[]>("selectedGroups", []);
+			ids = await getJSON<(string | number)[]>("selectedGroups", []);
 			setSelectedGroups(ids);
-			const allGroups = await getGroups();
-			setGroups(allGroups);
-			await setJSON("lastGroups", allGroups);
+
+			const cachedGroups = await getJSON<Group[]>("lastGroups", []);
+			if (cachedGroups.length) setGroups(cachedGroups);
+
+			try {
+				const allGroups = await getGroups();
+				setGroups(allGroups);
+				await setJSON("lastGroups", allGroups);
+			} catch {
+				if (!cachedGroups.length) setGroups([]);
+			}
+
 			if (ids.length > 0) {
-				const data = await getEvents(start, end, ids);
-				const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
+				const query = { groups: ids };
+				cacheKey = buildEventsCacheKey(start, end, query);
+				cachedEvents = await readEventsCache(cacheKey, false);
+
+				if (cachedEvents.length) {
+					const cachedVisibleEvents = await mergeEventsWithLocal(cachedEvents, start, end);
+					setEvents(cachedVisibleEvents);
+					await syncCourseWidgets(cachedVisibleEvents);
+					await rescheduleCourseNoteReminders(cachedVisibleEvents);
+				}
+
+				const networkState = await getNetworkState();
+				if (!isNetworkOnline(networkState)) {
+					const offlineEvents = cachedEvents.length ? cachedEvents : await readEventsCache(cacheKey, true);
+					const mergedEvents = await mergeEventsWithLocal(offlineEvents, start, end);
+					setEvents(mergedEvents);
+					await syncCourseWidgets(mergedEvents);
+					await rescheduleCourseNoteReminders(mergedEvents);
+					setUsingCache(true);
+					return;
+				}
+
+				const data = await getEvents(start, end, query);
 				const safeData = Array.isArray(data) ? data : [];
 				const reconciledEvents = reconcileEventsWithCache(safeData, cachedEvents);
 				const mergedEvents = await mergeEventsWithLocal(reconciledEvents, start, end);
-				setEvents(mergedEvents);
-				await setJSON("lastEvents", reconciledEvents);
+				const hasChanges = eventsDiffer(reconciledEvents, cachedEvents);
+				const detectedRoomChanges = findRoomChanges(cachedEvents, reconciledEvents);
+
+				if (hasChanges || !cachedEvents.length) setEvents(mergedEvents);
+				if (hasChanges || !cachedEvents.length) await writeEventsCache(cacheKey, reconciledEvents);
+
 				await syncCourseWidgets(mergedEvents);
 				await rescheduleCourseNoteReminders(mergedEvents);
-				const notificationSettings = await getNotificationSettings();
-				if (notificationSettings.enabled) {
-					await scheduleLocalCourseNotifications(
-						mergedEvents.filter((event) => !isEventCancelled(event)),
-						notificationSettings.minutesBefore,
-						notificationSettings.selectedDays,
-						notificationSettings.notificationType
-					);
+				if (hasChanges || !cachedEvents.length) {
+					const notificationSettings = await getNotificationSettings();
+					if (detectedRoomChanges.length) {
+						setRoomChanges(detectedRoomChanges);
+						if (notificationSettings.enabled) await notifyRoomChanges(detectedRoomChanges, notificationSettings.notificationType);
+					}
+					if (notificationSettings.enabled) {
+						await scheduleLocalCourseNotifications(
+							mergedEvents.filter((event) => !isEventCancelled(event)),
+							notificationSettings.minutesBefore,
+							notificationSettings.selectedDays,
+							notificationSettings.notificationType
+						);
+					}
 				}
 				setUsingCache(false);
 			} else {
@@ -176,14 +227,15 @@ export default function HomeScreen() {
 				setUsingCache(false);
 			}
 		} catch {
-			const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
-			const mergedEvents = await mergeEventsWithLocal(cachedEvents, start, end);
+			const offlineEvents = cachedEvents.length ? cachedEvents : cacheKey ? await readEventsCache(cacheKey, true) : [];
+			const mergedEvents = await mergeEventsWithLocal(offlineEvents, start, end);
 			setEvents(mergedEvents);
 			setGroups(await getJSON("lastGroups", []));
 			await syncCourseWidgets(mergedEvents);
 			await rescheduleCourseNoteReminders(mergedEvents);
 			setUsingCache(true);
 		} finally {
+			refreshingRef.current = false;
 			setRefreshing(false);
 		}
 	}, []);
@@ -191,6 +243,33 @@ export default function HomeScreen() {
 	useEffect(() => {
 		refresh();
 	}, [refresh]);
+
+	useEffect(() => {
+		if (!usingCache) return;
+		if (!isOnline) return;
+		const retryOnlineSync = () => refresh();
+		const timer = setInterval(retryOnlineSync, 20_000);
+		const subscription = AppState.addEventListener("change", (state) => {
+			if (state === "active") retryOnlineSync();
+		});
+		return () => {
+			clearInterval(timer);
+			subscription.remove();
+		};
+	}, [isOnline, refresh, usingCache]);
+
+	useEffect(() => {
+		if (usingCache && isOnline) refresh();
+	}, [isOnline, refresh, usingCache]);
+
+	useFocusEffect(
+		useCallback(() => {
+			if (!isOnline) return;
+			const timer = setInterval(refresh, minute);
+			return () => clearInterval(timer);
+		}, [isOnline, refresh])
+	);
+
 	useEffect(() => {
 		const updateClock = () => setNowMs(Date.now());
 		updateClock();
@@ -210,8 +289,12 @@ export default function HomeScreen() {
 			const start = startOfDay(new Date());
 			const end = new Date(start);
 			end.setDate(end.getDate() + 30);
-			Promise.all([getJSON<ZeusEvent[]>("lastEvents", []), getJSON<(string | number)[]>("selectedGroups", [])])
-				.then(([cachedEvents, ids]) => mergeEventsWithLocal(ids.length ? cachedEvents : [], start, end))
+			getJSON<(string | number)[]>("selectedGroups", [])
+				.then(async (ids) => {
+					const cacheKey = ids.length ? buildEventsCacheKey(start, end, { groups: ids }) : "";
+					const cachedEvents = ids.length ? await readEventsCache(cacheKey, false) : [];
+					return mergeEventsWithLocal(cachedEvents, start, end);
+				})
 				.then((mergedEvents) => {
 					if (active) setEvents(mergedEvents);
 				})
@@ -265,7 +348,8 @@ export default function HomeScreen() {
 		const start = new Date(event.startDate).getTime();
 		return start >= startOfDay(now).getTime() && start < startOfDay(now).getTime() + 7 * day;
 	}).length;
-	const statusLabel = usingCache ? "Mémoire locale" : selectedGroups.length ? "Synchronisé" : "Groupes à choisir";
+	const showCacheBanner = usingCache || isOffline;
+	const statusLabel = isOffline ? "Hors ligne" : usingCache ? "Mémoire locale" : selectedGroups.length ? "Synchronisé" : "Groupes à choisir";
 	const nextKicker = !nextEvent ? "Planning libre" : isLive ? "En cours" : `Dans ${formatDuration(nextStart!.getTime() - nowMs)}`;
 	const freeLabel = currentEvent ? `Fin à ${formatTime(new Date(currentEvent.endDate))}` : nextStart ? `Libre jusqu'à ${formatTime(nextStart)}` : "Aucune contrainte à venir";
 	const openEventInCalendar = (event?: ZeusEvent | null) => {
@@ -321,17 +405,31 @@ export default function HomeScreen() {
 					</View>
 				</View>
 				<Pressable style={[s.syncPill, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={refresh}>
-					{usingCache ? <WifiOff color={theme.warn} size={15} /> : <RefreshCw color={theme.accent} size={15} />}
-					<Text style={[s.syncText, { color: usingCache ? theme.warn : theme.text }]} numberOfLines={1}>
+					{showCacheBanner ? <WifiOff color={theme.warn} size={15} /> : <RefreshCw color={theme.accent} size={15} />}
+					<Text style={[s.syncText, { color: showCacheBanner ? theme.warn : theme.text }]} numberOfLines={1}>
 						{statusLabel}
 					</Text>
 				</Pressable>
 			</Animated.View>
 
-			{usingCache ? (
+			{showCacheBanner ? (
 				<Animated.View entering={FadeInDown.duration(300)} style={[s.offline, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
 					<WifiOff color={theme.accent} size={17} />
-					<Text style={[s.offlineText, { color: theme.text }]}>Mode hors ligne, données chargées depuis le cache.</Text>
+					<Text style={[s.offlineText, { color: theme.text }]}>
+						{isOffline ? "Connexion perdue, planning conservé depuis le cache." : "Mode hors ligne, données chargées depuis le cache."}
+					</Text>
+				</Animated.View>
+			) : null}
+
+			{roomChanges.length ? (
+				<Animated.View entering={FadeInDown.duration(300)} style={[s.roomChange, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
+					<MapPin color={theme.warn} size={17} />
+					<Text style={[s.roomChangeText, { color: theme.text }]} numberOfLines={2}>
+						{formatRoomChangeNotice(roomChanges)}
+					</Text>
+					<Pressable style={s.roomChangeClose} onPress={() => setRoomChanges([])}>
+						<X color={theme.muted} size={16} />
+					</Pressable>
 				</Animated.View>
 			) : null}
 
@@ -469,6 +567,14 @@ export default function HomeScreen() {
 			/>
 		</ScrollView>
 	);
+}
+
+function formatRoomChangeNotice(changes: RoomChange[]) {
+	const first = changes[0];
+	const start = new Date(first.startDate);
+	const time = Number.isNaN(start.getTime()) ? "" : ` à ${formatTime(start)}`;
+	const suffix = changes.length > 1 ? ` (+${changes.length - 1})` : "";
+	return `Salle modifiée${suffix} : ${first.title}${time}, ${first.oldRooms} -> ${first.newRooms}`;
 }
 
 function UsefulLinkCard({ item, index }: { item: UsefulLink; index: number }) {
@@ -714,6 +820,9 @@ const s = StyleSheet.create({
 	syncText: { flexShrink: 1, fontSize: 12, fontWeight: "900" },
 	offline: { borderWidth: 1, borderRadius: 8, padding: 11, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
 	offlineText: { flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 },
+	roomChange: { borderWidth: 1, borderRadius: 8, padding: 11, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+	roomChangeText: { flex: 1, fontSize: 12, fontWeight: "900", lineHeight: 17 },
+	roomChangeClose: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
 	focusPanel: {
 		borderWidth: 1,
 		borderRadius: 28,
