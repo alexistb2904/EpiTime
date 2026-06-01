@@ -1,6 +1,6 @@
 {
 	"name": "epitime-native-front",
-	"version": "1.1.5",
+	"version": "1.1.6",
 	"private": true,
 	"main": "index.ts",
 	"scripts": {
@@ -8,6 +8,7 @@
 		"android": "npx expo run:android",
 		"ios": "npx expo run:ios",
 		"prebuild": "npx expo prebuild",
+		"apk:cloud": "eas build --platform android --profile development",
 		"apk": "npm run apk:build && npm run apk:copy",
 		"apkLinux": "npm run apkLinux:build && npm run apk:copy",
 		"apk:build": "set \"NODE_ENV=production\" && set \"JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr\" && set \"PATH=%JAVA_HOME%\\bin;%PATH%\" && cd android && gradlew.bat assembleRelease",
@@ -28,6 +29,7 @@
 		"expo-auth-session": "56.0.11",
 		"expo-background-task": "~56.0.15",
 		"expo-constants": "56.0.15",
+		"expo-dev-client": "^56.0.18",
 		"expo-device": "56.0.4",
 		"expo-document-picker": "~56.0.4",
 		"expo-file-system": "~56.0.7",

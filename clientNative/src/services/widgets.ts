@@ -45,6 +45,7 @@ export type CourseWidgetPayload = {
 };
 
 export const COURSE_WIDGET_PAYLOAD_KEY = "epitime.courseWidgetPayload";
+export const COURSE_WIDGET_REFRESH_ACTION = "REFRESH_WIDGET";
 
 type SyncCourseWidgetsOptions = {
 	requestAndroidUpdate?: boolean;
@@ -167,7 +168,7 @@ async function syncNativeCourseWidgetRefreshes(payload: CourseWidgetPayload) {
 	await CourseWidgets?.scheduleRefreshes?.(JSON.stringify(payload)).catch(() => false);
 }
 
-async function requestCourseWidgetUpdates(payload: CourseWidgetPayload) {
+export async function requestCourseWidgetUpdates(payload: CourseWidgetPayload) {
 	await Promise.all([
 		requestWidgetUpdate({
 			widgetName: "NextCourse",

@@ -439,7 +439,7 @@ export default function HomeScreen() {
 					onPress={() => openEventInCalendar(nextEvent)}>
 					<View style={[s.focusRail, { backgroundColor: theme.accent }]} />
 					<View style={s.focusTop}>
-						<View style={[s.liveBadge, { backgroundColor: isLive ? theme.timeLine : theme.accent }]}>
+						<View style={[s.liveBadge, { backgroundColor: isLive ? theme.timeLine : theme.accentSoft }]}>
 							{isLive ? <BellElectric color="#fff" size={14} /> : <Clock3 color="#fff" size={14} />}
 							<Text style={s.liveBadgeText}>{nextKicker}</Text>
 						</View>
@@ -629,7 +629,7 @@ function Metric({ icon, value, label }: { icon: React.ReactNode; value: string; 
 function QuickAction({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress: () => void }) {
 	const { theme } = useTheme();
 	return (
-		<Pressable style={[s.quickAction, { backgroundColor: theme.accent }]} onPress={onPress}>
+		<Pressable style={[s.quickAction, { backgroundColor: theme.accentSoft }]} onPress={onPress}>
 			{icon}
 			<Text style={s.quickText}>{label}</Text>
 		</Pressable>

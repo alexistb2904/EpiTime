@@ -3,8 +3,9 @@
 import React from "react";
 import { FlexWidget, ListWidget, TextWidget } from "react-native-android-widget";
 import type { CourseWidgetPayload, WidgetCourse } from "../services/widgets";
-import { courseUri, formatDay, formatTime, safeColor, upcomingCourses, updatedLabel } from "./courseWidgetFormat";
 import { courseWidgetTheme, type CourseWidgetTheme, type CourseWidgetThemeName } from "./courseWidgetTheme";
+import { courseUri, formatDay, formatTime, safeColor, upcomingCourses } from "./courseWidgetFormat";
+import { RefreshWidgetButton } from "./RefreshWidgetButton";
 
 type UpcomingCoursesWidgetProps = {
 	payload?: CourseWidgetPayload | null;
@@ -32,7 +33,7 @@ export function UpcomingCoursesWidget({ payload, theme: themeName = "light" }: U
 				<FlexWidget style={{ flex: 1 }}>
 					<TextWidget text="Prochains cours" maxLines={1} truncate="END" style={{ color: theme.text, fontSize: 15, fontWeight: "700" }} />
 				</FlexWidget>
-				<TextWidget text={updatedLabel(payload)} maxLines={1} truncate="END" style={{ color: theme.textMuted, fontSize: 11, fontWeight: "700" }} />
+				<RefreshWidgetButton label="Rafraîchir les cours" theme={theme} />
 			</FlexWidget>
 
 			{courses.length === 0 ? (
@@ -61,11 +62,11 @@ function CourseRow({ course, active, theme }: { course: WidgetCourse; active: bo
 			accessibilityLabel={course.title}
 			style={{
 				width: "match_parent",
-				height: 50,
+				height: 54,
 				flexDirection: "row",
 				alignItems: "center",
 				padding: 9,
-				marginVertical: 4,
+				marginBottom: 8,
 				backgroundColor: active ? theme.primaryContainer : theme.rowMuted,
 				borderColor: theme.outline,
 				borderRadius: 12,

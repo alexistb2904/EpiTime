@@ -19,6 +19,11 @@ export type AppTheme = {
 	warn: string;
 	danger: string;
 	cardShadow: string;
+	elevation?: {
+		low: string;
+		medium: string;
+		high: string;
+	};
 };
 
 export const palettes: Record<ResolvedThemeMode, AppTheme> = {
@@ -38,6 +43,11 @@ export const palettes: Record<ResolvedThemeMode, AppTheme> = {
 		warn: "#f59e0b",
 		danger: "#ef4444",
 		cardShadow: "#000000",
+		elevation: {
+			low: "#1D252F",
+			medium: "#212A36",
+			high: "#252F3C",
+		},
 	},
 
 	light: {
@@ -56,10 +66,16 @@ export const palettes: Record<ResolvedThemeMode, AppTheme> = {
 		warn: "#b45309",
 		danger: "#dc2626",
 		cardShadow: "#000000",
+		elevation: {
+			low: "#FFFFFF",
+			medium: "#FFFFFF",
+			high: "#FFFFFF",
+		},
 	},
 };
 
 export function mapMaterial3SchemeToAppTheme(scheme: Material3Scheme, mode: ResolvedThemeMode): AppTheme {
+	console.log(scheme);
 	return {
 		mode,
 		bg: scheme.background,
@@ -72,9 +88,16 @@ export function mapMaterial3SchemeToAppTheme(scheme: Material3Scheme, mode: Reso
 		accentHover: scheme.primaryContainer,
 		accentSoft: scheme.primaryContainer,
 		gridLine: scheme.outlineVariant || scheme.outline,
-		timeLine: scheme.tertiary,
+		timeLine: scheme.tertiaryContainer,
 		warn: mode === "dark" ? "#f59e0b" : "#b45309",
-		danger: scheme.error,
+		danger: scheme.errorContainer,
 		cardShadow: scheme.shadow,
+		elevation: scheme.elevation
+			? {
+					low: scheme.elevation.level1,
+					medium: scheme.elevation.level3,
+					high: scheme.elevation.level5,
+				}
+			: undefined,
 	};
 }
