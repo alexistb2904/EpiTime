@@ -6,7 +6,7 @@ import { publicConfig } from "./config";
 import { getSession, getJSON, setJSON } from "./storage";
 import { ZeusEvent } from "../types";
 import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, startOfDay } from "../utils/calendar";
-import { isEventCancelled, reconcileEventsWithCache } from "./localEvents";
+import { isEventCancelled, mergeEventsWithLocal, reconcileEventsWithCache } from "./localEvents";
 import { NextCourseWidget } from "../widgets/NextCourseWidget";
 import { UpcomingCoursesWidget } from "../widgets/UpcomingCoursesWidget";
 
@@ -82,7 +82,7 @@ export async function refreshCourseWidgetsForGroups(groups: (string | number)[])
 	const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
 	const reconciledEvents = reconcileEventsWithCache(safeEvents, cachedEvents);
 	await setJSON("lastEvents", reconciledEvents);
-	await syncCourseWidgets(reconciledEvents);
+	await syncCourseWidgets(await mergeEventsWithLocal(reconciledEvents, start, end));
 	return reconciledEvents;
 }
 
@@ -104,11 +104,12 @@ export async function refreshCourseWidgetsFromStoredConfig() {
 		const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
 		const reconciledEvents = reconcileEventsWithCache(safeEvents, cachedEvents);
 		await setJSON("lastEvents", reconciledEvents);
+		const visibleEvents = await mergeEventsWithLocal(reconciledEvents, start, end);
 
 		const nextPayload: CourseWidgetPayload = {
 			...stored,
 			generatedAt: Date.now(),
-			courses: normalizeWidgetCourses(reconciledEvents),
+			courses: normalizeWidgetCourses(visibleEvents),
 		};
 		await persistCourseWidgetPayload(nextPayload, false);
 		return nextPayload;
