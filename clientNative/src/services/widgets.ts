@@ -6,7 +6,7 @@ import { publicConfig } from "./config";
 import { getSession, getJSON, setJSON } from "./storage";
 import { ZeusEvent } from "../types";
 import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, startOfDay } from "../utils/calendar";
-import { isEventCancelled, mergeEventsWithLocal, reconcileEventsWithCache } from "./localEvents";
+import { isEventCancelled, isEventIgnored, mergeEventsWithLocal, reconcileEventsWithCache } from "./localEvents";
 import { NextCourseWidget } from "../widgets/NextCourseWidget";
 import { UpcomingCoursesWidget } from "../widgets/UpcomingCoursesWidget";
 
@@ -126,7 +126,7 @@ export function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
 			const endMillis = new Date(event.endDate).getTime();
 			return { event, startMillis, endMillis };
 		})
-		.filter(({ event, startMillis, endMillis }) => !isEventCancelled(event) && Number.isFinite(startMillis) && Number.isFinite(endMillis) && endMillis > now)
+		.filter(({ event, startMillis, endMillis }) => !isEventCancelled(event) && !isEventIgnored(event) && Number.isFinite(startMillis) && Number.isFinite(endMillis) && endMillis > now)
 		.sort((a, b) => a.startMillis - b.startMillis)
 		.slice(0, 8)
 		.map(({ event, startMillis, endMillis }) => ({

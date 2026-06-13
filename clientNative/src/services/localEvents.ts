@@ -23,6 +23,8 @@ export const getLocalEventKey = (event: Pick<ZeusEvent, "id" | "idReservation" |
 
 export const isEventCancelled = (event: ZeusEvent) => Boolean(event.isCancelled || event.isCanceled);
 
+export const isEventIgnored = (event: ZeusEvent) => Boolean(event.isIgnored);
+
 export const stripCancellationState = (event: ZeusEvent): ZeusEvent => {
 	const { isCancelled, isCanceled, cancelledAt, cancellationReason, ...cleanEvent } = event;
 	return cleanEvent;
@@ -104,7 +106,9 @@ export async function deleteLocalEvent(event: ZeusEvent) {
 		);
 		return;
 	}
-	await ignoreCourse(event);
+	const deletedKeys = await getJSON<string[]>(DELETED_REAL_EVENTS_KEY, []);
+	const key = getLocalEventKey(event);
+	if (!deletedKeys.includes(key)) await setJSON(DELETED_REAL_EVENTS_KEY, [...deletedKeys, key]);
 }
 
 export async function restoreDeletedRealEvents() {
@@ -119,26 +123,23 @@ export async function getDeletedRealEventsCount() {
 export async function mergeEventsWithLocal(events: ZeusEvent[], start?: Date, end?: Date) {
 	const [manualEvents, deletedKeys, ignoredSignatures] = await Promise.all([getManualEvents(), getJSON<string[]>(DELETED_REAL_EVENTS_KEY, []), getIgnoredCourseSignatures()]);
 	const deleted = new Set(deletedKeys);
-	const visibleRemoteEvents = events.filter(
-		(event) => !isManualEvent(event) && !deleted.has(getLocalEventKey(event)) && !eventMatchesIgnoredCourse(event, ignoredSignatures)
-	);
+	const visibleRemoteEvents = events
+		.filter((event) => !isManualEvent(event) && !deleted.has(getLocalEventKey(event)))
+		.map((event) => ({ ...event, isIgnored: eventMatchesIgnoredCourse(event, ignoredSignatures) }));
 	return [...visibleRemoteEvents, ...manualEvents.filter((event) => eventOverlapsRange(event, start, end))];
 }
 
 export function reconcileEventsWithCache(freshEvents: ZeusEvent[], cachedEvents: ZeusEvent[] | null | undefined) {
-	const fresh = freshEvents.map(stripCancellationState);
-	const freshKeys = new Set(fresh.map(getLocalEventKey));
-	const cancelledFromCache = (cachedEvents || [])
-		.filter((event) => !isManualEvent(event) && !freshKeys.has(getLocalEventKey(event)))
-		.map((event) => ({
-			...event,
-			isCancelled: true,
-			isCanceled: true,
-			cancelledAt: event.cancelledAt || new Date().toISOString(),
-			cancellationReason: event.cancellationReason || "Absent du dernier retour Zeus",
-		}));
+	void cachedEvents;
+	return freshEvents.map(stripCancellationState);
+}
 
-	const byKey = new Map<string, ZeusEvent>();
-	[...fresh, ...cancelledFromCache].forEach((event) => byKey.set(getLocalEventKey(event), event));
-	return Array.from(byKey.values());
+export async function reactivateCourse(event: ZeusEvent) {
+	const signature = getEventIgnoreSignature(event);
+	if (!signature) return;
+	const ignoredSignatures = await getIgnoredCourseSignatures();
+	await setJSON(
+		IGNORED_COURSE_SIGNATURES_KEY,
+		ignoredSignatures.filter((ignored) => ignored.key !== signature.key)
+	);
 }

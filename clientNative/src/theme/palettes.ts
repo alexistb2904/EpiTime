@@ -75,7 +75,6 @@ export const palettes: Record<ResolvedThemeMode, AppTheme> = {
 };
 
 export function mapMaterial3SchemeToAppTheme(scheme: Material3Scheme, mode: ResolvedThemeMode): AppTheme {
-	console.log(scheme);
 	return {
 		mode,
 		bg: scheme.background,

@@ -39,7 +39,7 @@ export async function syncLiveCourseNotification(events: ZeusEvent[], now = Date
 
 	eventSources.set(
 		source,
-		events.filter((event) => !event.isCancelled && !event.isCanceled)
+		events.filter((event) => !event.isCancelled && !event.isCanceled && !event.isIgnored)
 	);
 	const allEvents = Array.from(eventSources.values()).flat();
 	const nextCourse = getNextCourse(allEvents, now);

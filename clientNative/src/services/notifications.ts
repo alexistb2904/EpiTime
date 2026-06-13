@@ -165,14 +165,14 @@ export async function scheduleLocalCourseNotifications(
 	const scheduledIds: string[] = [];
 
 	const upcomingEvents = [...events]
-		.filter((event) => !event.isCancelled && !event.isCanceled)
+		.filter((event) => !event.isCancelled && !event.isCanceled && !event.isIgnored)
 		.map((event) => ({ event, startMillis: new Date(event.startDate).getTime() }))
 		.filter(({ startMillis }) => Number.isFinite(startMillis) && startMillis > now && startMillis <= maxScheduledAt)
 		.sort((a, b) => a.startMillis - b.startMillis);
 
 	try {
 		for (const { event: ev, startMillis } of upcomingEvents) {
-			if (ev.isCancelled || ev.isCanceled) continue;
+			if (ev.isCancelled || ev.isCanceled || ev.isIgnored) continue;
 			const startDate = new Date(ev.startDate);
 			if (!selectedDays.includes(startDate.getDay())) continue;
 

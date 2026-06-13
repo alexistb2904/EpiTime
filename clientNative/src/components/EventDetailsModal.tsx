@@ -1,8 +1,8 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { CalendarDays, ExternalLink, Filter, MapPin, Trash2, Users, X } from "lucide-react-native";
+import { AlarmClockOff, CalendarDays, ExternalLink, Filter, MapPin, RotateCcw, Trash2, Users, X } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
-import { isEventCancelled, isManualEvent } from "../services/localEvents";
+import { isEventCancelled, isEventIgnored, isManualEvent } from "../services/localEvents";
 import { ZeusEvent } from "../types";
 import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba, openUrl } from "../utils/calendar";
 import { getRoomMapUrl } from "../utils/rooms";
@@ -13,10 +13,12 @@ type EventDetailsModalProps = {
 	onClose: () => void;
 	onApplyContext: (type: "single-group" | "teacher" | "room", id?: string | number, label?: string) => void;
 	onDelete: (event: ZeusEvent) => void;
+	onIgnore: (event: ZeusEvent) => void;
+	onReactivate: (event: ZeusEvent) => void;
 	onNotesChanged?: () => void;
 };
 
-export default function EventDetailsModal({ event, onClose, onApplyContext, onDelete, onNotesChanged }: EventDetailsModalProps) {
+export default function EventDetailsModal({ event, onClose, onApplyContext, onDelete, onIgnore, onReactivate, onNotesChanged }: EventDetailsModalProps) {
 	const { theme } = useTheme();
 	if (!event) return null;
 
@@ -24,7 +26,8 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 	const typeName = getCourseTypeLabel(event);
 	const manual = isManualEvent(event);
 	const cancelled = isEventCancelled(event);
-	const visualColor = cancelled ? theme.muted : color;
+	const ignored = isEventIgnored(event);
+	const visualColor = cancelled || ignored ? theme.muted : color;
 
 	return (
 		<Modal visible animationType="slide" presentationStyle="pageSheet">
@@ -32,7 +35,7 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 				<View style={[s.eventHero, { backgroundColor: visualColor }]}>
 					<View style={s.eventHeroTop}>
 						<View style={s.eventHeroBadge}>
-							<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{cancelled ? "Annulé" : typeName || "Cours"}</Text>
+							<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{cancelled ? "Annulé" : ignored ? "Ignoré" : typeName || "Cours"}</Text>
 						</View>
 						<Pressable style={s.eventHeroClose} onPress={onClose}>
 							<X color="#fff" size={24} />
@@ -52,6 +55,14 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 						<View style={[s.cancelledNotice, { backgroundColor: theme.surfaceSoft, borderColor: theme.muted }]}>
 							<X color={theme.muted} size={18} />
 							<Text style={[s.cancelledNoticeText, { color: theme.text }]}>Ce cours n'est plus présent dans le dernier retour Zeus.</Text>
+						</View>
+					) : null}
+					{ignored ? (
+						<View style={[s.cancelledNotice, { backgroundColor: theme.surfaceSoft, borderColor: theme.muted }]}>
+							<Filter color={theme.muted} size={18} />
+							<Text style={[s.cancelledNoticeText, { color: theme.text }]}>
+								Ce cours reste dans l'agenda, mais il est ignoré par les notifications et les widgets.
+							</Text>
 						</View>
 					) : null}
 
@@ -148,10 +159,26 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 					) : null}
 
 					<View style={s.eventDeleteSection}>
-						{!manual ? <Text style={[s.ignoreHint, { color: theme.muted }]}>Masque toutes les occurrences identiques, par exemple les blocs ENTREPRISE de plusieurs jours, et empêche leurs notifications locales.</Text> : null}
+						{!manual && ignored ? (
+							<Pressable style={[s.eventDeleteBtn, { backgroundColor: theme.accent }]} onPress={() => onReactivate(event)}>
+								<RotateCcw color="#fff" size={19} />
+								<Text style={s.eventDeleteText}>Réactiver tous les cours identiques</Text>
+							</Pressable>
+						) : null}
+						{!manual && !ignored ? (
+							<>
+								<Text style={[s.ignoreHint, { color: theme.muted }]}>
+									Les occurrences identiques resteront visibles, mais ne déclencheront plus de notifications ni de widgets.
+								</Text>
+								<Pressable style={[s.eventDeleteBtn, { backgroundColor: theme.accent }]} onPress={() => onIgnore(event)}>
+									<AlarmClockOff color="#fff" size={19} />
+									<Text style={s.eventDeleteText}>Ignorer tous les cours identiques</Text>
+								</Pressable>
+							</>
+						) : null}
 						<Pressable style={[s.eventDeleteBtn, { backgroundColor: theme.danger }]} onPress={() => onDelete(event)}>
 							<Trash2 color="#fff" size={19} />
-							<Text style={s.eventDeleteText}>{manual ? "Supprimer définitivement" : "Ignorer tous les cours identiques"}</Text>
+							<Text style={s.eventDeleteText}>{manual ? "Supprimer définitivement" : "Supprimer cette occurrence"}</Text>
 						</Pressable>
 					</View>
 				</ScrollView>

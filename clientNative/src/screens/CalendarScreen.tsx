@@ -31,15 +31,39 @@ import { useTheme } from "../context/ThemeContext";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { getAvailableRooms, getCourseType, getEvents, getGroups, getLocations, getReservationDetails, getRooms, getRoomTypes } from "../services/api";
 import { CourseNoteSummary, getCourseNoteSummaries, rescheduleCourseNoteReminders } from "../services/courseNotes";
-import { deleteLocalEvent, getLocalEventKey, isEventCancelled, isManualEvent, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
+import {
+	deleteLocalEvent,
+	eventMatchesIgnoredCourse,
+	getEventIgnoreSignature,
+	getLocalEventKey,
+	ignoreCourse,
+	reactivateCourse,
+	isEventCancelled,
+	isEventIgnored,
+	isManualEvent,
+	mergeEventsWithLocal,
+	reconcileEventsWithCache,
+} from "../services/localEvents";
 import { getJSON, setJSON } from "../services/storage";
 import { buildEventsCacheKey, eventsDiffer, findRoomChanges, readEventsCache, RoomChange, writeEventsCache } from "../services/eventsCache";
 import { syncLiveCourseNotification } from "../services/liveCourse";
 import { getNotificationSettings, notifyRoomChanges, scheduleLocalCourseNotifications } from "../services/notifications";
 import { getNetworkState, isNetworkOnline } from "../services/networkStatus";
-import { refreshCourseWidgetsForGroups } from "../services/widgets";
+import { refreshCourseWidgetsForGroups, syncCourseWidgets } from "../services/widgets";
 import { Group, LocationNode, Room, RoomType, ZeusEvent } from "../types";
-import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, getWeekRange, hexToRgba, openUrl, startOfDay } from "../utils/calendar";
+import {
+	eventOverlapsDay,
+	formatDateRange,
+	getCourseColor,
+	getCourseTypeLabel,
+	getEventTitle,
+	getRoomName,
+	getTeacherName,
+	getWeekRange,
+	hexToRgba,
+	openUrl,
+	startOfDay,
+} from "../utils/calendar";
 import { getRoomMapUrl } from "../utils/rooms";
 
 type ViewMode = "week" | "day" | "list";
@@ -181,7 +205,7 @@ export default function CalendarScreen() {
 					}
 					if (notificationSettings.enabled) {
 						await scheduleLocalCourseNotifications(
-							visibleData.filter((event) => !isEventCancelled(event)),
+							visibleData.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)),
 							notificationSettings.minutesBefore,
 							notificationSettings.selectedDays,
 							notificationSettings.notificationType
@@ -297,7 +321,7 @@ export default function CalendarScreen() {
 	}, [currentDate]);
 
 	const sortedEvents = useMemo(() => [...events].sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate)), [events]);
-	const activeScheduleEvents = useMemo(() => sortedEvents.filter((event) => !isEventCancelled(event)), [sortedEvents]);
+	const activeScheduleEvents = useMemo(() => sortedEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)), [sortedEvents]);
 	useEffect(() => {
 		syncLiveCourseNotification(activeScheduleEvents, Date.now(), "calendar").catch(() => {});
 		const timer = setInterval(() => syncLiveCourseNotification(activeScheduleEvents, Date.now(), "calendar").catch(() => {}), minute);
@@ -317,16 +341,18 @@ export default function CalendarScreen() {
 	const visibleEvents = useMemo(() => {
 		if (viewMode === "list") return sortedEvents;
 		const day = viewMode === "day" ? startOfDay(currentDate) : focusedDay;
-		return sortedEvents.filter((event) => startOfDay(new Date(event.startDate)).getTime() === day.getTime());
+		return sortedEvents.filter((event) => eventOverlapsDay(event, day));
 	}, [currentDate, focusedDay, sortedEvents, viewMode]);
 	const eventsByDay = useMemo(() => {
 		const map = new Map<string, ZeusEvent[]>();
-		sortedEvents.forEach((event) => {
-			const key = dayKey(new Date(event.startDate));
-			map.set(key, [...(map.get(key) || []), event]);
+		days.forEach((day) => {
+			map.set(
+				dayKey(day),
+				sortedEvents.filter((event) => eventOverlapsDay(event, day))
+			);
 		});
 		return map;
-	}, [sortedEvents]);
+	}, [days, sortedEvents]);
 
 	const filteredGroups = useMemo(() => {
 		const term = groupSearch.trim().toLowerCase();
@@ -335,9 +361,10 @@ export default function CalendarScreen() {
 
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
 	const selectedDay = viewMode === "day" ? startOfDay(currentDate) : focusedDay;
-	const selectedDayEvents = sortedEvents.filter((event) => dayKey(new Date(event.startDate)) === dayKey(selectedDay));
-	const selectedDayActiveEvents = selectedDayEvents.filter((event) => !isEventCancelled(event));
-	const selectedDayCancelledCount = selectedDayEvents.length - selectedDayActiveEvents.length;
+	const selectedDayEvents = sortedEvents.filter((event) => eventOverlapsDay(event, selectedDay));
+	const selectedDayActiveEvents = selectedDayEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event));
+	const selectedDayCancelledCount = selectedDayEvents.filter(isEventCancelled).length;
+	const selectedDayIgnoredCount = selectedDayEvents.filter((event) => !isEventCancelled(event) && isEventIgnored(event)).length;
 	const activeEventForDay = selectedDayActiveEvents.find((event) => new Date(event.startDate).getTime() <= now && new Date(event.endDate).getTime() > now);
 	const nextEventForDay = selectedDayActiveEvents.find((event) => new Date(event.startDate).getTime() > now);
 	const activeEvent = activeEventForDay || null;
@@ -370,6 +397,8 @@ export default function CalendarScreen() {
 			? `${selectedDayActiveEvents.length} cours planifié${selectedDayActiveEvents.length > 1 ? "s" : ""}`
 			: selectedDayCancelledCount
 				? `${selectedDayCancelledCount} cours annulé${selectedDayCancelledCount > 1 ? "s" : ""}`
+				: selectedDayIgnoredCount
+					? `${selectedDayIgnoredCount} cours ignoré${selectedDayIgnoredCount > 1 ? "s" : ""}`
 				: "Journée libre";
 	const showCacheBanner = usingCache || isOffline;
 
@@ -453,14 +482,89 @@ export default function CalendarScreen() {
 						await deleteLocalEvent(event);
 						const key = getLocalEventKey(event);
 						const nextEvents = events.filter((item) => getLocalEventKey(item) !== key);
+						const activeEvents = nextEvents.filter((item) => !isEventCancelled(item) && !isEventIgnored(item));
 						setEvents(nextEvents);
-						await rescheduleCourseNoteReminders(nextEvents);
+						const notificationSettings = await getNotificationSettings();
+						await Promise.all([
+							rescheduleCourseNoteReminders(nextEvents),
+							syncCourseWidgets(nextEvents),
+							notificationSettings.enabled
+								? scheduleLocalCourseNotifications(
+										activeEvents,
+										notificationSettings.minutesBefore,
+										notificationSettings.selectedDays,
+										notificationSettings.notificationType
+									)
+								: Promise.resolve(),
+						]);
 						await refreshNoteSummaries();
 						setSelectedEvent(null);
 					},
 				},
 			]
 		);
+	};
+
+	const ignoreEvent = (event: ZeusEvent) => {
+		const signature = getEventIgnoreSignature(event);
+		if (!signature) return;
+		Alert.alert("Ignorer ce cours", "Toutes les occurrences identiques resteront visibles dans l'agenda, mais seront exclues des notifications et des widgets.", [
+			{ text: "Annuler", style: "cancel" },
+			{
+				text: "Ignorer",
+				onPress: async () => {
+					await ignoreCourse(event);
+					const nextEvents = events.map((item) => (eventMatchesIgnoredCourse(item, [signature]) ? { ...item, isIgnored: true } : item));
+					const activeEvents = nextEvents.filter((item) => !isEventCancelled(item) && !isEventIgnored(item));
+					setEvents(nextEvents);
+					const notificationSettings = await getNotificationSettings();
+					await Promise.all([
+						rescheduleCourseNoteReminders(nextEvents),
+						syncCourseWidgets(nextEvents),
+						notificationSettings.enabled
+							? scheduleLocalCourseNotifications(
+									activeEvents,
+									notificationSettings.minutesBefore,
+									notificationSettings.selectedDays,
+									notificationSettings.notificationType
+								)
+							: Promise.resolve(),
+					]);
+					setSelectedEvent((current) => (current && eventMatchesIgnoredCourse(current, [signature]) ? { ...current, isIgnored: true } : current));
+				},
+			},
+		]);
+	};
+
+	const reactivateEvent = (event: ZeusEvent) => {
+		const signature = getEventIgnoreSignature(event);
+		if (!signature) return;
+		Alert.alert("Réactiver ce cours", "Toutes les occurrences identiques seront de nouveau prises en compte par les notifications et les widgets.", [
+			{ text: "Annuler", style: "cancel" },
+			{
+				text: "Réactiver",
+				onPress: async () => {
+					await reactivateCourse(event);
+					const nextEvents = events.map((item) => (eventMatchesIgnoredCourse(item, [signature]) ? { ...item, isIgnored: false } : item));
+					const activeEvents = nextEvents.filter((item) => !isEventCancelled(item) && !isEventIgnored(item));
+					setEvents(nextEvents);
+					const notificationSettings = await getNotificationSettings();
+					await Promise.all([
+						rescheduleCourseNoteReminders(nextEvents),
+						syncCourseWidgets(nextEvents),
+						notificationSettings.enabled
+							? scheduleLocalCourseNotifications(
+									activeEvents,
+									notificationSettings.minutesBefore,
+									notificationSettings.selectedDays,
+									notificationSettings.notificationType
+								)
+							: Promise.resolve(),
+					]);
+					setSelectedEvent((current) => (current && eventMatchesIgnoredCourse(current, [signature]) ? { ...current, isIgnored: false } : current));
+				},
+			},
+		]);
 	};
 
 	const swipeGesture = Gesture.Pan()
@@ -714,6 +818,8 @@ export default function CalendarScreen() {
 					onClose={() => setSelectedEvent(null)}
 					onApplyContext={applyContext}
 					onDelete={deleteEvent}
+					onIgnore={ignoreEvent}
+					onReactivate={reactivateEvent}
 					onNotesChanged={refreshNoteSummaries}
 				/>
 				<RoomFinderModal
@@ -761,26 +867,28 @@ function EventCard({
 	const end = new Date(event.endDate);
 	const startMillis = start.getTime();
 	const endMillis = end.getTime();
-	const isNow = startMillis <= now && endMillis > now;
-	const progress = getCourseProgress(startMillis, endMillis, now);
 	const typeName = getCourseTypeLabel(event);
 	const cancelled = isEventCancelled(event);
-	const visualColor = cancelled ? theme.muted : color;
+	const ignored = isEventIgnored(event);
+	const inactive = cancelled || ignored;
+	const isNow = !inactive && startMillis <= now && endMillis > now;
+	const progress = getCourseProgress(startMillis, endMillis, now);
+	const visualColor = cancelled || ignored ? theme.muted : color;
 	return (
 		<Animated.View entering={FadeInDown.delay(Math.min(index, 12) * 35).duration(320)} layout={Layout.springify()}>
 			<Card
 				style={[
 					s.eventCard,
-					cancelled && s.eventCardCancelled,
+					inactive && s.eventCardCancelled,
 					highlighted && s.eventCardHighlighted,
-					{ borderColor: cancelled ? theme.muted : highlighted || isNow ? color : theme.border, backgroundColor: cancelled ? theme.surfaceSoft : theme.surface },
+					{ borderColor: inactive ? theme.muted : highlighted || isNow ? color : theme.border, backgroundColor: inactive ? theme.surfaceSoft : theme.surface },
 				]}
 				variant="flat"
 				accent
 				accentColor={visualColor}
 				onPress={onPress}>
 				<View style={s.eventShell}>
-					<View style={[s.timeBlock, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, theme.mode === "dark" ? 0.18 : 0.12) }]}>
+					<View style={[s.timeBlock, { backgroundColor: inactive ? theme.bg : hexToRgba(color, theme.mode === "dark" ? 0.18 : 0.12) }]}>
 						<Text style={[s.eventTime, { color: visualColor }]}>{start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</Text>
 						<Text style={[s.eventEnd, { color: theme.muted }]}>{end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</Text>
 					</View>
@@ -790,6 +898,11 @@ function EventCard({
 								<View style={[s.cancelledChip, { backgroundColor: theme.bg, borderColor: theme.muted }]}>
 									<X color={theme.muted} size={13} />
 									<Text style={[s.cancelledText, { color: theme.muted }]}>Annulé</Text>
+								</View>
+							) : ignored ? (
+								<View style={[s.cancelledChip, { backgroundColor: theme.bg, borderColor: theme.muted }]}>
+									<Filter color={theme.muted} size={13} />
+									<Text style={[s.cancelledText, { color: theme.muted }]}>Ignoré</Text>
 								</View>
 							) : (
 								<View style={[s.typeChip, { backgroundColor: hexToRgba(color, 0.14) }]}>

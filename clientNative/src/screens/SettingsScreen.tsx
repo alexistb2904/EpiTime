@@ -222,7 +222,7 @@ export default function SettingsScreen() {
 	const restoreEvents = async () => {
 		await restoreDeletedRealEvents();
 		setDeletedEventsCount(0);
-		Alert.alert("Agenda restauré", "Les cours supprimés réapparaîtront au prochain chargement de l'agenda.");
+		Alert.alert("Agenda restauré", "Les cours supprimés réapparaîtront et les cours ignorés seront de nouveau actifs au prochain chargement de l'agenda.");
 	};
 
 	const refreshNotificationServices = async () => {
@@ -397,7 +397,7 @@ export default function SettingsScreen() {
 			<View style={s.group}>
 				<Action
 					icon={<RotateCcw color={theme.accent} size={20} />}
-					label={deletedEventsCount ? `Restaurer ${deletedEventsCount} cours supprimé${deletedEventsCount > 1 ? "s" : ""}` : "Aucun cours à restaurer"}
+					label={deletedEventsCount ? `Restaurer ${deletedEventsCount} cours supprimé${deletedEventsCount > 1 ? "s" : ""} ou ignoré${deletedEventsCount > 1 ? "s" : ""}` : "Aucun cours à restaurer"}
 					onPress={() => void restoreEvents()}
 					disabled={!deletedEventsCount}
 				/>

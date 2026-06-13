@@ -4,7 +4,7 @@ import { Platform } from "react-native";
 import { getEvents } from "./api";
 import { rescheduleCourseNoteReminders } from "./courseNotes";
 import { findRoomChanges } from "./eventsCache";
-import { mergeEventsWithLocal, reconcileEventsWithCache, isEventCancelled } from "./localEvents";
+import { mergeEventsWithLocal, reconcileEventsWithCache, isEventCancelled, isEventIgnored } from "./localEvents";
 import { getNotificationSettings, notifyRoomChanges, scheduleLocalCourseNotifications } from "./notifications";
 import { getJSON, getSession, setJSON } from "./storage";
 import { syncCourseWidgets } from "./widgets";
@@ -35,7 +35,7 @@ async function syncPlanningNotificationsInBackground() {
 	await rescheduleCourseNoteReminders(visibleEvents);
 	if (notificationSettings.enabled) {
 		await scheduleLocalCourseNotifications(
-			visibleEvents.filter((event) => !isEventCancelled(event)),
+			visibleEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)),
 			notificationSettings.minutesBefore,
 			notificationSettings.selectedDays,
 			notificationSettings.notificationType,

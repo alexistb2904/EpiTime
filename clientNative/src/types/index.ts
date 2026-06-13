@@ -2,6 +2,7 @@ export type ZeusEvent = {
 	id?: string | number;
 	idReservation?: string | number;
 	isManual?: boolean;
+	isIgnored?: boolean;
 	name?: string;
 	typeName?: string;
 	code?: string;

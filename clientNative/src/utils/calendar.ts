@@ -30,6 +30,15 @@ export function startOfDay(date: Date) {
 	return d;
 }
 
+export function eventOverlapsDay(event: Pick<ZeusEvent, "startDate" | "endDate">, date: Date) {
+	const dayStart = startOfDay(date).getTime();
+	const dayEnd = new Date(dayStart);
+	dayEnd.setDate(dayEnd.getDate() + 1);
+	const eventStart = new Date(event.startDate).getTime();
+	const eventEnd = new Date(event.endDate).getTime();
+	return Number.isFinite(eventStart) && Number.isFinite(eventEnd) && eventStart < dayEnd.getTime() && eventEnd > dayStart;
+}
+
 export function getWeekRange(date: Date) {
 	const current = new Date(date);
 	const day = current.getDay() || 7;

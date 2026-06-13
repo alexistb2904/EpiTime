@@ -221,7 +221,7 @@ export async function rescheduleCourseNoteReminders(events: ZeusEvent[]) {
 
 async function prepareNoteForSave(event: ZeusEvent, note: CourseNote, options: { requestPermission?: boolean } = {}) {
 	if (!note.reminder?.enabled) return cancelNoteReminder(note);
-	if (isEventCancelled(event)) return cancelNoteReminder(note);
+	if (isEventCancelled(event) || event.isIgnored) return cancelNoteReminder(note);
 
 	const startMillis = new Date(event.startDate).getTime();
 	const offsetMinutes = clampReminderOffset(note.reminder.offsetMinutes);

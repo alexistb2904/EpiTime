@@ -8,7 +8,7 @@ import { useTheme } from "../context/ThemeContext";
 import { useNetworkStatus } from "../hooks/useNetworkStatus";
 import { getEvents, getGroups } from "../services/api";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
-import { addManualEvent, isEventCancelled, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
+import { addManualEvent, isEventCancelled, isEventIgnored, mergeEventsWithLocal, reconcileEventsWithCache } from "../services/localEvents";
 import { syncLiveCourseNotification } from "../services/liveCourse";
 import { getNotificationSettings, notifyRoomChanges, scheduleLocalCourseNotifications } from "../services/notifications";
 import { getJSON, setJSON } from "../services/storage";
@@ -16,7 +16,7 @@ import { buildEventsCacheKey, eventsDiffer, findRoomChanges, readEventsCache, Ro
 import { getNetworkState, isNetworkOnline } from "../services/networkStatus";
 import { syncCourseWidgets } from "../services/widgets";
 import { Group, ZeusEvent } from "../types";
-import { formatDateRange, getEventTitle, getRoomName, startOfDay, getCourseColor } from "../utils/calendar";
+import { eventOverlapsDay, formatDateRange, getEventTitle, getRoomName, startOfDay, getCourseColor } from "../utils/calendar";
 
 type HomeTab = "today" | "next";
 
@@ -75,8 +75,6 @@ const usefulLinks: UsefulLink[] = [
 const minute = 60_000;
 const day = 86_400_000;
 
-const sameDay = (a: Date, b: Date) => startOfDay(a).getTime() === startOfDay(b).getTime();
-
 const formatTime = (date: Date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
 const formatInputDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -112,6 +110,17 @@ const formatDuration = (ms: number) => {
 	const hours = Math.floor(totalMinutes / 60);
 	const minutes = totalMinutes % 60;
 	return minutes ? `${hours} h ${minutes}` : `${hours} h`;
+};
+
+const formatDurationHumanLong = (ms: number) => {
+	const totalMinutes = Math.max(0, Math.round(ms / minute));
+	if (totalMinutes < 60) return `${totalMinutes} min${totalMinutes > 1 ? "s" : ""}`;
+	const hours = Math.floor(totalMinutes / 60);
+	if (hours < 24) {
+		const minutes = totalMinutes % 60;
+		return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
+	}
+	return `${Math.floor(totalMinutes / 1440)} jour${Math.floor(totalMinutes / 1440) > 1 ? "s" : ""}`;
 };
 
 const greetingFor = (date: Date) => {
@@ -211,7 +220,7 @@ export default function HomeScreen() {
 					}
 					if (notificationSettings.enabled) {
 						await scheduleLocalCourseNotifications(
-							mergedEvents.filter((event) => !isEventCancelled(event)),
+							mergedEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)),
 							notificationSettings.minutesBefore,
 							notificationSettings.selectedDays,
 							notificationSettings.notificationType
@@ -307,7 +316,7 @@ export default function HomeScreen() {
 
 	const now = useMemo(() => new Date(nowMs), [nowMs]);
 	const sorted = useMemo(() => [...events].sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate)), [events]);
-	const activeScheduleEvents = useMemo(() => sorted.filter((event) => !isEventCancelled(event)), [sorted]);
+	const activeScheduleEvents = useMemo(() => sorted.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)), [sorted]);
 	useEffect(() => {
 		syncLiveCourseNotification(activeScheduleEvents, Date.now()).catch(() => {});
 		const timer = setInterval(() => syncLiveCourseNotification(activeScheduleEvents, Date.now()).catch(() => {}), minute);
@@ -322,7 +331,7 @@ export default function HomeScreen() {
 		const timer = setTimeout(() => setNowMs(Date.now()), Math.min(nextBoundary - nowMs + 250, 2_147_483_647));
 		return () => clearTimeout(timer);
 	}, [activeScheduleEvents, nowMs]);
-	const todayEvents = useMemo(() => sorted.filter((event) => sameDay(new Date(event.startDate), now)), [now, sorted]);
+	const todayEvents = useMemo(() => sorted.filter((event) => eventOverlapsDay(event, now)), [now, sorted]);
 	const upcomingEvents = useMemo(() => sorted.filter((event) => new Date(event.endDate).getTime() > nowMs).slice(0, 8), [nowMs, sorted]);
 	const currentEvent = activeScheduleEvents.find((event) => new Date(event.startDate).getTime() <= nowMs && new Date(event.endDate).getTime() > nowMs);
 	const nextEvent = currentEvent || activeScheduleEvents.find((event) => new Date(event.startDate).getTime() > nowMs);
@@ -343,14 +352,14 @@ export default function HomeScreen() {
 				)
 			)
 		: 0;
-	const todayActiveCount = todayEvents.filter((event) => !isEventCancelled(event)).length;
+	const todayActiveCount = todayEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)).length;
 	const weekCount = activeScheduleEvents.filter((event) => {
 		const start = new Date(event.startDate).getTime();
 		return start >= startOfDay(now).getTime() && start < startOfDay(now).getTime() + 7 * day;
 	}).length;
 	const showCacheBanner = usingCache || isOffline;
 	const statusLabel = isOffline ? "Hors ligne" : usingCache ? "Mémoire locale" : selectedGroups.length ? "Synchronisé" : "Groupes à choisir";
-	const nextKicker = !nextEvent ? "Planning libre" : isLive ? "En cours" : `Dans ${formatDuration(nextStart!.getTime() - nowMs)}`;
+	const nextKicker = !nextEvent ? "Planning libre" : isLive ? "En cours" : `Dans ${formatDurationHumanLong(nextStart!.getTime() - nowMs)}`;
 	const freeLabel = currentEvent ? `Fin à ${formatTime(new Date(currentEvent.endDate))}` : nextStart ? `Libre jusqu'à ${formatTime(nextStart)}` : "Aucune contrainte à venir";
 	const openEventInCalendar = (event?: ZeusEvent | null) => {
 		if (!event) {
@@ -763,20 +772,21 @@ function TimelineRow({ event, index, colored, onPress }: { event: ZeusEvent; ind
 	const rooms = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
 	const isPast = end.getTime() < Date.now();
 	const cancelled = isEventCancelled(event);
-	const isNow = !cancelled && start.getTime() <= Date.now() && end.getTime() > Date.now();
+	const ignored = isEventIgnored(event);
+	const isNow = !cancelled && !ignored && start.getTime() <= Date.now() && end.getTime() > Date.now();
 	const eventColor = colored ? getCourseColor(event) : theme.border;
-	const activeColor = cancelled ? theme.muted : isNow ? (colored ? eventColor : theme.accent) : eventColor;
+	const activeColor = cancelled || ignored ? theme.muted : isNow ? (colored ? eventColor : theme.accent) : eventColor;
 
 	return (
 		<Animated.View entering={FadeInDown.delay(300 + Math.min(index, 5) * 45).duration(360)} layout={Layout.springify()}>
 			<Pressable
 				style={[
 					s.timelineRow,
-					cancelled && s.timelineRowCancelled,
+					(cancelled || ignored) && s.timelineRowCancelled,
 					{
-						backgroundColor: cancelled ? theme.surfaceSoft : theme.surface,
-						borderColor: isNow || cancelled ? activeColor : theme.border,
-						opacity: isPast || cancelled ? 0.62 : 1,
+						backgroundColor: cancelled || ignored ? theme.surfaceSoft : theme.surface,
+						borderColor: isNow || cancelled || ignored ? activeColor : theme.border,
+						opacity: isPast || cancelled || ignored ? 0.62 : 1,
 					},
 				]}
 				onPress={onPress}>
@@ -791,13 +801,17 @@ function TimelineRow({ event, index, colored, onPress }: { event: ZeusEvent; ind
 							<View style={[s.cancelledBadge, { borderColor: theme.muted }]}>
 								<Text style={[s.cancelledBadgeText, { color: theme.muted }]}>Annulé</Text>
 							</View>
+						) : ignored ? (
+							<View style={[s.cancelledBadge, { borderColor: theme.muted }]}>
+								<Text style={[s.cancelledBadgeText, { color: theme.muted }]}>Ignoré</Text>
+							</View>
 						) : null}
-						<Text style={[s.timelineTitle, cancelled && s.timelineTitleCancelled, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={1}>
+						<Text style={[s.timelineTitle, (cancelled || ignored) && s.timelineTitleCancelled, { color: cancelled || ignored ? theme.muted : theme.text }]} numberOfLines={1}>
 							{getEventTitle(event)}
 						</Text>
 					</View>
 					<Text style={[s.timelineMeta, { color: theme.muted }]} numberOfLines={1}>
-						{cancelled ? `Cours annulé · ${rooms || "Lieu à confirmer"}` : rooms || "Lieu à confirmer"}
+						{cancelled ? `Cours annulé · ${rooms || "Lieu à confirmer"}` : ignored ? `Cours ignoré · ${rooms || "Lieu à confirmer"}` : rooms || "Lieu à confirmer"}
 					</Text>
 				</View>
 				<ChevronRight color={theme.muted} size={18} />
