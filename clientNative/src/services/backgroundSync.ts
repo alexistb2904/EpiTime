@@ -30,8 +30,8 @@ async function syncPlanningNotificationsInBackground() {
 	const roomChanges = findRoomChanges(cachedEvents, reconciledEvents);
 
 	await setJSON("lastEvents", reconciledEvents);
-	await syncCourseWidgets(reconciledEvents);
 	const visibleEvents = await mergeEventsWithLocal(reconciledEvents, start, end);
+	await syncCourseWidgets(visibleEvents);
 	await rescheduleCourseNoteReminders(visibleEvents);
 	if (notificationSettings.enabled) {
 		await scheduleLocalCourseNotifications(
