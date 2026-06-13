@@ -28,8 +28,8 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 
 	return (
 		<Modal visible animationType="slide" presentationStyle="pageSheet">
-			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}> 
-				<View style={[s.eventHero, { backgroundColor: visualColor }]}> 
+			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
+				<View style={[s.eventHero, { backgroundColor: visualColor }]}>
 					<View style={s.eventHeroTop}>
 						<View style={s.eventHeroBadge}>
 							<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{cancelled ? "Annulé" : typeName || "Cours"}</Text>
@@ -49,21 +49,21 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 
 				<ScrollView contentContainerStyle={s.eventModalScroll}>
 					{cancelled ? (
-						<View style={[s.cancelledNotice, { backgroundColor: theme.surfaceSoft, borderColor: theme.muted }]}> 
+						<View style={[s.cancelledNotice, { backgroundColor: theme.surfaceSoft, borderColor: theme.muted }]}>
 							<X color={theme.muted} size={18} />
 							<Text style={[s.cancelledNoticeText, { color: theme.text }]}>Ce cours n'est plus présent dans le dernier retour Zeus.</Text>
 						</View>
 					) : null}
 
-					<View style={[s.eventSection, { borderBottomColor: theme.border }]}> 
+					<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
 						<CourseNotesSection event={event} onChanged={onNotesChanged} />
 					</View>
 
 					{event.code || event.url ? (
-						<View style={[s.eventSection, { borderBottomColor: theme.border }]}> 
+						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
 							{event.code ? (
 								<View style={s.eventDataRow}>
-									<View style={[s.eventDataIcon, { backgroundColor: theme.surface }]}> 
+									<View style={[s.eventDataIcon, { backgroundColor: theme.surface }]}>
 										<Filter color={theme.muted} size={18} />
 									</View>
 									<View style={s.eventDataContent}>
@@ -83,14 +83,14 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 					) : null}
 
 					{event.rooms?.length ? (
-						<View style={[s.eventSection, { borderBottomColor: theme.border }]}> 
+						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
 							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Salles</Text>
 							<View style={s.eventCardList}>
 								{event.rooms.map((room) => {
 									const roomId = room.id || room.room?.id;
 									const roomName = getRoomName(room);
 									return (
-										<View key={`${roomId || roomName}`} style={[s.eventItemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
+										<View key={`${roomId || roomName}`} style={[s.eventItemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 											<MapPin color={visualColor} size={20} />
 											<Text style={[s.eventItemName, { color: theme.text }]} numberOfLines={1}>
 												{roomName}
@@ -110,7 +110,7 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 					) : null}
 
 					{event.teachers?.length ? (
-						<View style={[s.eventSection, { borderBottomColor: theme.border }]}> 
+						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
 							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Intervenants</Text>
 							<View style={s.eventChipGrid}>
 								{event.teachers.map((teacher) => (
@@ -118,7 +118,7 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 										key={`${teacher.id || getTeacherName(teacher)}`}
 										style={[s.eventPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
 										onPress={() => onApplyContext("teacher", teacher.id, getTeacherName(teacher))}>
-										<View style={[s.eventPillIcon, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, 0.15) }]}> 
+										<View style={[s.eventPillIcon, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, 0.15) }]}>
 											<Users color={visualColor} size={14} />
 										</View>
 										<Text style={[s.eventPillText, { color: theme.text }]}>{getTeacherName(teacher)}</Text>
@@ -129,7 +129,7 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 					) : null}
 
 					{event.groups?.length ? (
-						<View style={[s.eventSection, { borderBottomColor: theme.border }]}> 
+						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
 							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Groupes</Text>
 							<View style={s.eventChipGrid}>
 								{event.groups.map((group) => (
@@ -137,7 +137,7 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 										key={`${group.id || group.name}`}
 										style={[s.eventPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
 										onPress={() => onApplyContext("single-group", group.id, group.name)}>
-										<View style={[s.eventPillIcon, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, 0.15) }]}> 
+										<View style={[s.eventPillIcon, { backgroundColor: cancelled ? theme.bg : hexToRgba(color, 0.15) }]}>
 											<Users color={visualColor} size={14} />
 										</View>
 										<Text style={[s.eventPillText, { color: theme.text }]}>{group.name || String(group.id)}</Text>
