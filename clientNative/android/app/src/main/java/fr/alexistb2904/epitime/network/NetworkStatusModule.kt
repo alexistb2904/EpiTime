@@ -95,19 +95,35 @@ class NetworkStatusModule(
 
   private fun currentState(): WritableMap {
     val manager = connectivityManager()
-    val connected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+    var connected = false
+    var reachable: Boolean? = null
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       val network = manager.activeNetwork
       val capabilities = network?.let { manager.getNetworkCapabilities(it) }
-      capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
-        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+      val hasInternetCapability = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+      val hasKnownTransport = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true ||
+        capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ||
+        capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true ||
+        capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true ||
+        capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) == true
+      val validated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+
+      connected = hasInternetCapability || hasKnownTransport
+      reachable = when {
+        validated -> true
+        connected -> null
+        else -> false
+      }
     } else {
       @Suppress("DEPRECATION")
-      manager.activeNetworkInfo?.isConnected == true
+      connected = manager.activeNetworkInfo?.isConnected == true
+      reachable = connected
     }
 
     return Arguments.createMap().apply {
       putBoolean("isConnected", connected)
-      putBoolean("isInternetReachable", connected)
+      if (reachable == null) putNull("isInternetReachable") else putBoolean("isInternetReachable", reachable)
       putDouble("updatedAt", System.currentTimeMillis().toDouble())
     }
   }
