@@ -5,11 +5,12 @@ import { BellRing, CalendarDays, Check, DoorOpen, LogOut, Search, ShieldCheck, U
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { getEvents, getGroups, registerExpoPushToken } from "../services/api";
+import { getGroups, registerExpoPushToken } from "../services/api";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getNotificationSettings, requestPushToken, scheduleLocalCourseNotifications, setNotificationSettings } from "../services/notifications";
 import { requestRequiredAppPermissions } from "../services/permissions";
+import { syncSchedule } from "../services/scheduleRepository";
 import { getJSON, setJSON } from "../services/storage";
 import { syncCourseWidgets } from "../services/widgets";
 import { Group, ZeusEvent } from "../types";
@@ -74,16 +75,14 @@ export default function OnboardingScreen({ onDone }: Props) {
 		try {
 			await setJSON("selectedGroups", selected);
 			await setJSON("onboardingCompleted", true);
-			const start = startOfDay(new Date());
-			const end = new Date(start);
-			end.setDate(end.getDate() + 30);
-			const events = await getEvents(start, end, selected).catch(() => []);
-			const safeEvents = Array.isArray(events) ? events : [];
-			await setJSON("lastEvents", safeEvents);
-			await syncCourseWidgets(safeEvents);
-			await rescheduleCourseNoteReminders(safeEvents);
-			await enableDefaultNotifications(safeEvents);
-			onDone();
+				const start = startOfDay(new Date());
+				const end = new Date(start);
+				end.setDate(end.getDate() + 30);
+				const schedule = await syncSchedule({ start, end, query: { groups: selected } });
+				await syncCourseWidgets(schedule.visibleEvents);
+				await rescheduleCourseNoteReminders(schedule.visibleEvents);
+				await enableDefaultNotifications(schedule.activeEvents);
+				onDone();
 		} finally {
 			setSaving(false);
 		}

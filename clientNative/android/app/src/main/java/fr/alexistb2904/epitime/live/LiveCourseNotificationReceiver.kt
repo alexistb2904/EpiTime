@@ -13,11 +13,15 @@ class LiveCourseNotificationReceiver : BroadcastReceiver() {
     val applicationContext = context.applicationContext
 
     when (intent.action) {
-      LiveCourseNotificationModule.ACTION_RESTORE_LIVE_COURSE -> {
-        LiveCourseNotificationModule.restoreFromSnapshot(applicationContext)
-      }
+	      LiveCourseNotificationModule.ACTION_RESTORE_LIVE_COURSE -> {
+	        LiveCourseNotificationModule.restoreFromSnapshot(applicationContext)
+	      }
 
-      LiveCourseNotificationModule.ACTION_START_LIVE_COURSE -> {
+	      LiveCourseNotificationModule.ACTION_TICK_LIVE_COURSE -> {
+	        LiveCourseNotificationModule.restoreFromSnapshot(applicationContext)
+	      }
+
+	      LiveCourseNotificationModule.ACTION_START_LIVE_COURSE -> {
         val title = intent.getStringExtra(LiveCourseNotificationModule.EXTRA_TITLE).orEmpty()
         val room = intent.getStringExtra(LiveCourseNotificationModule.EXTRA_ROOM)
           ?.trim()

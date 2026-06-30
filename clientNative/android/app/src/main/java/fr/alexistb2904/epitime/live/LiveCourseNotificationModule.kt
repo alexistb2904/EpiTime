@@ -187,6 +187,7 @@ class LiveCourseNotificationModule(
       val timing = calculateTiming(startAt, endsAt)
       if (timing.remainingMillis <= 0L) {
         clearSnapshot(context)
+        cancelProgressTickInternal(context)
         manager.cancel(NOTIFICATION_ID)
         promise.resolve(false)
         return
@@ -204,6 +205,7 @@ class LiveCourseNotificationModule(
 
       saveSnapshot(context, title, description, startAt, endsAt)
       manager.notify(NOTIFICATION_ID, notification)
+      scheduleNextProgressTick(context, startAt, endsAt)
 
       promise.resolve(true)
     } catch (error: Exception) {
@@ -217,6 +219,8 @@ class LiveCourseNotificationModule(
       val context = reactContext.applicationContext
       val manager = context.getSystemService(NotificationManager::class.java)
       clearSnapshot(context)
+      cancelScheduledCourseProgressInternal(context)
+      cancelProgressTickInternal(context)
       manager.cancel(NOTIFICATION_ID)
       promise.resolve(true)
     } catch (error: Exception) {
@@ -350,6 +354,7 @@ class LiveCourseNotificationModule(
 
     internal const val ACTION_RESTORE_LIVE_COURSE = "fr.alexistb2904.epitime.live.RESTORE_LIVE_COURSE"
     internal const val ACTION_START_LIVE_COURSE = "fr.alexistb2904.epitime.live.START_LIVE_COURSE"
+    internal const val ACTION_TICK_LIVE_COURSE = "fr.alexistb2904.epitime.live.TICK_LIVE_COURSE"
     internal const val ACTION_SHOW_COURSE_START = "fr.alexistb2904.epitime.live.SHOW_COURSE_START"
     internal const val EXTRA_TITLE = "title"
     internal const val EXTRA_ROOM = "room"
@@ -361,6 +366,7 @@ class LiveCourseNotificationModule(
     internal const val NOTIFICATION_ID = 4201
 
     private const val REQUEST_CODE_START = 4202
+    private const val REQUEST_CODE_TICK = 4203
     private const val COURSE_START_NOTIFICATION_ID_BASE = 5000
     private const val COURSE_START_NOTIFICATION_ID_RANGE = 100_000
 
@@ -380,6 +386,7 @@ class LiveCourseNotificationModule(
       val timing = calculateTiming(startMillis, endMillis)
       if (timing.remainingMillis <= 0L) {
         clearSnapshot(context)
+        cancelProgressTickInternal(context)
         manager.cancel(NOTIFICATION_ID)
         return false
       }
@@ -394,6 +401,7 @@ class LiveCourseNotificationModule(
         endMillis = endMillis
       )
       manager.notify(NOTIFICATION_ID, notification)
+      scheduleNextProgressTick(context, startMillis, endMillis)
       return true
     }
 
@@ -410,6 +418,7 @@ class LiveCourseNotificationModule(
       val timing = calculateTiming(startMillis, endMillis)
       if (timing.remainingMillis <= 0L) {
         clearSnapshot(context)
+        cancelProgressTickInternal(context)
         manager.cancel(NOTIFICATION_ID)
         return false
       }
@@ -426,6 +435,7 @@ class LiveCourseNotificationModule(
 
       saveSnapshot(context, title, description, startMillis, endMillis)
       manager.notify(NOTIFICATION_ID, notification)
+      scheduleNextProgressTick(context, startMillis, endMillis)
       return true
     }
 
@@ -469,6 +479,17 @@ class LiveCourseNotificationModule(
       Log.d(TAG, "Canceled scheduled live course")
     }
 
+    internal fun cancelProgressTickInternal(context: Context) {
+      val pendingIntent = createTickPendingIntent(
+        context = context,
+        flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+      ) ?: return
+
+      val alarmManager = context.getSystemService(AlarmManager::class.java)
+      alarmManager.cancel(pendingIntent)
+      pendingIntent.cancel()
+    }
+
     internal fun cancelScheduledCourseStartNotificationsInternal(context: Context) {
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       val requestCodes = prefs.getStringSet(KEY_COURSE_START_REQUEST_CODES, emptySet()).orEmpty()
@@ -496,6 +517,45 @@ class LiveCourseNotificationModule(
       Log.d(TAG, "Canceled scheduled course start notifications")
     }
 
+    private fun scheduleNextProgressTick(context: Context, startMillis: Long, endMillis: Long): Boolean {
+      val now = System.currentTimeMillis()
+      if (startMillis <= 0L || endMillis <= startMillis || endMillis <= now) {
+        cancelProgressTickInternal(context)
+        return false
+      }
+
+      val nextMinuteBoundary = ((now / MINUTE_MILLIS) + 1L) * MINUTE_MILLIS
+      val triggerAt = nextMinuteBoundary.coerceAtMost(endMillis).coerceAtLeast(now + 1_000L)
+      val pendingIntent = createTickPendingIntent(
+        context = context,
+        flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      ) ?: return false
+      val alarmManager = context.getSystemService(AlarmManager::class.java)
+
+      try {
+        val canScheduleExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+        if (canScheduleExact) {
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+          } else {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+          }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        } else {
+          alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        }
+      } catch (error: SecurityException) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        } else {
+          alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+        }
+      }
+
+      return true
+    }
+
     private fun createStartPendingIntent(
       context: Context,
       title: String,
@@ -513,6 +573,17 @@ class LiveCourseNotificationModule(
       }
 
       return PendingIntent.getBroadcast(context, REQUEST_CODE_START, intent, flags)
+    }
+
+    private fun createTickPendingIntent(
+      context: Context,
+      flags: Int
+    ): PendingIntent? {
+      val intent = Intent(context, LiveCourseNotificationReceiver::class.java).apply {
+        action = ACTION_TICK_LIVE_COURSE
+      }
+
+      return PendingIntent.getBroadcast(context, REQUEST_CODE_TICK, intent, flags)
     }
 
     private fun createCourseStartPendingIntent(
@@ -783,7 +854,12 @@ class LiveCourseNotificationModule(
     private fun clearSnapshot(context: Context) {
       context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
-        .clear()
+        .remove(KEY_ACTIVE)
+        .remove(KEY_TITLE)
+        .remove(KEY_DESCRIPTION)
+        .remove(KEY_START_MILLIS)
+        .remove(KEY_END_MILLIS)
+        .remove(KEY_EXPIRES_AT)
         .apply()
     }
 

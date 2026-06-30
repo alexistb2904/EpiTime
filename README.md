@@ -16,6 +16,7 @@ Zeus (https://zeus.ionis-it.com/) est pratique mais… pas franchement beau. Epi
     ```bash
     cd client && npm install
     cd ../server && npm install
+    cd ../clientNative && npm install
     ```
 
 ## Variables d’environnement
@@ -69,13 +70,23 @@ Deux terminaux :
 
 ### Mobile natif (Expo)
 
-Depuis la racine du repo, tu peux lancer l'app Android/iOS directement :
+Depuis le dossier `clientNative`, tu peux lancer l'app Android/iOS directement :
 
 ```bash
+cd clientNative
 npm run android
 # ou
 npm run ios
 ```
+
+Checks utiles côté natif :
+
+```bash
+npm run typecheck
+npm run doctor
+```
+
+Pour les services Google/Firebase Android, place le fichier privé dans `clientNative/android/app/google-services.json`. S'il est absent, le plugin Google Services est ignoré pour permettre les builds locaux sans credentials Firebase.
 
 ## Build & Docker
 

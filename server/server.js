@@ -24,6 +24,30 @@ const MOBILE_PUSH_STORE = process.env.MOBILE_PUSH_STORE ? path.resolve(process.e
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
 
+const courseTypesById = new Map([
+	[1, "CourseType.FollowUp"],
+	[2, "CourseType.Exam"],
+	[3, "CourseType.Lecture"],
+	[4, "CourseType.Practice"],
+	[5, "CourseType.Conference"],
+	[6, "CourseType.Meeting"],
+	[7, "CourseType.Defense"],
+	[8, "CourseType.Workshop"],
+	[9, "CourseType.Rush"],
+	[10, "CourseType.TD"],
+	[11, "CourseType.EventAsso"],
+	[12, "CourseType.LogiWorks"],
+	[13, "CourseType.Remediation"],
+	[14, "CourseType.Tutoring"],
+	[15, "CourseType.Permanence"],
+	[16, "CourseType.IntegratedLecture"],
+]);
+
+const getFallbackCourseType = (id) => {
+	const type = courseTypesById.get(Number(id));
+	return type ? { id: Number(id), type } : null;
+};
+
 let pushEnabled = false;
 if (vapidPublicKey && vapidPrivateKey) {
 	webpush.setVapidDetails("mailto:alexistb2904@gmail.com", vapidPublicKey, vapidPrivateKey);
@@ -502,13 +526,19 @@ app.get("/api/coursetype/:id", async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
+			const fallback = getFallbackCourseType(id);
+			if (fallback) return res.json(fallback);
 			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
 		}
 
 		try {
 			const data = text ? JSON.parse(text) : null;
+			const fallback = getFallbackCourseType(id);
+			if (fallback && (!data || !data.type)) return res.json(fallback);
 			return res.json(data);
 		} catch (parseErr) {
+			const fallback = getFallbackCourseType(id);
+			if (fallback) return res.json(fallback);
 			return res.type("application/json").send(text);
 		}
 	} catch (err) {

@@ -14,19 +14,28 @@ type ExpoExtra = {
 
 const extra = (Constants.expoConfig?.extra || {}) as ExpoExtra;
 
-function readPublicValue(envKey: string, extraValue?: string) {
-	const value = process.env[envKey] || extraValue;
+const publicEnv = {
+	apiBase: process.env.EXPO_PUBLIC_API_BASE,
+	microsoftClientId: process.env.EXPO_PUBLIC_MICROSOFT_CLIENT_ID,
+	microsoftTenant: process.env.EXPO_PUBLIC_MICROSOFT_TENANT,
+	microsoftRedirectUri: process.env.EXPO_PUBLIC_MICROSOFT_REDIRECT_URI,
+	microsoftWebRedirectUri: process.env.EXPO_PUBLIC_MICROSOFT_WEB_REDIRECT_URI,
+	expoProjectId: process.env.EXPO_PUBLIC_EXPO_PROJECT_ID,
+};
+
+function readPublicValue(envValue?: string, extraValue?: string) {
+	const value = envValue || extraValue;
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 export const publicConfig = {
-	apiBase: readPublicValue("EXPO_PUBLIC_API_BASE", extra.apiBase),
-	microsoftClientId: readPublicValue("EXPO_PUBLIC_MICROSOFT_CLIENT_ID", extra.microsoftClientId),
-	microsoftTenant: readPublicValue("EXPO_PUBLIC_MICROSOFT_TENANT", extra.microsoftTenant) || "epita.fr",
-	microsoftRedirectUri: readPublicValue("EXPO_PUBLIC_MICROSOFT_REDIRECT_URI", extra.microsoftRedirectUri),
-	microsoftWebRedirectUri: readPublicValue("EXPO_PUBLIC_MICROSOFT_WEB_REDIRECT_URI", extra.microsoftWebRedirectUri),
+	apiBase: readPublicValue(publicEnv.apiBase, extra.apiBase),
+	microsoftClientId: readPublicValue(publicEnv.microsoftClientId, extra.microsoftClientId),
+	microsoftTenant: readPublicValue(publicEnv.microsoftTenant, extra.microsoftTenant) || "epita.fr",
+	microsoftRedirectUri: readPublicValue(publicEnv.microsoftRedirectUri, extra.microsoftRedirectUri),
+	microsoftWebRedirectUri: readPublicValue(publicEnv.microsoftWebRedirectUri, extra.microsoftWebRedirectUri),
 	expoProjectId:
-		readPublicValue("EXPO_PUBLIC_EXPO_PROJECT_ID", extra.expoProjectId) ||
+		readPublicValue(publicEnv.expoProjectId, extra.expoProjectId) ||
 		Constants.easConfig?.projectId ||
 		extra.eas?.projectId,
 };

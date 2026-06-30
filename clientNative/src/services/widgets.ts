@@ -1,12 +1,13 @@
 import React from "react";
 import { NativeModules, Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
-import { getEvents } from "./api";
 import { publicConfig } from "./config";
+import { readEventsCache, reconcileEventsWithCache, writeEventsCache } from "./eventsCache";
+import { isEventCancelled, isEventIgnored, mergeEventsWithLocal } from "./localEvents";
+import { syncSchedule } from "./scheduleRepository";
 import { getSession, getJSON, setJSON } from "./storage";
 import { ZeusEvent } from "../types";
 import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, startOfDay } from "../utils/calendar";
-import { isEventCancelled, isEventIgnored, mergeEventsWithLocal, reconcileEventsWithCache } from "./localEvents";
 import { NextCourseWidget } from "../widgets/NextCourseWidget";
 import { UpcomingCoursesWidget } from "../widgets/UpcomingCoursesWidget";
 
@@ -77,13 +78,9 @@ export async function refreshCourseWidgetsForGroups(groups: (string | number)[])
 	const start = startOfDay(new Date());
 	const end = new Date(start);
 	end.setDate(end.getDate() + 30);
-	const events = await getEvents(start, end, groups);
-	const safeEvents = Array.isArray(events) ? events : [];
-	const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
-	const reconciledEvents = reconcileEventsWithCache(safeEvents, cachedEvents);
-	await setJSON("lastEvents", reconciledEvents);
-	await syncCourseWidgets(await mergeEventsWithLocal(reconciledEvents, start, end));
-	return reconciledEvents;
+	const result = await syncSchedule({ start, end, query: { groups } });
+	await syncCourseWidgets(result.visibleEvents);
+	return result.events;
 }
 
 export async function getStoredCourseWidgetPayload() {
@@ -99,12 +96,12 @@ export async function refreshCourseWidgetsFromStoredConfig() {
 	end.setDate(end.getDate() + 30);
 
 	try {
-		const events = await fetchWidgetEvents(stored.apiBase, stored.zeusToken, start, end, stored.groups);
-		const safeEvents = Array.isArray(events) ? events : [];
-		const cachedEvents = await getJSON<ZeusEvent[]>("lastEvents", []);
-		const reconciledEvents = reconcileEventsWithCache(safeEvents, cachedEvents);
-		await setJSON("lastEvents", reconciledEvents);
-		const visibleEvents = await mergeEventsWithLocal(reconciledEvents, start, end);
+			const events = await fetchWidgetEvents(stored.apiBase, stored.zeusToken, start, end, stored.groups);
+			const safeEvents: ZeusEvent[] = Array.isArray(events) ? (events as ZeusEvent[]) : [];
+			const cachedEvents = await readEventsCache(start, end, { groups: stored.groups }, true);
+			const reconciledEvents = reconcileEventsWithCache(safeEvents, cachedEvents);
+			await writeEventsCache(start, end, { groups: stored.groups }, reconciledEvents);
+			const visibleEvents = await mergeEventsWithLocal(reconciledEvents, start, end);
 
 		const nextPayload: CourseWidgetPayload = {
 			...stored,

@@ -1,14 +1,12 @@
 import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
-import { getEvents } from "./api";
 import { rescheduleCourseNoteReminders } from "./courseNotes";
-import { findRoomChanges } from "./eventsCache";
-import { mergeEventsWithLocal, reconcileEventsWithCache, isEventCancelled, isEventIgnored } from "./localEvents";
-import { getNotificationSettings, notifyRoomChanges, scheduleLocalCourseNotifications } from "./notifications";
+import { isEventCancelled, isEventIgnored } from "./localEvents";
+import { getNotificationSettings, notifyEventChanges, scheduleLocalCourseNotifications } from "./notifications";
+import { syncSchedule } from "./scheduleRepository";
 import { getJSON, getSession, setJSON } from "./storage";
 import { syncCourseWidgets } from "./widgets";
-import { ZeusEvent } from "../types";
 
 const PLANNING_NOTIFICATION_SYNC_TASK = "sync-planning-notifications";
 const BACKGROUND_SYNC_INTERVAL_MINUTES = 5 * 60;
@@ -24,13 +22,13 @@ async function syncPlanningNotificationsInBackground() {
 	const end = new Date(start);
 	end.setDate(end.getDate() + BACKGROUND_NOTIFICATION_WINDOW_DAYS);
 
-	const cachedEvents = await getJSON<ZeusEvent[] | null>("lastEvents", null);
-	const freshEvents = await getEvents(start, end, { groups: selectedGroups });
-	const reconciledEvents = reconcileEventsWithCache(Array.isArray(freshEvents) ? freshEvents : [], cachedEvents);
-	const roomChanges = findRoomChanges(cachedEvents, reconciledEvents);
-
-	await setJSON("lastEvents", reconciledEvents);
-	const visibleEvents = await mergeEventsWithLocal(reconciledEvents, start, end);
+	const result = await syncSchedule({
+		start,
+		end,
+		query: { groups: selectedGroups },
+		changeDetectionWindowDays: notificationSettings.changeDetectionWindowDays,
+	});
+	const visibleEvents = result.visibleEvents;
 	await syncCourseWidgets(visibleEvents);
 	await rescheduleCourseNoteReminders(visibleEvents);
 	if (notificationSettings.enabled) {
@@ -41,11 +39,13 @@ async function syncPlanningNotificationsInBackground() {
 			notificationSettings.notificationType,
 			{ requestPermission: false, windowDays: BACKGROUND_NOTIFICATION_WINDOW_DAYS }
 		);
-		if (roomChanges.length) await notifyRoomChanges(roomChanges, notificationSettings.notificationType);
+	}
+	if (result.source === "network" && notificationSettings.changeDetectionEnabled && result.changes.length) {
+		await notifyEventChanges(result.changes, notificationSettings.notificationType);
 	}
 	await setJSON(LAST_BACKGROUND_SYNC_KEY, new Date().toISOString());
 
-	return true;
+	return result.source === "network";
 }
 
 if (!TaskManager.isTaskDefined(PLANNING_NOTIFICATION_SYNC_TASK)) {

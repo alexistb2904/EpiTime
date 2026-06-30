@@ -53,8 +53,8 @@ import {
 	type ScheduledNotificationItem,
 } from "../services/notifications";
 import { getRequiredAppPermissions, openAppPermissionSettings, requestRequiredAppPermissions, type RequiredPermissionsResult } from "../services/permissions";
+import { readCachedSelectedGroupsSchedule } from "../services/scheduleRepository";
 import { getJSON } from "../services/storage";
-import { ZeusEvent } from "../types";
 
 export default function SettingsScreen() {
 	const { logout, session } = useAuth();
@@ -226,16 +226,16 @@ export default function SettingsScreen() {
 	};
 
 	const refreshNotificationServices = async () => {
-		const [notificationSettings, events, groups] = await Promise.all([
+		const [notificationSettings, cachedSchedule, groups] = await Promise.all([
 			getNotificationSettings(),
-			getJSON<ZeusEvent[]>("lastEvents", []),
+			readCachedSelectedGroupsSchedule(14),
 			getJSON<(string | number)[]>("selectedGroups", []),
 		]);
 
-		await rescheduleCourseNoteReminders(events).catch(() => {});
+		await rescheduleCourseNoteReminders(cachedSchedule.visibleEvents).catch(() => {});
 		if (!notificationSettings.enabled) return;
 
-		await scheduleLocalCourseNotifications(events, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType, {
+		await scheduleLocalCourseNotifications(cachedSchedule.activeEvents, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType, {
 			requestPermission: false,
 		}).catch(() => {});
 		await registerPlanningNotificationBackgroundSync().catch(() => {});

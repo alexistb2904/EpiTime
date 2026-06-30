@@ -5,7 +5,7 @@ import { NativeModules, Platform } from "react-native";
 import { ZeusEvent } from "../types";
 import { getEventTitle, getRoomName } from "../utils/calendar";
 import { publicConfig } from "./config";
-import { RoomChange } from "./eventsCache";
+import { EventChange, RoomChange } from "./eventsCache";
 import { getJSON, setJSON } from "./storage";
 
 export const COURSES_CHANNEL_ID = "courses";
@@ -13,7 +13,7 @@ const NOTIFICATION_SETTINGS_KEY = "notificationSettings";
 const NOTIFICATION_DEBUG_SETTINGS_KEY = "notificationDebugSettings";
 const SCHEDULED_COURSE_NOTIFICATION_IDS_KEY = "scheduledCourseNotificationIds";
 const SCHEDULED_DEBUG_NOTIFICATION_IDS_KEY = "scheduledDebugNotificationIds";
-const NOTIFIED_ROOM_CHANGES_KEY = "notifiedRoomChanges";
+const NOTIFIED_EVENT_CHANGES_KEY = "notifiedEventChanges";
 const COURSE_NOTIFICATION_WINDOW_DAYS = 14;
 
 const LiveCourse = NativeModules.EpiTimeLiveCourse as
@@ -28,6 +28,8 @@ export type NotificationSettings = {
 	minutesBefore: number;
 	selectedDays: number[];
 	notificationType: "banner" | "sound" | "both";
+	changeDetectionEnabled: boolean;
+	changeDetectionWindowDays: number;
 };
 
 export type NotificationDebugSettings = {
@@ -56,6 +58,8 @@ export const defaultNotificationSettings: NotificationSettings = {
 	minutesBefore: 15,
 	selectedDays: [0, 1, 2, 3, 4, 5, 6],
 	notificationType: "both",
+	changeDetectionEnabled: true,
+	changeDetectionWindowDays: 3,
 };
 
 export const defaultNotificationDebugSettings: NotificationDebugSettings = {
@@ -114,15 +118,15 @@ export async function requestPushToken() {
 
 export async function getNotificationSettings() {
 	const saved = await getJSON<Partial<NotificationSettings>>(NOTIFICATION_SETTINGS_KEY, defaultNotificationSettings);
-	return {
+	return normalizeNotificationSettings({
 		...defaultNotificationSettings,
 		...saved,
 		selectedDays: Array.isArray(saved.selectedDays) ? saved.selectedDays : defaultNotificationSettings.selectedDays,
-	};
+	});
 }
 
 export async function setNotificationSettings(settings: NotificationSettings) {
-	await setJSON(NOTIFICATION_SETTINGS_KEY, settings);
+	await setJSON(NOTIFICATION_SETTINGS_KEY, normalizeNotificationSettings(settings));
 }
 
 export async function getNotificationDebugSettings() {
@@ -232,27 +236,25 @@ export async function clearLocalCourseNotifications() {
 	await cancelScheduledCourseNotifications();
 }
 
-export async function notifyRoomChanges(changes: RoomChange[], notificationType: NotificationSettings["notificationType"] = "both") {
+export async function notifyEventChanges(changes: EventChange[], notificationType: NotificationSettings["notificationType"] = "both") {
 	if (Platform.OS === "web" || !changes.length) return 0;
 
 	const granted = (await Notifications.getPermissionsAsync()).status === "granted";
 	if (!granted) return 0;
 	await ensureAndroidChannel();
 
-	const notified = await getJSON<string[]>(NOTIFIED_ROOM_CHANGES_KEY, []);
+	const notified = await getJSON<string[]>(NOTIFIED_EVENT_CHANGES_KEY, []);
 	const notifiedSet = new Set(notified);
-	const freshChanges = changes.filter((change) => !notifiedSet.has(change.key)).slice(0, 4);
+	const freshChanges = changes.filter((change) => !notifiedSet.has(change.key)).slice(0, 6);
 	if (!freshChanges.length) return 0;
 
 	const sound = notificationType === "banner" ? undefined : "default";
 	for (const change of freshChanges) {
-		const start = new Date(change.startDate);
-		const time = Number.isNaN(start.getTime()) ? "" : ` à ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 		await Notifications.scheduleNotificationAsync({
 			content: {
-				title: "Salle modifiée",
-				body: `${change.title}${time} : ${change.oldRooms} -> ${change.newRooms}`,
-				data: { type: "room-change", startsAt: change.startDate },
+				title: "Cours modifié",
+				body: `${change.title} · ${change.body}`,
+				data: { type: "course-change", startsAt: change.startDate, changeKey: change.key, kind: change.kind },
 				sound,
 			},
 			trigger: {
@@ -264,8 +266,12 @@ export async function notifyRoomChanges(changes: RoomChange[], notificationType:
 		notifiedSet.add(change.key);
 	}
 
-	await setJSON<string[]>(NOTIFIED_ROOM_CHANGES_KEY, Array.from(notifiedSet).slice(-120));
+	await setJSON<string[]>(NOTIFIED_EVENT_CHANGES_KEY, Array.from(notifiedSet).slice(-180));
 	return freshChanges.length;
+}
+
+export async function notifyRoomChanges(changes: RoomChange[], notificationType: NotificationSettings["notificationType"] = "both") {
+	return notifyEventChanges(changes, notificationType);
 }
 
 export async function getScheduledNotifications(): Promise<ScheduledNotificationItem[]> {
@@ -386,6 +392,19 @@ export async function sendLocalTestNotification() {
 		},
 	});
 	return true;
+}
+
+function normalizeNotificationSettings(settings: Partial<NotificationSettings>): NotificationSettings {
+	return {
+		enabled: settings.enabled ?? defaultNotificationSettings.enabled,
+		minutesBefore: clampInteger(settings.minutesBefore, 1, 120, defaultNotificationSettings.minutesBefore),
+		selectedDays: Array.isArray(settings.selectedDays)
+			? settings.selectedDays.map((day) => clampInteger(day, 0, 6, 0)).filter((day, index, days) => days.indexOf(day) === index)
+			: defaultNotificationSettings.selectedDays,
+		notificationType: settings.notificationType === "banner" || settings.notificationType === "sound" || settings.notificationType === "both" ? settings.notificationType : "both",
+		changeDetectionEnabled: settings.changeDetectionEnabled ?? defaultNotificationSettings.changeDetectionEnabled,
+		changeDetectionWindowDays: clampInteger(settings.changeDetectionWindowDays, 1, 14, defaultNotificationSettings.changeDetectionWindowDays),
+	};
 }
 
 function clampInteger(value: unknown, min: number, max: number, fallback: number) {

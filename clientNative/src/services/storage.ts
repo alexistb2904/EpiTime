@@ -44,3 +44,16 @@ export async function getJSON<T>(key: string, fallback: T) {
 		return fallback;
 	}
 }
+
+export async function removeJSON(key: string) {
+	await AsyncStorage.removeItem(key);
+}
+
+export async function getStorageKeys() {
+	return AsyncStorage.getAllKeys();
+}
+
+export async function removeStorageKeys(keys: string[]) {
+	if (!keys.length) return;
+	await AsyncStorage.multiRemove(keys);
+}

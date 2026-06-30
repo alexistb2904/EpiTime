@@ -1,6 +1,6 @@
 {
 	"name": "epitime-native-front",
-	"version": "1.1.7",
+	"version": "1.1.8",
 	"private": true,
 	"main": "index.ts",
 	"scripts": {
@@ -8,37 +8,39 @@
 		"android": "npx expo run:android",
 		"ios": "npx expo run:ios",
 		"prebuild": "npx expo prebuild",
+		"typecheck": "tsc --noEmit",
+		"doctor": "npx expo-doctor",
 		"apk:cloud": "eas build --platform android --profile development",
 		"apk": "npm run apk:build && npm run apk:copy",
 		"apkLinux": "npm run apkLinux:build && npm run apk:copy",
 		"apk:build": "set \"NODE_ENV=production\" && set \"JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr\" && set \"PATH=%JAVA_HOME%\\bin;%PATH%\" && cd android && gradlew.bat assembleRelease",
 		"apkLinux:build": "cd android && NODE_ENV=production ./gradlew assembleRelease",
 		"apk:clean": "cd android && gradlew.bat clean",
-		"apk:copy": "node -e \"const fs=require('fs'); const pkg=require('./package.json'); fs.copyFileSync('android/app/build/outputs/apk/release/app-release.apk', `EpiTime-${pkg.version}-release.apk`); console.log(`APK copied to EpiTime-${pkg.version}-release.apk`);\"",
+		"apk:copy": "node -e \"const fs=require('fs'); const pkg=require('./package.json'); const dest='EpiTime-'+pkg.version+'-release.apk'; fs.copyFileSync('android/app/build/outputs/apk/release/app-release.apk', dest); console.log('APK copied to '+dest);\"",
 		"apk:rebuild": "npm run apk:clean && npm run apk",
 		"build:android": "eas build -p android",
 		"build:ios": "eas build -p ios"
 	},
 	"dependencies": {
 		"@pchmn/expo-material3-theme": "^1.4.0",
-		"@react-native-async-storage/async-storage": "3.1.0",
-		"@react-navigation/bottom-tabs": "7.16.1",
-		"@react-navigation/native": "7.2.4",
+		"@react-native-async-storage/async-storage": "2.2.0",
+		"@react-navigation/bottom-tabs": "7.18.3",
+		"@react-navigation/native": "^7.3.4",
 		"babel-preset-expo": "~56.0.0",
-		"expo": "56.0.4",
-		"expo-auth-session": "56.0.11",
-		"expo-background-task": "~56.0.15",
-		"expo-constants": "56.0.15",
-		"expo-dev-client": "^56.0.18",
+		"expo": "~56.0.12",
+		"expo-auth-session": "~56.0.14",
+		"expo-background-task": "~56.0.19",
+		"expo-constants": "~56.0.18",
+		"expo-dev-client": "~56.0.20",
 		"expo-device": "56.0.4",
 		"expo-document-picker": "~56.0.4",
 		"expo-file-system": "~56.0.7",
-		"expo-image-picker": "~56.0.14",
-		"expo-linking": "56.0.11",
-		"expo-notifications": "56.0.13",
+		"expo-image-picker": "~56.0.18",
+		"expo-linking": "~56.0.14",
+		"expo-notifications": "~56.0.18",
 		"expo-secure-store": "56.0.4",
 		"expo-status-bar": "56.0.4",
-		"expo-task-manager": "~56.0.15",
+		"expo-task-manager": "~56.0.19",
 		"expo-web-browser": "56.0.5",
 		"lucide-react-native": "1.16.0",
 		"react": "19.2.3",
@@ -47,7 +49,7 @@
 		"react-native-android-widget": "^0.20.3",
 		"react-native-gesture-handler": "2.31.2",
 		"react-native-reanimated": "4.3.1",
-		"react-native-safe-area-context": "5.8.0",
+		"react-native-safe-area-context": "~5.7.0",
 		"react-native-screens": "4.25.2",
 		"react-native-svg": "15.15.4",
 		"react-native-web": "^0.21.2",
@@ -56,5 +58,12 @@
 	"devDependencies": {
 		"@types/react": "19.2.15",
 		"typescript": "6.0.3"
+	},
+	"expo": {
+		"doctor": {
+			"appConfigFieldsNotSyncedCheck": {
+				"enabled": false
+			}
+		}
 	}
 }

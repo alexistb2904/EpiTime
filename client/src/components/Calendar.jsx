@@ -76,7 +76,6 @@ const Calendar = () => {
 	const [groupSearch, setGroupSearch] = useState("");
 	const [showGroupModal, setShowGroupModal] = useState(false);
 	const [selectedEvent, setSelectedEvent] = useState(null);
-	const [selectedEventLoading, setSelectedEventLoading] = useState(false);
 	const [showSettingsModal, setShowSettingsModal] = useState(false);
 	const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 	const [showRoomAvailabilityModal, setShowRoomAvailabilityModal] = useState(false);
@@ -86,6 +85,8 @@ const Calendar = () => {
 	const [now, setNow] = useState(new Date());
 	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const todayRef = useRef(null);
+	const eventDetailsCacheRef = useRef(new Map());
+	const selectedEventRequestRef = useRef(0);
 
 	useEffect(() => {
 		const timer = setInterval(() => setNow(new Date()), 60000);
@@ -258,17 +259,31 @@ const Calendar = () => {
 	};
 
 	const handleEventClick = async (ev) => {
+		const requestId = selectedEventRequestRef.current + 1;
+		selectedEventRequestRef.current = requestId;
+		const detailCacheKey = getEventCacheKey(ev);
+		const cachedEvent = eventDetailsCacheRef.current.get(detailCacheKey);
+
 		trackEvent("event_details_opened", {
 			view_mode: viewMode,
 			has_online: !!ev.isOnline,
 			has_rooms: (ev.rooms?.length || 0) > 0,
 			has_teachers: (ev.teachers?.length || 0) > 0,
 		});
-		setSelectedEventLoading(true);
+
+		if (cachedEvent) {
+			setSelectedEvent(cachedEvent);
+			return;
+		}
+
 		setSelectedEvent({ ...ev, loadingDetails: true });
 		if (isEventCancelled(ev)) {
 			setSelectedEvent({ ...ev, loadingDetails: false });
-			setSelectedEventLoading(false);
+			return;
+		}
+
+		if (!ev.idReservation) {
+			setSelectedEvent({ ...ev, loadingDetails: false });
 			return;
 		}
 
@@ -276,6 +291,7 @@ const Calendar = () => {
 			const res = await fetch(`/api/reservation/${ev.idReservation}/details`, {
 				headers: { Authorization: `Bearer ${zeusToken}` },
 			});
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 
 			let courseTypeName = null;
@@ -301,12 +317,13 @@ const Calendar = () => {
 				endObj: data.endDate ? new Date(data.endDate) : ev.endObj,
 				loadingDetails: false,
 			};
+			eventDetailsCacheRef.current.set(detailCacheKey, mergedEvent);
+			if (selectedEventRequestRef.current !== requestId) return;
 			setSelectedEvent(mergedEvent);
 		} catch (err) {
 			console.error("Erreur chargement détails réservation:", err);
+			if (selectedEventRequestRef.current !== requestId) return;
 			setSelectedEvent({ ...ev, loadingDetails: false });
-		} finally {
-			setSelectedEventLoading(false);
 		}
 	};
 

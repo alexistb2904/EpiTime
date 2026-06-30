@@ -131,7 +131,7 @@ export async function mergeEventsWithLocal(events: ZeusEvent[], start?: Date, en
 
 export function reconcileEventsWithCache(freshEvents: ZeusEvent[], cachedEvents: ZeusEvent[] | null | undefined) {
 	void cachedEvents;
-	return freshEvents.map(stripCancellationState);
+	return freshEvents;
 }
 
 export async function reactivateCourse(event: ZeusEvent) {

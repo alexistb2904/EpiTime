@@ -12,16 +12,22 @@ export const daysOfWeek = [
 ];
 
 export const courseTypeLabels: Record<string, string> = {
-	"CourseType.IntegratedLecture": "Cours Intégré",
 	"CourseType.FollowUp": "Suivi de Cours",
-	"CourseType.Practice": "Travaux Pratiques",
-	"CourseType.Lecture": "Cours Magistral",
-	"CourseType.Meeting": "Réunion",
 	"CourseType.Exam": "Examen",
-	"CourseType.Permanence": "Permanence",
+	"CourseType.Lecture": "Cours Magistral",
+	"CourseType.Practice": "Travaux Pratiques",
 	"CourseType.Conference": "Conférence",
-	"CourseType.Workshop": "Atelier",
+	"CourseType.Meeting": "Réunion",
 	"CourseType.Defense": "Soutenance",
+	"CourseType.Workshop": "Atelier",
+	"CourseType.Rush": "Rush",
+	"CourseType.TD": "TD",
+	"CourseType.EventAsso": "Événement Asso",
+	"CourseType.LogiWorks": "LogiWorks",
+	"CourseType.Remediation": "Remédiation",
+	"CourseType.Tutoring": "Tutorat",
+	"CourseType.Permanence": "Permanence",
+	"CourseType.IntegratedLecture": "Cours Intégré",
 };
 
 export function startOfDay(date: Date) {

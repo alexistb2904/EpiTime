@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { BellRing, CheckCircle2, Clock, Send } from "lucide-react-native";
+import { BellRing, CalendarClock, CheckCircle2, Clock, Send } from "lucide-react-native";
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -17,9 +17,9 @@ import {
 	sendLocalTestNotification,
 	setNotificationSettings,
 } from "../services/notifications";
+import { readCachedSelectedGroupsSchedule } from "../services/scheduleRepository";
 import { getJSON } from "../services/storage";
 import { daysOfWeek } from "../utils/calendar";
-import { ZeusEvent } from "../types";
 
 export default function NotificationsScreen() {
 	const { theme } = useTheme();
@@ -48,10 +48,10 @@ export default function NotificationsScreen() {
 	const saveSettings = async (next: NotificationSettings) => {
 		setSettings(next);
 		await setNotificationSettings(next);
-		const events = await getJSON<ZeusEvent[]>("lastEvents", []);
-		await rescheduleCourseNoteReminders(events);
+		const cachedSchedule = await readCachedSelectedGroupsSchedule(Math.max(14, next.changeDetectionWindowDays));
+		await rescheduleCourseNoteReminders(cachedSchedule.visibleEvents);
 		if (next.enabled) {
-			await scheduleLocalCourseNotifications(events, next.minutesBefore, next.selectedDays, next.notificationType);
+			await scheduleLocalCourseNotifications(cachedSchedule.activeEvents, next.minutesBefore, next.selectedDays, next.notificationType);
 			await registerPlanningNotificationBackgroundSync();
 		} else {
 			await clearLocalCourseNotifications();
@@ -186,19 +186,59 @@ export default function NotificationsScreen() {
 						<Text style={[s.link, { color: theme.accent }]}>Aucun</Text>
 					</Pressable>
 				</View>
-			</Card>
+				</Card>
 
-			<Card>
-				<View style={s.rowHeader}>
-					<CheckCircle2 color={theme.accent} size={20} />
+				<Card style={s.rowCard}>
+					<View style={[s.iconBox, { backgroundColor: theme.accentSoft }]}>
+						<CalendarClock color={theme.accent} size={22} />
+					</View>
+					<View style={s.rowBody}>
+						<Text style={[s.rowTitle, { color: theme.text }]}>Changements de cours</Text>
+						<Text style={[s.meta, { color: theme.muted }]}>Détection sur {settings.changeDetectionWindowDays} jour(s)</Text>
+					</View>
+					<Switch
+						value={settings.changeDetectionEnabled}
+						onValueChange={(changeDetectionEnabled) => saveSettings({ ...settings, changeDetectionEnabled })}
+						thumbColor={theme.accent}
+					/>
+				</Card>
+
+				{settings.changeDetectionEnabled ? (
+					<Card>
+						<View style={s.rowHeader}>
+							<CalendarClock color={theme.accent} size={20} />
+							<Text style={[s.sectionTitle, { color: theme.text }]}>Détecter pendant</Text>
+						</View>
+						<View style={s.stepper}>
+							<Pressable
+								style={[s.stepBtn, { borderColor: theme.border }]}
+								onPress={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.max(1, settings.changeDetectionWindowDays - 1) })}>
+								<Text style={[s.stepText, { color: theme.text }]}>-</Text>
+							</Pressable>
+							<Text style={[s.minutes, { color: theme.text }]}>{settings.changeDetectionWindowDays} j</Text>
+							<Pressable
+								style={[s.stepBtn, { borderColor: theme.border }]}
+								onPress={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.min(14, settings.changeDetectionWindowDays + 1) })}>
+								<Text style={[s.stepText, { color: theme.text }]}>+</Text>
+							</Pressable>
+						</View>
+					</Card>
+				) : null}
+
+				<Card>
+					<View style={s.rowHeader}>
+						<CheckCircle2 color={theme.accent} size={20} />
 					<Text style={[s.sectionTitle, { color: theme.text }]}>Résumé</Text>
 				</View>
-				<Text style={[s.meta, { color: theme.muted }]}>
-					Notification {settings.minutesBefore} minutes avant chaque cours, sur{" "}
-					{settings.selectedDays.length === 7 ? "tous les jours" : `${settings.selectedDays.length} jour(s)`}.
-				</Text>
-				<Text style={[s.status, { color: theme.text }]}>{message}</Text>
-			</Card>
+					<Text style={[s.meta, { color: theme.muted }]}>
+						Notification {settings.minutesBefore} minutes avant chaque cours, sur{" "}
+						{settings.selectedDays.length === 7 ? "tous les jours" : `${settings.selectedDays.length} jour(s)`}.
+					</Text>
+					<Text style={[s.meta, { color: theme.muted }]}>
+						Modifications {settings.changeDetectionEnabled ? `sur ${settings.changeDetectionWindowDays} jour(s)` : "désactivées"}.
+					</Text>
+					<Text style={[s.status, { color: theme.text }]}>{message}</Text>
+				</Card>
 
 			<Pressable onPress={test} disabled={loading} style={[s.primaryBtn, { backgroundColor: theme.accent }]}>
 				{loading ? <ActivityIndicator color="#fff" /> : <Send color="#fff" size={18} />}

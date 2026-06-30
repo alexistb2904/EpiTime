@@ -28,8 +28,7 @@ import Card from "../components/Card";
 import DatePickerModal from "../components/DatePickerModal";
 import EventDetailsModal from "../components/EventDetailsModal";
 import { useTheme } from "../context/ThemeContext";
-import { useNetworkStatus } from "../hooks/useNetworkStatus";
-import { getAvailableRooms, getCourseType, getEvents, getGroups, getLocations, getReservationDetails, getRooms, getRoomTypes } from "../services/api";
+import { getAvailableRooms, getCourseType, getGroups, getLocations, getReservationDetails, getRooms, getRoomTypes } from "../services/api";
 import { CourseNoteSummary, getCourseNoteSummaries, rescheduleCourseNoteReminders } from "../services/courseNotes";
 import {
 	deleteLocalEvent,
@@ -41,14 +40,12 @@ import {
 	isEventCancelled,
 	isEventIgnored,
 	isManualEvent,
-	mergeEventsWithLocal,
-	reconcileEventsWithCache,
 } from "../services/localEvents";
 import { getJSON, setJSON } from "../services/storage";
-import { buildEventsCacheKey, eventsDiffer, findRoomChanges, readEventsCache, RoomChange, writeEventsCache } from "../services/eventsCache";
+import { EventChange } from "../services/eventsCache";
 import { syncLiveCourseNotification } from "../services/liveCourse";
-import { getNotificationSettings, notifyRoomChanges, scheduleLocalCourseNotifications } from "../services/notifications";
-import { getNetworkState, isNetworkOnline } from "../services/networkStatus";
+import { getNotificationSettings, notifyEventChanges, scheduleLocalCourseNotifications } from "../services/notifications";
+import { readCachedSchedule, syncSchedule } from "../services/scheduleRepository";
 import { refreshCourseWidgetsForGroups, syncCourseWidgets } from "../services/widgets";
 import { Group, LocationNode, Room, RoomType, ZeusEvent } from "../types";
 import {
@@ -121,7 +118,6 @@ const getCourseProgress = (startMillis: number, endMillis: number, now: number) 
 
 export default function CalendarScreen() {
 	const { theme } = useTheme();
-	const { isOffline, isOnline } = useNetworkStatus();
 	const route = useRoute<any>();
 	const routeParams = route.params as CalendarRouteParams | undefined;
 	const [groups, setGroups] = useState<Group[]>([]);
@@ -141,7 +137,7 @@ export default function CalendarScreen() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [usingCache, setUsingCache] = useState(false);
-	const [roomChanges, setRoomChanges] = useState<RoomChange[]>([]);
+	const [eventChanges, setEventChanges] = useState<EventChange[]>([]);
 	const [now, setNow] = useState(Date.now());
 	const [noteSummaries, setNoteSummaries] = useState<Record<string, CourseNoteSummary>>({});
 
@@ -154,74 +150,38 @@ export default function CalendarScreen() {
 			setLoading(true);
 			setError("");
 			const { start, end } = rangeFor(nextDate, nextView);
-			let cacheKey = "";
-			let cachedData: ZeusEvent[] = [];
+			const query = nextContext.type === "teacher" ? { teachers: nextContext.ids } : nextContext.type === "room" ? { rooms: nextContext.ids } : { groups: nextContext.ids };
 			try {
-				const query =
-					nextContext.type === "teacher" ? { teachers: nextContext.ids } : nextContext.type === "room" ? { rooms: nextContext.ids } : { groups: nextContext.ids };
-				if (!query.groups?.length && !query.teachers?.length && !query.rooms?.length) {
-					const localOnlyEvents = await mergeEventsWithLocal([], start, end);
-					setEvents(localOnlyEvents);
-					await rescheduleCourseNoteReminders(localOnlyEvents);
-					await refreshNoteSummaries();
-					setUsingCache(false);
-					return;
-				}
+				const notificationSettings = await getNotificationSettings();
+				const result = await syncSchedule({
+					start,
+					end,
+					query,
+					changeDetectionWindowDays: notificationSettings.changeDetectionWindowDays,
+					onCached: async (cached) => {
+						setEvents(cached.visibleEvents);
+						await rescheduleCourseNoteReminders(cached.visibleEvents);
+						await refreshNoteSummaries();
+					},
+				});
 
-				cacheKey = buildEventsCacheKey(start, end, query);
-				cachedData = await readEventsCache(cacheKey, false);
-				if (cachedData.length) {
-					const cachedVisibleEvents = await mergeEventsWithLocal(cachedData, start, end);
-					setEvents(cachedVisibleEvents);
-					await rescheduleCourseNoteReminders(cachedVisibleEvents);
-					await refreshNoteSummaries();
-				}
-
-				const networkState = await getNetworkState();
-				if (!isNetworkOnline(networkState)) {
-					const offlineEvents = cachedData.length ? cachedData : await readEventsCache(cacheKey, true);
-					const cachedVisibleEvents = await mergeEventsWithLocal(offlineEvents, start, end);
-					setEvents(cachedVisibleEvents);
-					await rescheduleCourseNoteReminders(cachedVisibleEvents);
-					await refreshNoteSummaries();
-					setUsingCache(true);
-					return;
-				}
-
-				const data = await getEvents(start, end, query);
-				const safeData = Array.isArray(data) ? data : [];
-				const reconciledData = reconcileEventsWithCache(safeData, cachedData);
-				const visibleData = await mergeEventsWithLocal(reconciledData, start, end);
-
-				const hasChanges = eventsDiffer(reconciledData, cachedData);
-				const detectedRoomChanges = findRoomChanges(cachedData, reconciledData);
-				if (hasChanges || !cachedData.length) setEvents(visibleData);
-				if (hasChanges) {
-					await writeEventsCache(cacheKey, reconciledData);
-					const notificationSettings = await getNotificationSettings();
-					if (detectedRoomChanges.length) {
-						setRoomChanges(detectedRoomChanges);
-						if (notificationSettings.enabled) await notifyRoomChanges(detectedRoomChanges, notificationSettings.notificationType);
+				setEvents(result.visibleEvents);
+				if (result.source === "network" && (result.changed || !result.exactCacheHit)) {
+					if (result.changes.length) {
+						setEventChanges(result.changes);
+						if (notificationSettings.changeDetectionEnabled) await notifyEventChanges(result.changes, notificationSettings.notificationType);
 					}
 					if (notificationSettings.enabled) {
-						await scheduleLocalCourseNotifications(
-							visibleData.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)),
-							notificationSettings.minutesBefore,
-							notificationSettings.selectedDays,
-							notificationSettings.notificationType
-						);
+						await scheduleLocalCourseNotifications(result.activeEvents, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType);
 					}
-				} else if (!cachedData.length) {
-					await writeEventsCache(cacheKey, reconciledData);
 				}
-				await rescheduleCourseNoteReminders(visibleData);
+				await rescheduleCourseNoteReminders(result.visibleEvents);
 				await refreshNoteSummaries();
-				setUsingCache(false);
+				setUsingCache(result.source === "cache");
 			} catch (err: any) {
-				const cached = cachedData.length ? cachedData : cacheKey ? await readEventsCache(cacheKey, true) : [];
-				const cachedVisibleEvents = await mergeEventsWithLocal(cached, start, end);
-				setEvents(cachedVisibleEvents);
-				await rescheduleCourseNoteReminders(cachedVisibleEvents);
+				const cached = await readCachedSchedule(start, end, query, true);
+				setEvents(cached.visibleEvents);
+				await rescheduleCourseNoteReminders(cached.visibleEvents);
 				await refreshNoteSummaries();
 				setUsingCache(true);
 				setError("");
@@ -235,15 +195,20 @@ export default function CalendarScreen() {
 	useEffect(() => {
 		(async () => {
 			setLoading(true);
+			let initialDate = new Date();
+			let savedMode: ViewMode = "week";
+			let savedGroups: (string | number)[] = [];
 			try {
 				const requestedDate = routeParams?.targetDate ? startOfDay(new Date(routeParams.targetDate)) : null;
-				const initialDate = requestedDate && !Number.isNaN(requestedDate.getTime()) ? requestedDate : new Date();
+				initialDate = requestedDate && !Number.isNaN(requestedDate.getTime()) ? requestedDate : new Date();
 				const initialMode: ViewMode = requestedDate ? "day" : await getJSON<ViewMode>("viewMode", "week");
-				const [cachedGroups, savedGroups, savedMode] = await Promise.all([
+				const [cachedGroups, storedGroups, storedMode] = await Promise.all([
 					getJSON<Group[]>("lastGroups", []),
 					getJSON<(string | number)[]>("selectedGroups", []),
 					Promise.resolve(initialMode),
 				]);
+				savedGroups = storedGroups;
+				savedMode = storedMode;
 				if (cachedGroups.length) setGroups(cachedGroups);
 				try {
 					const allGroups = await getGroups();
@@ -261,9 +226,10 @@ export default function CalendarScreen() {
 				await loadCalendar(initialContext, initialDate, savedMode);
 			} catch {
 				setGroups(await getJSON("lastGroups", []));
-				const cachedVisibleEvents = await mergeEventsWithLocal(await getJSON("lastEvents", []));
-				setEvents(cachedVisibleEvents);
-				await rescheduleCourseNoteReminders(cachedVisibleEvents);
+				const { start, end } = rangeFor(initialDate, savedMode);
+				const cached = await readCachedSchedule(start, end, { groups: savedGroups }, true);
+				setEvents(cached.visibleEvents);
+				await rescheduleCourseNoteReminders(cached.visibleEvents);
 				await refreshNoteSummaries();
 				setUsingCache(true);
 			} finally {
@@ -274,7 +240,6 @@ export default function CalendarScreen() {
 
 	useEffect(() => {
 		if (!usingCache) return;
-		if (!isOnline) return;
 		const retryOnlineSync = () => loadCalendar(context, currentDate, viewMode);
 		const timer = setInterval(retryOnlineSync, 20_000);
 		const subscription = AppState.addEventListener("change", (state) => {
@@ -284,18 +249,17 @@ export default function CalendarScreen() {
 			clearInterval(timer);
 			subscription.remove();
 		};
-	}, [context, currentDate, isOnline, loadCalendar, usingCache, viewMode]);
+	}, [context, currentDate, loadCalendar, usingCache, viewMode]);
 
 	useEffect(() => {
-		if (usingCache && isOnline) loadCalendar(context, currentDate, viewMode);
-	}, [context, currentDate, isOnline, loadCalendar, usingCache, viewMode]);
+		if (usingCache) loadCalendar(context, currentDate, viewMode);
+	}, [context, currentDate, loadCalendar, usingCache, viewMode]);
 
 	useFocusEffect(
 		useCallback(() => {
-			if (!isOnline) return;
 			const timer = setInterval(() => loadCalendar(context, currentDate, viewMode), minute);
 			return () => clearInterval(timer);
-		}, [context, currentDate, isOnline, loadCalendar, viewMode])
+		}, [context, currentDate, loadCalendar, viewMode])
 	);
 
 	useEffect(() => {
@@ -400,7 +364,7 @@ export default function CalendarScreen() {
 				: selectedDayIgnoredCount
 					? `${selectedDayIgnoredCount} cours ignoré${selectedDayIgnoredCount > 1 ? "s" : ""}`
 				: "Journée libre";
-	const showCacheBanner = usingCache || isOffline;
+	const showCacheBanner = usingCache;
 
 	const applyDate = (date: Date) => {
 		const next = startOfDay(date);
@@ -693,25 +657,23 @@ export default function CalendarScreen() {
 						</Pressable>
 					</Animated.View>
 
-					{showCacheBanner ? (
-						<Animated.View entering={FadeInDown.duration(300)} style={[s.offline, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
-							<WifiOff color={theme.accent} size={17} />
-							<Text style={[s.offlineText, { color: theme.text }]}>
-								{isOffline ? "Connexion perdue, agenda conservé depuis le cache." : "Mode hors ligne, agenda affiché depuis le cache."}
-							</Text>
-						</Animated.View>
-					) : null}
+						{showCacheBanner ? (
+							<Animated.View entering={FadeInDown.duration(300)} style={[s.offline, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
+								<WifiOff color={theme.accent} size={17} />
+								<Text style={[s.offlineText, { color: theme.text }]}>Agenda chargé depuis le cache. Synchronisation en nouvel essai.</Text>
+							</Animated.View>
+						) : null}
 
-					{roomChanges.length ? (
-						<Animated.View entering={FadeInDown.duration(300)} style={[s.roomChange, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
-							<MapPin color={theme.warn} size={17} />
-							<Text style={[s.roomChangeText, { color: theme.text }]} numberOfLines={2}>
-								{formatRoomChangeNotice(roomChanges)}
-							</Text>
-							<Pressable style={s.roomChangeClose} onPress={() => setRoomChanges([])}>
-								<X color={theme.muted} size={16} />
-							</Pressable>
-						</Animated.View>
+						{eventChanges.length ? (
+							<Animated.View entering={FadeInDown.duration(300)} style={[s.roomChange, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
+								<MapPin color={theme.warn} size={17} />
+								<Text style={[s.roomChangeText, { color: theme.text }]} numberOfLines={2}>
+									{formatEventChangeNotice(eventChanges)}
+								</Text>
+								<Pressable style={s.roomChangeClose} onPress={() => setEventChanges([])}>
+									<X color={theme.muted} size={16} />
+								</Pressable>
+							</Animated.View>
 					) : null}
 
 					<Animated.View entering={FadeInDown.delay(130).duration(380)} style={[s.segment, { backgroundColor: theme.surfaceSoft }]}>
@@ -836,12 +798,12 @@ export default function CalendarScreen() {
 	);
 }
 
-function formatRoomChangeNotice(changes: RoomChange[]) {
+function formatEventChangeNotice(changes: EventChange[]) {
 	const first = changes[0];
 	const start = new Date(first.startDate);
 	const time = Number.isNaN(start.getTime()) ? "" : ` à ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 	const suffix = changes.length > 1 ? ` (+${changes.length - 1})` : "";
-	return `Salle modifiée${suffix} : ${first.title}${time}, ${first.oldRooms} -> ${first.newRooms}`;
+	return `Cours modifié${suffix} : ${first.title}${time}, ${first.summary}`;
 }
 
 function EventCard({
