@@ -1,8 +1,9 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { AlarmClockOff, CalendarDays, ExternalLink, Filter, MapPin, RotateCcw, Trash2, Users, X } from "lucide-react-native";
+import { AlarmClockOff, BookOpen, CalendarDays, ExternalLink, Filter, MapPin, RotateCcw, Trash2, Users, X } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import { isEventCancelled, isEventIgnored, isManualEvent } from "../services/localEvents";
+import type { AurigaSyllabus } from "../services/aurigaTypes";
 import { ZeusEvent } from "../types";
 import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba, openUrl } from "../utils/calendar";
 import { getRoomMapUrl } from "../utils/rooms";
@@ -16,9 +17,11 @@ type EventDetailsModalProps = {
 	onIgnore: (event: ZeusEvent) => void;
 	onReactivate: (event: ZeusEvent) => void;
 	onNotesChanged?: () => void;
+	linkedSyllabus?: AurigaSyllabus | null;
+	onOpenSyllabus?: (syllabus: AurigaSyllabus) => void;
 };
 
-export default function EventDetailsModal({ event, onClose, onApplyContext, onDelete, onIgnore, onReactivate, onNotesChanged }: EventDetailsModalProps) {
+export default function EventDetailsModal({ event, onClose, onApplyContext, onDelete, onIgnore, onReactivate, onNotesChanged, linkedSyllabus, onOpenSyllabus }: EventDetailsModalProps) {
 	const { theme } = useTheme();
 	if (!event) return null;
 
@@ -70,7 +73,7 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 						<CourseNotesSection event={event} onChanged={onNotesChanged} />
 					</View>
 
-					{event.code || event.url ? (
+					{event.code || event.url || linkedSyllabus ? (
 						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
 							{event.code ? (
 								<View style={s.eventDataRow}>
@@ -88,6 +91,13 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 								<Pressable style={[s.eventLinkBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openUrl(event.url)}>
 									<ExternalLink color={visualColor} size={20} />
 									<Text style={[s.eventLinkText, { color: theme.text }]}>Ouvrir le lien du cours</Text>
+								</Pressable>
+							) : null}
+
+							{linkedSyllabus ? (
+								<Pressable style={[s.eventLinkBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={() => onOpenSyllabus?.(linkedSyllabus)}>
+									<BookOpen color="#fff" size={20} />
+									<Text style={s.eventPrimaryLinkText}>Voir dans le syllabus</Text>
 								</Pressable>
 							) : null}
 						</View>
@@ -209,6 +219,7 @@ const s = StyleSheet.create({
 	eventDataValue: { fontSize: 16, fontWeight: "900", marginTop: 2 },
 	eventLinkBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginTop: 16 },
 	eventLinkText: { fontSize: 15, fontWeight: "900" },
+	eventPrimaryLinkText: { color: "#fff", fontSize: 15, fontWeight: "900" },
 	eventCardList: { gap: 12 },
 	eventItemCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 16, borderWidth: 1 },
 	eventItemName: { flex: 1, fontSize: 16, fontWeight: "800" },

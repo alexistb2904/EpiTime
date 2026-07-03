@@ -1,13 +1,14 @@
 import React, { useEffect } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { Easing, FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
-import { BellRing, CalendarDays, DoorOpen, LogIn, ShieldCheck } from "lucide-react-native";
+import { BellRing, BookOpenCheck, CalendarDays, DoorOpen, LogIn, ShieldCheck } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
 const features = [
 	{ icon: CalendarDays, title: "Agenda", text: "Cours, intervenants et salles." },
 	{ icon: DoorOpen, title: "Salles", text: "Disponibilités en direct." },
+	{ icon: BookOpenCheck, title: "Auriga", text: "Notes, moyennes et syllabus." },
 	{ icon: BellRing, title: "Rappels", text: "Notifications pour ne rater aucun cours." },
 ];
 
@@ -47,7 +48,7 @@ export default function LoginScreen() {
 					<Animated.View style={[s.logoPlate, { borderColor: theme.border, borderWidth: 0 }, logoStyle]}>
 						<Image source={require("../../assets/logo.png")} style={[s.logo, compact && s.logoCompact]} resizeMode="contain" />
 					</Animated.View>
-					<Text style={[s.sub, { color: theme.muted }]}>Ton agenda EPITA, tes salles et tes rappels dans une app pensée pour le quotidien.</Text>
+					<Text style={[s.sub, { color: theme.muted }]}>Ton agenda EPITA, tes salles, tes notes Auriga, tes syllabus et tes rappels dans une app pensée pour le quotidien.</Text>
 					<Pressable disabled={loading} onPress={login} style={({ pressed }) => [s.btn, { backgroundColor: theme.accent, opacity: pressed || loading ? 0.76 : 1 }]}>
 						{loading ? <ActivityIndicator color="#fff" /> : <LogIn color="#fff" size={20} />}
 						<Text style={s.btnText}>Connexion Microsoft</Text>
@@ -114,8 +115,8 @@ const s = StyleSheet.create({
 	sub: { textAlign: "center", marginTop: 10, marginBottom: 26, fontSize: 16, lineHeight: 23 },
 	btn: { minHeight: 56, borderRadius: 18, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, alignSelf: "stretch" },
 	btnText: { color: "white", fontWeight: "900", fontSize: 16 },
-	featureGrid: { width: "100%", flexDirection: "row", gap: 10, marginTop: 14 },
-	feature: { flex: 1, borderWidth: 1, borderRadius: 18, minHeight: 116, padding: 12, alignItems: "center", justifyContent: "center" },
+	featureGrid: { width: "100%", flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 14 },
+	feature: { flexBasis: "47%", flexGrow: 1, borderWidth: 1, borderRadius: 18, minHeight: 116, padding: 12, alignItems: "center", justifyContent: "center" },
 	featureIcon: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center", marginBottom: 8 },
 	featureTitle: { fontWeight: "900", fontSize: 13 },
 	featureText: { textAlign: "center", marginTop: 4, fontSize: 11, lineHeight: 15 },

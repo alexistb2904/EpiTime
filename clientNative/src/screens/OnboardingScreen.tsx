@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeInUp, Layout, SlideInRight } from "react-native-reanimated";
-import { BellRing, CalendarDays, Check, DoorOpen, LogOut, Search, ShieldCheck, Users } from "lucide-react-native";
+import { BellRing, BookOpenCheck, CalendarDays, Check, DoorOpen, LogOut, Search, ShieldCheck, Users } from "lucide-react-native";
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -23,6 +23,7 @@ type Props = {
 const features = [
 	{ icon: CalendarDays, title: "Agenda synchronisé", text: "Vues semaine, jour et liste avec détails de cours." },
 	{ icon: DoorOpen, title: "Salles libres", text: "Recherche rapide par durée, capacité et localisation." },
+	{ icon: BookOpenCheck, title: "Notes et syllabus", text: "Auriga regroupe moyennes, UE et fiches matières." },
 	{ icon: BellRing, title: "Rappels", text: "Notifications avant les cours sur les jours choisis." },
 ];
 
@@ -75,14 +76,14 @@ export default function OnboardingScreen({ onDone }: Props) {
 		try {
 			await setJSON("selectedGroups", selected);
 			await setJSON("onboardingCompleted", true);
-				const start = startOfDay(new Date());
-				const end = new Date(start);
-				end.setDate(end.getDate() + 30);
-				const schedule = await syncSchedule({ start, end, query: { groups: selected } });
-				await syncCourseWidgets(schedule.visibleEvents);
-				await rescheduleCourseNoteReminders(schedule.visibleEvents);
-				await enableDefaultNotifications(schedule.activeEvents);
-				onDone();
+			const start = startOfDay(new Date());
+			const end = new Date(start);
+			end.setDate(end.getDate() + 30);
+			const schedule = await syncSchedule({ start, end, query: { groups: selected } });
+			await syncCourseWidgets(schedule.visibleEvents);
+			await rescheduleCourseNoteReminders(schedule.visibleEvents);
+			await enableDefaultNotifications(schedule.activeEvents);
+			onDone();
 		} finally {
 			setSaving(false);
 		}
@@ -122,7 +123,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 						<Card style={s.hero}>
 							<Text style={[s.title, { color: theme.text }]}>Prépare ton planning avant d'ouvrir l'app.</Text>
 							<Text style={[s.body, { color: theme.muted }]}>
-								Choisis tes groupes une fois. EpiTime prépare ensuite l'agenda, les rappels et les raccourcis utiles.
+								Choisis tes groupes une fois. EpiTime prépare ensuite l'agenda, les rappels, les widgets et l'accès aux notes et syllabus Auriga.
 							</Text>
 						</Card>
 

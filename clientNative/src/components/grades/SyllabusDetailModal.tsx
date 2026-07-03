@@ -84,7 +84,7 @@ function gradeForTarget(target: number, state: SimulatorState, examWeightValue?:
 }
 
 function formatRequiredGrade(value: number) {
-	if (value <= 0) return "deja acquis";
+	if (value <= 0) return "déjà acquis";
 	if (value > 20) return `${value.toFixed(2)}/20`;
 	return `${value.toFixed(2)}/20`;
 }
@@ -203,7 +203,7 @@ export default function SyllabusDetailModal({ syllabus, visible, onClose }: { sy
 									</View>
 								))
 							) : (
-								<Text style={[s.empty, { color: theme.muted }]}>Aucun examen detaille.</Text>
+								<Text style={[s.empty, { color: theme.muted }]}>Aucun examen détaillé.</Text>
 							)}
 						</View>
 						{exams.length ? (
@@ -259,11 +259,11 @@ export default function SyllabusDetailModal({ syllabus, visible, onClose }: { sy
 									</View>
 								))
 							) : (
-								<Text style={[s.empty, { color: theme.muted }]}>Aucune activite detaillee.</Text>
+								<Text style={[s.empty, { color: theme.muted }]}>Aucune activité détaillée.</Text>
 							)}
 						</View>
 					</Section>
-					<Section title="Referent" icon={<UserRound color={theme.muted} size={23} />}>
+					<Section title="Référent" icon={<UserRound color={theme.muted} size={23} />}>
 						<View style={[s.groupedCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 							{syllabus?.responsables?.length ? (
 								syllabus.responsables.map((person, index) => (
@@ -272,17 +272,17 @@ export default function SyllabusDetailModal({ syllabus, visible, onClose }: { sy
 									</View>
 								))
 							) : (
-								<Text style={[s.empty, { color: theme.muted }]}>Aucun referent detaille.</Text>
+								<Text style={[s.empty, { color: theme.muted }]}>Aucun référent détaillé.</Text>
 							)}
 						</View>
 					</Section>
 					<Section title="Details" icon={<FileText color={theme.muted} size={23} />}>
 						<View style={[s.groupedCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 							{description ? <DetailBlock title="Description" text={description} /> : null}
-							{prerequisites ? <DetailBlock title="Prerequis" text={prerequisites} separated={Boolean(description)} /> : null}
+							{prerequisites ? <DetailBlock title="Prérequis" text={prerequisites} separated={Boolean(description)} /> : null}
 							{goals ? <DetailBlock title="Objectifs" text={goals} separated={Boolean(description || prerequisites)} /> : null}
 							{program ? <DetailBlock title="Programme" text={program} separated={Boolean(description || prerequisites || goals)} /> : null}
-							{!description && !prerequisites && !goals && !program ? <Text style={[s.empty, { color: theme.muted }]}>Aucun detail disponible.</Text> : null}
+							{!description && !prerequisites && !goals && !program ? <Text style={[s.empty, { color: theme.muted }]}>Aucun détail disponible.</Text> : null}
 						</View>
 					</Section>
 					{syllabus?.documents?.length ? (

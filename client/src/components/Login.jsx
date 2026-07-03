@@ -74,7 +74,8 @@ const Login = () => {
 							EpiTime
 						</h1>
 						<p className="login-subtitle">
-							Ton planning EPITA simple sur web, PWA et Android. Cours, salles et notifications tout a portée dans une interface soignée.
+							Ton planning EPITA simple sur web, PWA et Android. Cours, salles et notifications tout a portée dans une interface soignée. Pour les notes et syllabus
+							c'est sur l'application.{" "}
 						</p>
 
 						{error && (
@@ -153,7 +154,7 @@ const Login = () => {
 								<img src="/icons/app_logo.png" alt="" className="phone-logo" />
 								<span className="phone-label">EpiTime Android</span>
 								<div className="phone-notification">
-									<strong>Cours maintenant</strong>
+									<strong>Cours dans 10min</strong>
 									<span>Projet libre - 16h15</span>
 								</div>
 								<button className="phone-download" type="button" onClick={handleAndroidDownload}>
@@ -184,7 +185,7 @@ const Login = () => {
 							<img src="/icons/android.svg" alt="" />
 						</span>
 						<h2>Nouvelle app Android</h2>
-						<p>Notifications, accès rapide et interface pensée pour consulter ton planning en déplacement.</p>
+						<p>Notifications, accès rapide et interface pensée pour consulter ton planning ou t'es notes depuis n'importe où.</p>
 					</article>
 				</section>
 
@@ -209,7 +210,7 @@ const Login = () => {
 								<span className="preview-card-tag">Android</span>
 								<h3>Interface mobile</h3>
 								<p>
-									la toute nouvelle application Android EpiTime
+									La nouvelle application Android EpiTime, avec planning, notes et syllabus.
 									<br /> <small>bientôt IOS qui sais..</small>
 								</p>
 							</div>

@@ -32,7 +32,13 @@ type RootTabParamList = {
 				changeKey?: string;
 		  }
 		| undefined;
-	Notes: undefined;
+	Notes:
+		| {
+				mode?: "notes" | "syllabus";
+				syllabusId?: number;
+				syllabusRequestAt?: number;
+		  }
+		| undefined;
 	Notifications: undefined;
 	Réglages: undefined;
 };

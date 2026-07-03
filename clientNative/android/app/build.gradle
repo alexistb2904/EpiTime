@@ -105,8 +105,8 @@ android {
         applicationId 'fr.alexistb2904.epitime'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.1.8"
+        versionCode 3
+        versionName "1.1.9"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
