@@ -38,9 +38,17 @@ export type EventChange = {
 	summary: string;
 	body: string;
 	kind: "created" | "updated" | "deleted" | "cancelled" | "reactivated";
+	details: EventChangeDetail[];
 };
 
 export type RoomChange = EventChange;
+
+export type EventChangeDetail = {
+	field: "status" | "day" | "time" | "title" | "type" | "code" | "room" | "teachers" | "groups" | "course";
+	label: string;
+	before?: string | null;
+	after?: string | null;
+};
 
 export const LEGACY_LAST_EVENTS_KEY = "lastEvents";
 
@@ -146,11 +154,11 @@ export function findEventChanges(
 
 		if (!isRelevantUpcomingChange(cached, fresh, now, windowDays)) continue;
 
-		const changedFields = describeChangedFields(cached, fresh);
-		if (!changedFields.length) continue;
+		const details = describeChangedFields(cached, fresh);
+		if (!details.length) continue;
 
 		const kind = getChangeKind(cached, fresh);
-		changes.push(buildEventChange(identity, cached, fresh, changedFields, kind));
+		changes.push(buildEventChange(identity, cached, fresh, details, kind));
 	}
 
 	for (const cached of cachedByIdentity.values()) {
@@ -340,19 +348,42 @@ function isRelevantUpcomingChange(oldEvent: ZeusEvent | null, newEvent: ZeusEven
 }
 
 function describeChangedFields(oldEvent: ZeusEvent, newEvent: ZeusEvent) {
-	const fields: string[] = [];
+	const details: EventChangeDetail[] = [];
 	const wasCancelled = isEventCancelled(oldEvent);
 	const isCancelledNow = isEventCancelled(newEvent);
-	if (wasCancelled !== isCancelledNow) fields.push(isCancelledNow ? "annulation" : "réactivation");
-	if (oldEvent.startDate !== newEvent.startDate || oldEvent.endDate !== newEvent.endDate) fields.push("horaire");
-	if (normalizeText(getEventTitle(oldEvent)) !== normalizeText(getEventTitle(newEvent)) || normalizeText(getCourseTypeLabel(oldEvent)) !== normalizeText(getCourseTypeLabel(newEvent))) {
-		fields.push("infos");
+	if (wasCancelled !== isCancelledNow) {
+		details.push({
+			field: "status",
+			label: "Statut",
+			before: wasCancelled ? "Annulé" : "Actif",
+			after: isCancelledNow ? "Annulé" : "Actif",
+		});
 	}
-	if (normalizeText(oldEvent.code) !== normalizeText(newEvent.code)) fields.push("code");
-	if (listSignature(listRooms(oldEvent)) !== listSignature(listRooms(newEvent))) fields.push("salle");
-	if (listSignature(listTeachers(oldEvent)) !== listSignature(listTeachers(newEvent))) fields.push("intervenants");
-	if (listSignature(listGroups(oldEvent)) !== listSignature(listGroups(newEvent))) fields.push("groupes");
-	return fields;
+	if (formatChangeDay(oldEvent.startDate) !== formatChangeDay(newEvent.startDate)) {
+		details.push({ field: "day", label: "Jour", before: formatChangeDay(oldEvent.startDate), after: formatChangeDay(newEvent.startDate) });
+	}
+	if (formatChangeTimeRange(oldEvent) !== formatChangeTimeRange(newEvent)) {
+		details.push({ field: "time", label: "Horaire", before: formatChangeTimeRange(oldEvent), after: formatChangeTimeRange(newEvent) });
+	}
+	if (normalizeText(getEventTitle(oldEvent)) !== normalizeText(getEventTitle(newEvent))) {
+		details.push({ field: "title", label: "Cours", before: getEventTitle(oldEvent), after: getEventTitle(newEvent) });
+	}
+	if (normalizeText(getCourseTypeLabel(oldEvent)) !== normalizeText(getCourseTypeLabel(newEvent))) {
+		details.push({ field: "type", label: "Type", before: getCourseTypeLabel(oldEvent), after: getCourseTypeLabel(newEvent) });
+	}
+	if (normalizeText(oldEvent.code) !== normalizeText(newEvent.code)) {
+		details.push({ field: "code", label: "Code", before: oldEvent.code || "Aucun", after: newEvent.code || "Aucun" });
+	}
+	if (listSignature(listRooms(oldEvent)) !== listSignature(listRooms(newEvent))) {
+		details.push({ field: "room", label: "Salle", before: formatList(listRooms(oldEvent)), after: formatList(listRooms(newEvent)) });
+	}
+	if (listSignature(listTeachers(oldEvent)) !== listSignature(listTeachers(newEvent))) {
+		details.push({ field: "teachers", label: "Intervenants", before: formatList(listTeachers(oldEvent)), after: formatList(listTeachers(newEvent)) });
+	}
+	if (listSignature(listGroups(oldEvent)) !== listSignature(listGroups(newEvent))) {
+		details.push({ field: "groups", label: "Groupes", before: formatList(listGroups(oldEvent)), after: formatList(listGroups(newEvent)) });
+	}
+	return details;
 }
 
 function getChangeKind(oldEvent: ZeusEvent, newEvent: ZeusEvent): EventChange["kind"] {
@@ -361,11 +392,18 @@ function getChangeKind(oldEvent: ZeusEvent, newEvent: ZeusEvent): EventChange["k
 	return "updated";
 }
 
-function buildEventChange(identity: string, oldEvent: ZeusEvent | null, newEvent: ZeusEvent | null, fields: string[], kind: EventChange["kind"]): EventChange {
+function buildEventChange(
+	identity: string,
+	oldEvent: ZeusEvent | null,
+	newEvent: ZeusEvent | null,
+	details: EventChangeDetail[] | string[],
+	kind: EventChange["kind"]
+): EventChange {
 	const event = newEvent || oldEvent;
 	const title = event ? getEventTitle(event) : "Cours";
 	const startDate = event?.startDate || new Date().toISOString();
-	const summary = fields.join(", ");
+	const structuredDetails = normalizeChangeDetails(oldEvent, newEvent, details, kind);
+	const summary = structuredDetails.map((detail) => detail.label.toLowerCase()).join(", ");
 	const oldSignature = oldEvent ? eventChangeSignature(oldEvent) : "none";
 	const newSignature = newEvent ? eventChangeSignature(newEvent) : "none";
 	const bodyPrefix = kind === "created" ? "Nouveau cours" : kind === "deleted" ? "Cours retiré" : kind === "cancelled" ? "Cours annulé" : "Cours modifié";
@@ -374,9 +412,49 @@ function buildEventChange(identity: string, oldEvent: ZeusEvent | null, newEvent
 		title,
 		startDate,
 		summary,
-		body: `${bodyPrefix} le ${formatChangeDate(startDate)} : ${summary}`,
+		body: `${bodyPrefix} le ${formatChangeDate(startDate)} : ${formatDetailsSummary(structuredDetails)}`,
 		kind,
+		details: structuredDetails,
 	};
+}
+
+function normalizeChangeDetails(
+	oldEvent: ZeusEvent | null,
+	newEvent: ZeusEvent | null,
+	details: EventChangeDetail[] | string[],
+	kind: EventChange["kind"]
+): EventChangeDetail[] {
+	if (details.length && typeof details[0] !== "string") return details as EventChangeDetail[];
+	if (kind === "created" && newEvent) {
+		const createdDetails: EventChangeDetail[] = [
+			{ field: "course", label: "Cours", before: null, after: getEventTitle(newEvent) },
+			{ field: "day", label: "Jour", before: null, after: formatChangeDay(newEvent.startDate) },
+			{ field: "time", label: "Horaire", before: null, after: formatChangeTimeRange(newEvent) },
+			{ field: "room", label: "Salle", before: null, after: formatList(listRooms(newEvent)) },
+		];
+		return createdDetails.filter((detail) => detail.after);
+	}
+	if (kind === "deleted" && oldEvent) {
+		const deletedDetails: EventChangeDetail[] = [
+			{ field: "course", label: "Cours", before: getEventTitle(oldEvent), after: "Retiré" },
+			{ field: "day", label: "Jour", before: formatChangeDay(oldEvent.startDate), after: null },
+			{ field: "time", label: "Horaire", before: formatChangeTimeRange(oldEvent), after: null },
+			{ field: "room", label: "Salle", before: formatList(listRooms(oldEvent)), after: null },
+		];
+		return deletedDetails.filter((detail) => detail.before);
+	}
+	return (details as string[]).map((label) => ({ field: "course", label, before: null, after: null }));
+}
+
+function formatDetailsSummary(details: EventChangeDetail[]) {
+	return details
+		.slice(0, 3)
+		.map((detail) => {
+			const before = detail.before || "Non défini";
+			const after = detail.after || "Non défini";
+			return `${detail.label} ${before} -> ${after}`;
+		})
+		.join(" · ");
 }
 
 function eventChangeSignature(event: ZeusEvent) {
@@ -409,6 +487,10 @@ function listSignature(values: string[]) {
 	return values.join("|");
 }
 
+function formatList(values: string[]) {
+	return values.length ? values.join(", ") : "Aucun";
+}
+
 function normalizeText(value?: string | number | null) {
 	return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -417,6 +499,22 @@ function formatChangeDate(rawDate: string) {
 	const date = new Date(rawDate);
 	if (Number.isNaN(date.getTime())) return "date inconnue";
 	return `${date.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" })} à ${date.toLocaleTimeString("fr-FR", {
+		hour: "2-digit",
+		minute: "2-digit",
+	})}`;
+}
+
+function formatChangeDay(rawDate: string) {
+	const date = new Date(rawDate);
+	if (Number.isNaN(date.getTime())) return "Date inconnue";
+	return date.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" });
+}
+
+function formatChangeTimeRange(event: ZeusEvent) {
+	const start = new Date(event.startDate);
+	const end = new Date(event.endDate);
+	if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "Horaire inconnu";
+	return `${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString("fr-FR", {
 		hour: "2-digit",
 		minute: "2-digit",
 	})}`;

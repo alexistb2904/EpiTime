@@ -20,6 +20,7 @@ import {
 	Search,
 	SlidersHorizontal,
 	StickyNote,
+	Trash2,
 	Users,
 	WifiOff,
 	X,
@@ -44,7 +45,14 @@ import {
 import { getJSON, setJSON } from "../services/storage";
 import { EventChange } from "../services/eventsCache";
 import { syncLiveCourseNotification } from "../services/liveCourse";
-import { getNotificationSettings, notifyEventChanges, scheduleLocalCourseNotifications } from "../services/notifications";
+import {
+	clearEventChangeHistory,
+	EventChangeHistoryItem,
+	getEventChangeHistory,
+	getNotificationSettings,
+	notifyEventChanges,
+	scheduleLocalCourseNotifications,
+} from "../services/notifications";
 import { readCachedSchedule, syncSchedule } from "../services/scheduleRepository";
 import { refreshCourseWidgetsForGroups, syncCourseWidgets } from "../services/widgets";
 import { Group, LocationNode, Room, RoomType, ZeusEvent } from "../types";
@@ -70,6 +78,8 @@ type CalendarRouteParams = {
 	eventId?: string | number;
 	eventReservationId?: string | number;
 	eventStartDate?: string;
+	openChangesPanel?: boolean;
+	changeKey?: string;
 };
 
 const minute = 60_000;
@@ -138,11 +148,17 @@ export default function CalendarScreen() {
 	const [error, setError] = useState("");
 	const [usingCache, setUsingCache] = useState(false);
 	const [eventChanges, setEventChanges] = useState<EventChange[]>([]);
+	const [changeHistory, setChangeHistory] = useState<EventChangeHistoryItem[]>([]);
+	const [showChangesPanel, setShowChangesPanel] = useState(Boolean(routeParams?.openChangesPanel));
 	const [now, setNow] = useState(Date.now());
 	const [noteSummaries, setNoteSummaries] = useState<Record<string, CourseNoteSummary>>({});
 
 	const refreshNoteSummaries = useCallback(async () => {
 		setNoteSummaries(await getCourseNoteSummaries());
+	}, []);
+
+	const refreshChangeHistory = useCallback(async () => {
+		setChangeHistory(await getEventChangeHistory());
 	}, []);
 
 	const loadCalendar = useCallback(
@@ -169,7 +185,10 @@ export default function CalendarScreen() {
 				if (result.source === "network" && (result.changed || !result.exactCacheHit)) {
 					if (result.changes.length) {
 						setEventChanges(result.changes);
-						if (notificationSettings.changeDetectionEnabled) await notifyEventChanges(result.changes, notificationSettings.notificationType);
+						if (notificationSettings.changeDetectionEnabled) {
+							await notifyEventChanges(result.changes, notificationSettings.notificationType);
+							await refreshChangeHistory();
+						}
 					}
 					if (notificationSettings.enabled) {
 						await scheduleLocalCourseNotifications(result.activeEvents, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType);
@@ -189,7 +208,7 @@ export default function CalendarScreen() {
 				setLoading(false);
 			}
 		},
-		[context, currentDate, refreshNoteSummaries, viewMode]
+		[context, currentDate, refreshChangeHistory, refreshNoteSummaries, viewMode]
 	);
 
 	useEffect(() => {
@@ -257,9 +276,10 @@ export default function CalendarScreen() {
 
 	useFocusEffect(
 		useCallback(() => {
+			refreshChangeHistory().catch(() => {});
 			const timer = setInterval(() => loadCalendar(context, currentDate, viewMode), minute);
 			return () => clearInterval(timer);
-		}, [context, currentDate, loadCalendar, viewMode])
+		}, [context, currentDate, loadCalendar, refreshChangeHistory, viewMode])
 	);
 
 	useEffect(() => {
@@ -274,6 +294,12 @@ export default function CalendarScreen() {
 		setPickerMonth(target);
 		loadCalendar(context, target, "day");
 	}, [routeParams?.targetDate, routeParams?.eventId, routeParams?.eventReservationId, routeParams?.eventStartDate]);
+
+	useEffect(() => {
+		if (!routeParams?.openChangesPanel) return;
+		refreshChangeHistory().catch(() => {});
+		setShowChangesPanel(true);
+	}, [refreshChangeHistory, routeParams?.changeKey, routeParams?.openChangesPanel]);
 
 	const days = useMemo(() => {
 		const { start } = getWeekRange(currentDate);
@@ -365,6 +391,12 @@ export default function CalendarScreen() {
 					? `${selectedDayIgnoredCount} cours ignoré${selectedDayIgnoredCount > 1 ? "s" : ""}`
 				: "Journée libre";
 	const showCacheBanner = usingCache;
+	const clearChanges = async () => {
+		await clearEventChangeHistory();
+		setChangeHistory([]);
+		setEventChanges([]);
+		setShowChangesPanel(false);
+	};
 
 	const applyDate = (date: Date) => {
 		const next = startOfDay(date);
@@ -553,6 +585,14 @@ export default function CalendarScreen() {
 							</Text>
 						</View>
 						<View style={s.headerActions}>
+							<Pressable style={[s.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setShowChangesPanel(true)}>
+								<Bell color={changeHistory.length ? theme.warn : theme.text} size={20} />
+								{changeHistory.length ? (
+									<View style={[s.changeBadge, { backgroundColor: theme.warn }]}>
+										<Text style={s.changeBadgeText}>{Math.min(changeHistory.length, 9)}</Text>
+									</View>
+								) : null}
+							</Pressable>
 							<Pressable style={[s.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setShowGroups(true)}>
 								<Users color={theme.text} size={21} />
 							</Pressable>
@@ -667,9 +707,12 @@ export default function CalendarScreen() {
 						{eventChanges.length ? (
 							<Animated.View entering={FadeInDown.duration(300)} style={[s.roomChange, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
 								<MapPin color={theme.warn} size={17} />
-								<Text style={[s.roomChangeText, { color: theme.text }]} numberOfLines={2}>
-									{formatEventChangeNotice(eventChanges)}
-								</Text>
+								<Pressable style={s.roomChangeBody} onPress={() => setShowChangesPanel(true)}>
+									<Text style={[s.roomChangeText, { color: theme.text }]} numberOfLines={2}>
+										{formatEventChangeNotice(eventChanges)}
+									</Text>
+									<Text style={[s.roomChangeHint, { color: theme.muted }]}>Voir toutes les modifications</Text>
+								</Pressable>
 								<Pressable style={s.roomChangeClose} onPress={() => setEventChanges([])}>
 									<X color={theme.muted} size={16} />
 								</Pressable>
@@ -793,6 +836,7 @@ export default function CalendarScreen() {
 					}}
 					onClose={() => setShowRooms(false)}
 				/>
+				<ChangeHistoryModal visible={showChangesPanel} changes={changeHistory} onClose={() => setShowChangesPanel(false)} onClear={clearChanges} />
 			</View>
 		</GestureDetector>
 	);
@@ -803,7 +847,104 @@ function formatEventChangeNotice(changes: EventChange[]) {
 	const start = new Date(first.startDate);
 	const time = Number.isNaN(start.getTime()) ? "" : ` à ${start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
 	const suffix = changes.length > 1 ? ` (+${changes.length - 1})` : "";
-	return `Cours modifié${suffix} : ${first.title}${time}, ${first.summary}`;
+	const detail = first.details?.[0] ? ` · ${first.details[0].label}: ${first.details[0].before || "Non défini"} -> ${first.details[0].after || "Non défini"}` : "";
+	return `Cours modifié${suffix} : ${first.title}${time}${detail}`;
+}
+
+function ChangeHistoryModal({
+	visible,
+	changes,
+	onClose,
+	onClear,
+}: {
+	visible: boolean;
+	changes: EventChangeHistoryItem[];
+	onClose: () => void;
+	onClear: () => void;
+}) {
+	const { theme } = useTheme();
+	return (
+		<Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
+				<View style={[s.modalHeader, { borderBottomColor: theme.border }]}>
+					<View style={s.changeModalTitleWrap}>
+						<Text style={[s.modalTitle, { color: theme.text }]}>Modifications</Text>
+						<Text style={[s.changeModalSubtitle, { color: theme.muted }]}>{changes.length ? `${changes.length} changement(s) conservé(s)` : "Aucune modification enregistrée"}</Text>
+					</View>
+					<Pressable style={[s.iconBtn, { borderColor: theme.border }]} onPress={onClose}>
+						<X color={theme.text} size={20} />
+					</Pressable>
+				</View>
+
+				<ScrollView contentContainerStyle={s.changeHistoryList}>
+					{changes.length ? (
+						changes.map((change) => <ChangeHistoryCard key={change.key} change={change} />)
+					) : (
+						<Card style={s.emptyCard}>
+							<Bell color={theme.accent} size={26} />
+							<Text style={[s.emptyTitle, { color: theme.text }]}>Rien à afficher</Text>
+							<Text style={[s.meta, { color: theme.muted }]}>Les prochains changements détectés resteront ici jusqu'à effacement.</Text>
+						</Card>
+					)}
+				</ScrollView>
+
+				{changes.length ? (
+					<View style={[s.changeModalFooter, { borderTopColor: theme.border, backgroundColor: theme.bg }]}>
+						<Pressable style={[s.clearChangesBtn, { backgroundColor: theme.warn }]} onPress={onClear}>
+							<Trash2 color="#fff" size={18} />
+							<Text style={s.clearChangesText}>Effacer les modifications</Text>
+						</Pressable>
+					</View>
+				) : null}
+			</View>
+		</Modal>
+	);
+}
+
+function ChangeHistoryCard({ change }: { change: EventChangeHistoryItem }) {
+	const { theme } = useTheme();
+	const start = new Date(change.startDate);
+	const detectedAt = new Date(change.notifiedAt);
+	const dateLabel = Number.isNaN(start.getTime())
+		? "Date inconnue"
+		: start.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" });
+	const detectedLabel = Number.isNaN(detectedAt.getTime())
+		? ""
+		: `Détecté ${detectedAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} à ${detectedAt.toLocaleTimeString("fr-FR", {
+				hour: "2-digit",
+				minute: "2-digit",
+			})}`;
+	return (
+		<Card style={s.changeCard} variant="flat">
+			<View style={s.changeCardHeader}>
+				<View style={[s.changeKindIcon, { backgroundColor: theme.accentSoft }]}>
+					<Clock color={theme.accent} size={17} />
+				</View>
+				<View style={s.changeCardTitleWrap}>
+					<Text style={[s.changeCardTitle, { color: theme.text }]} numberOfLines={2}>
+						{change.title}
+					</Text>
+					<Text style={[s.changeCardMeta, { color: theme.muted }]}>{dateLabel}{detectedLabel ? ` · ${detectedLabel}` : ""}</Text>
+				</View>
+			</View>
+			<View style={s.changeDetails}>
+				{(change.details || []).map((detail, index) => (
+					<View key={`${change.key}-${detail.field}-${index}`} style={[s.changeDetailRow, { backgroundColor: theme.surfaceSoft }]}>
+						<Text style={[s.changeDetailLabel, { color: theme.muted }]}>{detail.label}</Text>
+						<View style={s.changeValues}>
+							<Text style={[s.changeValue, { color: theme.text }]} numberOfLines={2}>
+								{detail.before || "Non défini"}
+							</Text>
+							<Text style={[s.changeArrow, { color: theme.warn }]}>{"->"}</Text>
+							<Text style={[s.changeValue, { color: theme.text }]} numberOfLines={2}>
+								{detail.after || "Non défini"}
+							</Text>
+						</View>
+					</View>
+				))}
+			</View>
+		</Card>
+	);
 }
 
 function EventCard({
@@ -1541,6 +1682,8 @@ const s = StyleSheet.create({
 	eyebrow: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	title: { fontSize: 30, lineHeight: 34, fontWeight: "900", letterSpacing: 0, textTransform: "capitalize" },
 	iconBtn: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+	changeBadge: { position: "absolute", right: -3, top: -3, minWidth: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
+	changeBadgeText: { color: "#fff", fontSize: 11, fontWeight: "900" },
 	overviewCard: {
 		borderWidth: 1,
 		borderRadius: 28,
@@ -1583,7 +1726,9 @@ const s = StyleSheet.create({
 	offline: { borderWidth: 1, borderRadius: 14, padding: 11, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
 	offlineText: { flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 },
 	roomChange: { borderWidth: 1, borderRadius: 14, padding: 11, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+	roomChangeBody: { flex: 1, minWidth: 0 },
 	roomChangeText: { flex: 1, fontSize: 12, fontWeight: "900", lineHeight: 17 },
+	roomChangeHint: { marginTop: 2, fontSize: 11, fontWeight: "800" },
 	roomChangeClose: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
 	contextCard: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },
 	contextText: { flex: 1, fontWeight: "900" },
@@ -1635,6 +1780,24 @@ const s = StyleSheet.create({
 	modalRoot: { flex: 1 },
 	modalHeader: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12, borderBottomWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
 	modalTitle: { fontSize: 24, fontWeight: "900" },
+	changeModalTitleWrap: { flex: 1, minWidth: 0, paddingRight: 12 },
+	changeModalSubtitle: { marginTop: 3, fontSize: 12, fontWeight: "800" },
+	changeHistoryList: { padding: 18, gap: 12, paddingBottom: 108 },
+	changeCard: { gap: 12 },
+	changeCardHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+	changeKindIcon: { width: 38, height: 38, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+	changeCardTitleWrap: { flex: 1, minWidth: 0 },
+	changeCardTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900" },
+	changeCardMeta: { marginTop: 3, fontSize: 12, fontWeight: "800", textTransform: "capitalize" },
+	changeDetails: { gap: 8 },
+	changeDetailRow: { borderRadius: 8, padding: 10, gap: 6 },
+	changeDetailLabel: { fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+	changeValues: { flexDirection: "row", alignItems: "center", gap: 8 },
+	changeValue: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: "800" },
+	changeArrow: { fontSize: 13, fontWeight: "900" },
+	changeModalFooter: { position: "absolute", left: 0, right: 0, bottom: 0, padding: 18, borderTopWidth: 1 },
+	clearChangesBtn: { minHeight: 50, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+	clearChangesText: { color: "#fff", fontWeight: "900" },
 	searchBox: { margin: 18, marginBottom: 8, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
 	searchInput: { flex: 1, minHeight: 46, fontSize: 16 },
 	modalMeta: { marginHorizontal: 18, marginBottom: 10, fontWeight: "700" },

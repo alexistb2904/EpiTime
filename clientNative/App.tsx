@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { NavigationContainer, type LinkingOptions } from "@react-navigation/native";
+import { createNavigationContainerRef, NavigationContainer, type LinkingOptions } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
-import { Bell, CalendarDays, Home, Settings } from "lucide-react-native";
+import { Bell, CalendarDays, GraduationCap, Home, Settings } from "lucide-react-native";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { VersionProvider } from "./src/context/VersionContext";
@@ -15,6 +16,7 @@ import LoginScreen from "./src/screens/LoginScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
+import GradesScreen from "./src/screens/GradesScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 
@@ -26,11 +28,16 @@ type RootTabParamList = {
 				eventId?: string;
 				eventReservationId?: string;
 				eventStartDate?: string;
+				openChangesPanel?: boolean;
+				changeKey?: string;
 		  }
 		| undefined;
+	Notes: undefined;
 	Notifications: undefined;
 	Réglages: undefined;
 };
+
+const navigationRef = createNavigationContainerRef<RootTabParamList>();
 
 const linking: LinkingOptions<RootTabParamList> = {
 	prefixes: ["epitime://"],
@@ -38,6 +45,7 @@ const linking: LinkingOptions<RootTabParamList> = {
 		screens: {
 			Accueil: "home",
 			Agenda: "agenda",
+			Notes: "notes",
 			Notifications: "notifications",
 			Réglages: "settings",
 		},
@@ -50,6 +58,7 @@ function Root() {
 	const { theme, resolvedMode } = useTheme();
 	const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 	const [onboardingReady, setOnboardingReady] = useState(false);
+	const handledNotificationResponseId = useRef<string | null>(null);
 
 	useEffect(() => {
 		if (!session) {
@@ -72,6 +81,33 @@ function Root() {
 		registerPlanningNotificationBackgroundSync().catch(() => {});
 	}, [session, onboardingReady]);
 
+	useEffect(() => {
+		if (!session || !onboardingReady) return;
+		const openCourseChanges = (response: Notifications.NotificationResponse | null) => {
+			if (!response) return;
+			const notificationId = response.notification.request.identifier;
+			if (handledNotificationResponseId.current === notificationId) return;
+			const data = response.notification.request.content.data as { type?: unknown; startsAt?: unknown; changeKey?: unknown; openPanel?: unknown } | undefined;
+			if (data?.type !== "course-change" && data?.openPanel !== "event-changes") return;
+			handledNotificationResponseId.current = notificationId;
+			const params = {
+				openChangesPanel: true,
+				changeKey: typeof data.changeKey === "string" ? data.changeKey : undefined,
+				targetDate: typeof data.startsAt === "string" ? data.startsAt : undefined,
+			};
+			if (navigationRef.isReady()) {
+				navigationRef.navigate("Agenda", params);
+			} else {
+				setTimeout(() => {
+					if (navigationRef.isReady()) navigationRef.navigate("Agenda", params);
+				}, 250);
+			}
+		};
+		const subscription = Notifications.addNotificationResponseReceivedListener(openCourseChanges);
+		Notifications.getLastNotificationResponseAsync().then(openCourseChanges).catch(() => {});
+		return () => subscription.remove();
+	}, [session, onboardingReady]);
+
 	if (loading || !session) return <LoginScreen />;
 	if (checkingOnboarding) {
 		return (
@@ -83,6 +119,7 @@ function Root() {
 	if (!onboardingReady) return <OnboardingScreen onDone={() => setOnboardingReady(true)} />;
 	return (
 		<NavigationContainer
+			ref={navigationRef}
 			linking={linking}
 			theme={{
 				dark: resolvedMode === "dark",
@@ -118,6 +155,7 @@ function Root() {
 				}}>
 				<Tab.Screen name="Accueil" component={HomeScreen} options={{ tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }} />
 				<Tab.Screen name="Agenda" component={CalendarScreen} options={{ tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} /> }} />
+				<Tab.Screen name="Notes" component={GradesScreen} options={{ tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size} /> }} />
 				<Tab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarIcon: ({ color, size }) => <Bell color={color} size={size} /> }} />
 				<Tab.Screen name="Réglages" component={SettingsScreen} options={{ tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> }} />
 			</Tab.Navigator>

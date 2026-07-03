@@ -14,7 +14,9 @@ const NOTIFICATION_DEBUG_SETTINGS_KEY = "notificationDebugSettings";
 const SCHEDULED_COURSE_NOTIFICATION_IDS_KEY = "scheduledCourseNotificationIds";
 const SCHEDULED_DEBUG_NOTIFICATION_IDS_KEY = "scheduledDebugNotificationIds";
 const NOTIFIED_EVENT_CHANGES_KEY = "notifiedEventChanges";
+const EVENT_CHANGE_HISTORY_KEY = "eventChangeHistory";
 const COURSE_NOTIFICATION_WINDOW_DAYS = 14;
+const MAX_EVENT_CHANGE_HISTORY_ITEMS = 100;
 
 const LiveCourse = NativeModules.EpiTimeLiveCourse as
 	| {
@@ -46,6 +48,10 @@ export type ScheduledNotificationItem = {
 	type: string;
 	scheduledAt: number | null;
 	trigger: string;
+};
+
+export type EventChangeHistoryItem = EventChange & {
+	notifiedAt: string;
 };
 
 type ScheduleLocalCourseNotificationOptions = {
@@ -237,7 +243,10 @@ export async function clearLocalCourseNotifications() {
 }
 
 export async function notifyEventChanges(changes: EventChange[], notificationType: NotificationSettings["notificationType"] = "both") {
-	if (Platform.OS === "web" || !changes.length) return 0;
+	if (!changes.length) return 0;
+
+	await appendEventChangeHistory(changes);
+	if (Platform.OS === "web") return 0;
 
 	const granted = (await Notifications.getPermissionsAsync()).status === "granted";
 	if (!granted) return 0;
@@ -250,11 +259,12 @@ export async function notifyEventChanges(changes: EventChange[], notificationTyp
 
 	const sound = notificationType === "banner" ? undefined : "default";
 	for (const change of freshChanges) {
+		const body = formatChangeNotificationBody(change);
 		await Notifications.scheduleNotificationAsync({
 			content: {
-				title: "Cours modifié",
-				body: `${change.title} · ${change.body}`,
-				data: { type: "course-change", startsAt: change.startDate, changeKey: change.key, kind: change.kind },
+				title: formatChangeNotificationTitle(change),
+				body,
+				data: { type: "course-change", startsAt: change.startDate, changeKey: change.key, kind: change.kind, openPanel: "event-changes" },
 				sound,
 			},
 			trigger: {
@@ -268,6 +278,17 @@ export async function notifyEventChanges(changes: EventChange[], notificationTyp
 
 	await setJSON<string[]>(NOTIFIED_EVENT_CHANGES_KEY, Array.from(notifiedSet).slice(-180));
 	return freshChanges.length;
+}
+
+export async function getEventChangeHistory() {
+	const history = await getJSON<EventChangeHistoryItem[]>(EVENT_CHANGE_HISTORY_KEY, []);
+	return history
+		.filter((item) => item?.key && item?.title && item?.startDate)
+		.sort((a, b) => new Date(b.notifiedAt).getTime() - new Date(a.notifiedAt).getTime());
+}
+
+export async function clearEventChangeHistory() {
+	await setJSON<EventChangeHistoryItem[]>(EVENT_CHANGE_HISTORY_KEY, []);
 }
 
 export async function notifyRoomChanges(changes: RoomChange[], notificationType: NotificationSettings["notificationType"] = "both") {
@@ -405,6 +426,35 @@ function normalizeNotificationSettings(settings: Partial<NotificationSettings>):
 		changeDetectionEnabled: settings.changeDetectionEnabled ?? defaultNotificationSettings.changeDetectionEnabled,
 		changeDetectionWindowDays: clampInteger(settings.changeDetectionWindowDays, 1, 14, defaultNotificationSettings.changeDetectionWindowDays),
 	};
+}
+
+async function appendEventChangeHistory(changes: EventChange[]) {
+	const now = new Date().toISOString();
+	const current = await getEventChangeHistory();
+	const existing = new Map(current.map((item) => [item.key, item]));
+	for (const change of changes) {
+		existing.set(change.key, { ...change, notifiedAt: existing.get(change.key)?.notifiedAt || now });
+	}
+	const next = Array.from(existing.values())
+		.sort((a, b) => new Date(b.notifiedAt).getTime() - new Date(a.notifiedAt).getTime())
+		.slice(0, MAX_EVENT_CHANGE_HISTORY_ITEMS);
+	await setJSON<EventChangeHistoryItem[]>(EVENT_CHANGE_HISTORY_KEY, next);
+}
+
+function formatChangeNotificationBody(change: EventChange) {
+	const details = (change.details || [])
+		.slice(0, 2)
+		.map((detail) => `${detail.label}: ${detail.before || "Non défini"} -> ${detail.after || "Non défini"}`)
+		.join(" · ");
+	return details ? `${change.title} · ${details}` : `${change.title} · ${change.body}`;
+}
+
+function formatChangeNotificationTitle(change: EventChange) {
+	if (change.kind === "created") return "Cours ajouté";
+	if (change.kind === "deleted") return "Cours retiré";
+	if (change.kind === "cancelled") return "Cours annulé";
+	if (change.kind === "reactivated") return "Cours réactivé";
+	return "Cours modifié";
 }
 
 function clampInteger(value: unknown, min: number, max: number, fallback: number) {

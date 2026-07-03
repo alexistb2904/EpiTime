@@ -1,0 +1,870 @@
+{
+  "joinIdenticalLines": false,
+  "searchResultDefinition": {
+    "modelName": "Registration",
+    "api": "registrations",
+    "lang": "fr",
+    "queryTitle": {
+      "en": "Display Favorite - Ratings and Reviews (APP)",
+      "fr": "Favori d'affichage - Évaluations et notes (APP)"
+    },
+    "filtersCustom": {
+      "id": null,
+      "customAttributes": null,
+      "externalCode": null,
+      "objectSharingDomains": null,
+      "queryFilter": null
+    },
+    "columns": [
+      {
+        "guid": "bb965b1c-2a04-4fca-bee7-d7875ab484c8",
+        "visible": true,
+        "path": "Registration",
+        "api": "registrations",
+        "field": "obligation",
+        "label": {
+          "en": "Pedagogical component",
+          "fr": "Composant pédagogique"
+        },
+        "defaultLabel": {
+          "en": "Pedagogical component",
+          "fr": "Composant pédagogique"
+        },
+        "modelName": "Registration",
+        "modelDestName": "Obligation",
+        "isReverted": null,
+        "type": "primaryforeignkey",
+        "order": null,
+        "orderGlobal": null,
+        "excluded": false,
+        "isDisplayedInSelect": true,
+        "multilingual": false,
+        "isCustom": false,
+        "isParameterized": null,
+        "children": [
+          {
+            "guid": "693bbcbe-0846-41ca-8f68-17c1132aafb5",
+            "visible": true,
+            "path": "Registration-obligation",
+            "api": "obligations",
+            "field": "exam",
+            "label": {
+              "en": "Pedagogical component.Exam",
+              "fr": "Composant pédagogique.Épreuve"
+            },
+            "defaultLabel": { "en": "Exam", "fr": "Épreuve" },
+            "modelName": "Obligation",
+            "modelDestName": "Exam",
+            "isReverted": null,
+            "type": "primaryforeignkey",
+            "order": null,
+            "orderGlobal": null,
+            "excluded": false,
+            "isDisplayedInSelect": true,
+            "multilingual": false,
+            "isCustom": false,
+            "isParameterized": null,
+            "children": [
+              {
+                "guid": "be4fb949-04dd-4d64-b9c5-da6066bdef9d",
+                "visible": true,
+                "path": "Registration-obligation-exam",
+                "api": "exams",
+                "field": "code",
+                "label": { "en": "Exam", "fr": "Épreuve" },
+                "defaultLabel": { "en": "Code", "fr": "Code" },
+                "modelName": "Exam",
+                "modelDestName": null,
+                "isReverted": null,
+                "type": "code",
+                "order": 0,
+                "orderGlobal": 0,
+                "excluded": null,
+                "isDisplayedInSelect": true,
+                "multilingual": false,
+                "isCustom": false,
+                "isParameterized": null,
+                "children": null
+              },
+              {
+                "guid": "e7843240-81c0-4d10-b125-56a991ee6b1a",
+                "visible": true,
+                "path": "Registration-obligation-exam",
+                "api": "exams",
+                "field": "examType",
+                "label": {
+                  "en": "Exam.Exam type",
+                  "fr": "Épreuve.Type d'examen"
+                },
+                "defaultLabel": { "en": "Exam type", "fr": "Type d'examen" },
+                "modelName": "Exam",
+                "modelDestName": "ExamType",
+                "isReverted": null,
+                "type": "foreignkey",
+                "order": null,
+                "orderGlobal": null,
+                "excluded": false,
+                "isDisplayedInSelect": true,
+                "multilingual": false,
+                "isCustom": false,
+                "isParameterized": null,
+                "children": [
+                  {
+                    "guid": "f9f90058-01b9-4253-b29d-cd6cc4a6dc61",
+                    "visible": true,
+                    "path": "Registration-obligation-exam-examType",
+                    "api": "examTypes",
+                    "field": "code",
+                    "label": { "en": "Exam type", "fr": "Type d'examen" },
+                    "defaultLabel": { "en": "Code", "fr": "Code" },
+                    "modelName": "ExamType",
+                    "modelDestName": null,
+                    "isReverted": null,
+                    "type": "code",
+                    "order": 1,
+                    "orderGlobal": 1,
+                    "excluded": null,
+                    "isDisplayedInSelect": true,
+                    "multilingual": false,
+                    "isCustom": false,
+                    "isParameterized": null,
+                    "children": null
+                  }
+                ]
+              },
+              {
+                "guid": "8f2a63d0-8160-4e07-8c92-2cd2e368acdb",
+                "visible": true,
+                "path": "Registration",
+                "api": "exams",
+                "field": "exam",
+                "label": {
+                  "en": "Relation: Exam -> Intervention",
+                  "fr": "Relation: Epreuve -> Intervention (Epreuve)"
+                },
+                "defaultLabel": {
+                  "en": "Relation: Exam -> Intervention",
+                  "fr": "Relation: Epreuve -> Intervention (Epreuve)"
+                },
+                "modelName": "Exam",
+                "modelDestName": "ExamIntervention",
+                "isReverted": true,
+                "type": "primaryforeignkey",
+                "order": null,
+                "orderGlobal": null,
+                "excluded": false,
+                "isDisplayedInSelect": true,
+                "multilingual": false,
+                "isCustom": false,
+                "isParameterized": null,
+                "children": [
+                  {
+                    "guid": "113028a1-0f01-4dae-9ee3-e03b3c0d5860",
+                    "visible": true,
+                    "path": "Registration-obligation-exam-ExamIntervention-exam-intervention",
+                    "api": null,
+                    "field": "intervention",
+                    "label": {
+                      "en": "Relation: Exam -> Intervention.Intervention",
+                      "fr": "Relation: Epreuve -> Intervention (Epreuve).Intervention"
+                    },
+                    "defaultLabel": {
+                      "en": "Intervention",
+                      "fr": "Intervention"
+                    },
+                    "modelName": "ExamIntervention",
+                    "modelDestName": "Intervention",
+                    "isReverted": null,
+                    "type": "primaryforeignkey",
+                    "order": null,
+                    "orderGlobal": null,
+                    "excluded": false,
+                    "isDisplayedInSelect": true,
+                    "multilingual": false,
+                    "isCustom": false,
+                    "isParameterized": null,
+                    "children": [
+                      {
+                        "guid": "88124acc-a8ff-43ca-8c3d-a7c220852e83",
+                        "visible": false,
+                        "path": "Registration-obligation-exam-ExamIntervention-exam-intervention-intervention",
+                        "api": "interventions",
+                        "field": "startDateTime",
+                        "label": { "en": "Date", "fr": "Date" },
+                        "defaultLabel": { "en": "Start", "fr": "Début" },
+                        "modelName": "Intervention",
+                        "modelDestName": null,
+                        "isReverted": null,
+                        "type": "timestamptz",
+                        "order": 12,
+                        "orderGlobal": 8,
+                        "excluded": null,
+                        "isDisplayedInSelect": true,
+                        "multilingual": false,
+                        "isCustom": false,
+                        "isParameterized": null,
+                        "children": null
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "guid": "df564842-1b1a-473a-810e-fdf884fba553",
+                "visible": false,
+                "path": "Registration-obligation-exam",
+                "api": "exams",
+                "field": "diffusionDate",
+                "label": {
+                  "en": "Exam.Diffusion date",
+                  "fr": "Épreuve.Date de diffusion"
+                },
+                "defaultLabel": {
+                  "en": "Diffusion date",
+                  "fr": "Date de diffusion"
+                },
+                "modelName": "Exam",
+                "modelDestName": null,
+                "isReverted": null,
+                "type": "date",
+                "order": 13,
+                "orderGlobal": 11,
+                "excluded": null,
+                "isDisplayedInSelect": false,
+                "multilingual": false,
+                "isCustom": false,
+                "isParameterized": null,
+                "children": null
+              }
+            ]
+          },
+          {
+            "guid": "ca3f754b-7e08-44e2-a533-c0c0dcc60843",
+            "visible": false,
+            "path": "Registration-obligation",
+            "api": "obligations",
+            "field": "code",
+            "label": {
+              "en": "Pedagogical component",
+              "fr": "Composant pédagogique"
+            },
+            "defaultLabel": { "en": "Code", "fr": "Code" },
+            "modelName": "Obligation",
+            "modelDestName": null,
+            "isReverted": null,
+            "type": "code",
+            "order": 3,
+            "orderGlobal": 4,
+            "excluded": null,
+            "isDisplayedInSelect": false,
+            "multilingual": false,
+            "isCustom": false,
+            "isParameterized": null,
+            "children": null
+          },
+          {
+            "guid": "6cb41bf2-2a65-45a1-987d-8dd721a07303",
+            "visible": true,
+            "path": "Registration-obligation",
+            "api": "obligations",
+            "field": "alphaScale",
+            "label": {
+              "en": "Pedagogical component.Alphanumeric scale",
+              "fr": "Composant pédagogique.Grille alphanumérique"
+            },
+            "defaultLabel": {
+              "en": "Alphanumeric scale",
+              "fr": "Grille alphanumérique"
+            },
+            "modelName": "Obligation",
+            "modelDestName": "AlphaScale",
+            "isReverted": null,
+            "type": "foreignkey",
+            "order": null,
+            "orderGlobal": null,
+            "excluded": false,
+            "isDisplayedInSelect": true,
+            "multilingual": false,
+            "isCustom": false,
+            "isParameterized": null,
+            "children": [
+              {
+                "guid": "723620bb-8653-490c-9781-211b29875ac4",
+                "visible": false,
+                "path": "Registration-obligation-alphaScale",
+                "api": "alphaScales",
+                "field": "code",
+                "label": {
+                  "en": "Alphanumeric scale.Code",
+                  "fr": "Grille alphanumérique.Code"
+                },
+                "defaultLabel": { "en": "Code", "fr": "Code" },
+                "modelName": "AlphaScale",
+                "modelDestName": null,
+                "isReverted": null,
+                "type": "code",
+                "order": 4,
+                "orderGlobal": 7,
+                "excluded": null,
+                "isDisplayedInSelect": true,
+                "multilingual": false,
+                "isCustom": false,
+                "isParameterized": null,
+                "children": null
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "guid": "b3639e4f-c337-415e-aff8-0d808f1a03c0",
+        "visible": true,
+        "path": null,
+        "api": null,
+        "field": "calculatedField",
+        "label": { "en": "Mark", "fr": "Note" },
+        "defaultLabel": { "en": "Calculated field 6", "fr": "Champ calculé 6" },
+        "modelName": null,
+        "modelDestName": null,
+        "isReverted": null,
+        "calculated": true,
+        "type": "string",
+        "order": 2,
+        "orderGlobal": 2,
+        "excluded": null,
+        "operations": [
+          {
+            "operation": "cfoConcat",
+            "parameters": [
+              {
+                "function": "cffRawString",
+                "column": "a31fd9b7-eae2-48fb-9874-421c5ede9edd",
+                "value": null,
+                "index": 0
+              },
+              {
+                "function": "cffRawString",
+                "column": "5c47cab2-cea7-49d9-bd36-4d6f10f35e20",
+                "value": null,
+                "index": 1
+              }
+            ]
+          }
+        ],
+        "isDisplayedInSelect": true,
+        "multilingual": null,
+        "isCustom": null,
+        "isParameterized": null,
+        "children": null
+      },
+      {
+        "guid": "2938be38-6fd0-40ba-b40f-7c9fe8401e7a",
+        "visible": false,
+        "path": "Registration",
+        "api": "registrations",
+        "field": "mark",
+        "label": { "en": "Mark.Initial", "fr": "Note.Initiale" },
+        "defaultLabel": { "en": "Mark", "fr": "Note" },
+        "modelName": "Registration",
+        "modelDestName": null,
+        "isReverted": null,
+        "type": "numeric",
+        "order": 5,
+        "orderGlobal": 9,
+        "excluded": null,
+        "isDisplayedInSelect": false,
+        "multilingual": false,
+        "isCustom": false,
+        "isParameterized": null,
+        "children": null
+      },
+      {
+        "guid": "49ebeddd-19cd-4ffe-9be6-f270d73f7267",
+        "visible": false,
+        "path": null,
+        "api": null,
+        "field": "calculatedField",
+        "label": { "en": "Calculated field 1", "fr": "NV" },
+        "defaultLabel": { "en": "Calculated field 1", "fr": "Champ calculé 1" },
+        "modelName": null,
+        "modelDestName": null,
+        "isReverted": null,
+        "calculated": true,
+        "type": "string",
+        "order": 6,
+        "orderGlobal": 12,
+        "excluded": null,
+        "operations": [
+          {
+            "operation": "cfoEqual",
+            "parameters": [
+              {
+                "function": "cffRawStringForNumeric",
+                "column": "2938be38-6fd0-40ba-b40f-7c9fe8401e7a",
+                "value": null,
+                "index": 0
+              },
+              {
+                "function": "cffRawString",
+                "column": null,
+                "value": "0",
+                "index": 1
+              }
+            ]
+          },
+          {
+            "operation": "cfoIfTrueThenString",
+            "parameters": [
+              {
+                "function": "cffRaw",
+                "column": null,
+                "value": null,
+                "index": 0,
+                "previousOperation": true
+              },
+              {
+                "function": "cffRawString",
+                "column": null,
+                "value": "NV",
+                "index": 1
+              }
+            ]
+          }
+        ],
+        "isDisplayedInSelect": true,
+        "multilingual": null,
+        "isCustom": null,
+        "isParameterized": null,
+        "children": null
+      },
+      {
+        "guid": "04efa005-fd15-4856-b89a-6c6ddcc9e1c4",
+        "visible": false,
+        "path": null,
+        "api": null,
+        "field": "calculatedField",
+        "label": { "en": "Calculated field 2", "fr": "VA" },
+        "defaultLabel": { "en": "Calculated field 2", "fr": "Champ calculé 2" },
+        "modelName": null,
+        "modelDestName": null,
+        "isReverted": null,
+        "calculated": true,
+        "type": "string",
+        "order": 7,
+        "orderGlobal": 13,
+        "excluded": null,
+        "operations": [
+          {
+            "operation": "cfoEqual",
+            "parameters": [
+              {
+                "function": "cffRawStringForNumeric",
+                "column": "2938be38-6fd0-40ba-b40f-7c9fe8401e7a",
+                "value": null,
+                "index": 0
+              },
+              {
+                "function": "cffRawString",
+                "column": null,
+                "value": "20",
+                "index": 1
+              }
+            ]
+          },
+          {
+            "operation": "cfoIfTrueThenString",
+            "parameters": [
+              {
+                "function": "cffRaw",
+                "column": null,
+                "value": null,
+                "index": 0,
+                "previousOperation": true
+              },
+              {
+                "function": "cffRawString",
+                "column": null,
+                "value": "VA",
+                "index": 1
+              }
+            ]
+          }
+        ],
+        "isDisplayedInSelect": true,
+        "multilingual": null,
+        "isCustom": null,
+        "isParameterized": null,
+        "children": null
+      },
+      {
+        "guid": "2e0d05d8-6057-4ec6-b3d7-8ace62d971e9",
+        "visible": false,
+        "path": null,
+        "api": null,
+        "field": "calculatedField",
+        "label": { "en": "Calculated field 3", "fr": "Note alpha" },
+        "defaultLabel": { "en": "Calculated field 3", "fr": "Champ calculé 3" },
+        "modelName": null,
+        "modelDestName": null,
+        "isReverted": null,
+        "calculated": true,
+        "type": "string",
+        "order": 8,
+        "orderGlobal": 14,
+        "excluded": null,
+        "operations": [
+          {
+            "operation": "cfoConcat",
+            "parameters": [
+              {
+                "function": "cffRawString",
+                "column": "49ebeddd-19cd-4ffe-9be6-f270d73f7267",
+                "value": null,
+                "index": 0
+              },
+              {
+                "function": "cffRawString",
+                "column": "04efa005-fd15-4856-b89a-6c6ddcc9e1c4",
+                "value": null,
+                "index": 1
+              }
+            ]
+          }
+        ],
+        "isDisplayedInSelect": true,
+        "multilingual": null,
+        "isCustom": null,
+        "isParameterized": null,
+        "children": null
+      },
+      {
+        "guid": "a31fd9b7-eae2-48fb-9874-421c5ede9edd",
+        "visible": false,
+        "path": null,
+        "api": null,
+        "field": "calculatedField",
+        "label": {
+          "en": "Calculated field 4",
+          "fr": "Note alpha si grille VA_NV"
+        },
+        "defaultLabel": { "en": "Calculated field 4", "fr": "Champ calculé 4" },
+        "modelName": null,
+        "modelDestName": null,
+        "isReverted": null,
+        "calculated": true,
+        "type": "string",
+        "order": 9,
+        "orderGlobal": 15,
+        "excluded": null,
+        "operations": [
+          {
+            "operation": "cfoEqual",
+            "parameters": [
+              {
+                "function": "cffRawString",
+                "column": "723620bb-8653-490c-9781-211b29875ac4",
+                "value": null,
+                "index": 0
+              },
+              {
+                "function": "cffRawString",
+                "column": null,
+                "value": "VA_NV",
+                "index": 1
+              }
+            ]
+          },
+          {
+            "operation": "cfoIfTrueThenString",
+            "parameters": [
+              {
+                "function": "cffRaw",
+                "column": null,
+                "value": null,
+                "index": 0,
+                "previousOperation": true
+              },
+              {
+                "function": "cffRawString",
+                "column": "2e0d05d8-6057-4ec6-b3d7-8ace62d971e9",
+                "value": null,
+                "index": 1
+              }
+            ]
+          }
+        ],
+        "isDisplayedInSelect": true,
+        "multilingual": null,
+        "isCustom": null,
+        "isParameterized": null,
+        "children": null
+      },
+      {
+        "guid": "5c47cab2-cea7-49d9-bd36-4d6f10f35e20",
+        "visible": false,
+        "path": null,
+        "api": null,
+        "field": "calculatedField",
+        "label": {
+          "en": "Calculated field 5",
+          "fr": "Note initiale si pas de grille"
+        },
+        "defaultLabel": { "en": "Calculated field 5", "fr": "Champ calculé 5" },
+        "modelName": null,
+        "modelDestName": null,
+        "isReverted": null,
+        "calculated": true,
+        "type": "string",
+        "order": 10,
+        "orderGlobal": 16,
+        "excluded": null,
+        "operations": [
+          {
+            "operation": "cfoIsEmpty",
+            "parameters": [
+              {
+                "function": "cffRawString",
+                "column": "723620bb-8653-490c-9781-211b29875ac4",
+                "value": null,
+                "index": 0
+              }
+            ]
+          },
+          {
+            "operation": "cfoIfTrueThenString",
+            "parameters": [
+              {
+                "function": "cffRaw",
+                "column": null,
+                "value": null,
+                "index": 0,
+                "previousOperation": true
+              },
+              {
+                "function": "cffRawStringForNumeric",
+                "column": "2938be38-6fd0-40ba-b40f-7c9fe8401e7a",
+                "value": null,
+                "index": 1
+              }
+            ]
+          }
+        ],
+        "isDisplayedInSelect": true,
+        "multilingual": null,
+        "isCustom": null,
+        "isParameterized": null,
+        "children": null
+      },
+      {
+        "guid": "a27c9d37-a32e-41bc-9918-fbcdbd55ef67",
+        "visible": false,
+        "path": "Registration",
+        "api": "registrations",
+        "field": "alphaMark",
+        "label": { "en": "Alpha mark", "fr": "Note alphanumérique" },
+        "defaultLabel": { "en": "Alpha mark", "fr": "Note alphanumérique" },
+        "modelName": "Registration",
+        "modelDestName": null,
+        "isReverted": null,
+        "type": "string",
+        "order": 11,
+        "orderGlobal": 6,
+        "excluded": null,
+        "isDisplayedInSelect": false,
+        "multilingual": false,
+        "isCustom": false,
+        "isParameterized": null,
+        "children": null
+      },
+      {
+        "guid": "e6c57faa-56d3-43b2-8f57-dad1bb314d7a",
+        "visible": true,
+        "path": "Registration",
+        "api": "registrations",
+        "field": "person",
+        "label": { "en": "Person", "fr": "Individu" },
+        "defaultLabel": { "en": "Person", "fr": "Individu" },
+        "modelName": "Registration",
+        "modelDestName": "Person",
+        "isReverted": null,
+        "type": "primaryforeignkey",
+        "order": null,
+        "orderGlobal": null,
+        "excluded": false,
+        "isDisplayedInSelect": true,
+        "multilingual": false,
+        "isCustom": false,
+        "isParameterized": null,
+        "children": [
+          {
+            "guid": "4390e948-add1-4fe0-9a39-a21e079f563b",
+            "visible": false,
+            "path": "Registration-person",
+            "api": "persons",
+            "field": "id",
+            "label": { "en": "Person.ID", "fr": "Individu.ID" },
+            "defaultLabel": { "en": "ID", "fr": "ID" },
+            "modelName": "Person",
+            "modelDestName": null,
+            "isReverted": null,
+            "type": "integer",
+            "order": 14,
+            "orderGlobal": 10,
+            "excluded": null,
+            "isDisplayedInSelect": false,
+            "multilingual": false,
+            "isCustom": false,
+            "isParameterized": true,
+            "children": null
+          },
+          {
+            "guid": "9899546a-13e1-487d-bd41-7ef5e20d69b0",
+            "visible": false,
+            "path": "Registration-person",
+            "api": "persons",
+            "field": "LOGIN",
+            "label": { "en": "Person.Login", "fr": "Individu.Login" },
+            "defaultLabel": { "en": "Login", "fr": "Login" },
+            "modelName": "Person",
+            "modelDestName": null,
+            "isReverted": null,
+            "type": "string",
+            "order": 15,
+            "orderGlobal": 5,
+            "excluded": null,
+            "isDisplayedInSelect": true,
+            "multilingual": false,
+            "isCustom": true,
+            "isParameterized": null,
+            "children": null
+          }
+        ]
+      }
+    ],
+    "filters": {
+      "booleanOperator": "and",
+      "conditions": [
+        {
+          "guid": "df564842-1b1a-473a-810e-fdf884fba553",
+          "visible": null,
+          "path": "Registration-obligation-exam",
+          "api": "exams",
+          "field": "diffusionDate",
+          "label": null,
+          "defaultLabel": null,
+          "modelName": "Exam",
+          "modelDestName": null,
+          "isReverted": null,
+          "type": null,
+          "order": null,
+          "orderGlobal": null,
+          "excluded": null,
+          "operator": "less",
+          "value": ["today"],
+          "isParameterized": null,
+          "ignoreParameterized": false,
+          "isQueryVariable": null
+        }
+      ]
+    },
+    "hiddenFilters": null,
+    "subQueries": [
+      {
+        "modelName": "ViewObligationTree",
+        "api": "viewObligationTrees",
+        "lang": null,
+        "queryTitle": {},
+        "filtersCustom": {
+          "id": null,
+          "customAttributes": null,
+          "externalCode": null,
+          "objectSharingDomains": null,
+          "queryFilter": null
+        },
+        "columns": [
+          {
+            "guid": "9efe5517-9872-4cf4-8fd1-4aaee1cd06e8",
+            "visible": false,
+            "path": "ViewObligationTree",
+            "api": "viewObligationTrees",
+            "field": "code",
+            "label": {
+              "en": "Pedagogical component",
+              "fr": "Composant pédagogique"
+            },
+            "defaultLabel": { "en": "Code", "fr": "Code" },
+            "modelName": "ViewObligationTree",
+            "modelDestName": null,
+            "isReverted": null,
+            "type": "code",
+            "order": 1,
+            "orderGlobal": 17,
+            "excluded": null,
+            "isDisplayedInSelect": true,
+            "multilingual": false,
+            "isCustom": false,
+            "isParameterized": null,
+            "children": null
+          },
+          {
+            "guid": "c08c4d02-ee15-42e9-bfe6-974ff62c20cb",
+            "visible": true,
+            "path": "ViewObligationTree",
+            "api": "viewObligationTrees",
+            "field": "obligationRelationParentCoefficient",
+            "label": { "en": "Coef", "fr": "Coef" },
+            "defaultLabel": { "en": "Coefficient", "fr": "Coefficient" },
+            "modelName": "ViewObligationTree",
+            "modelDestName": null,
+            "isReverted": null,
+            "type": "numeric",
+            "order": 0,
+            "orderGlobal": 3,
+            "excluded": null,
+            "isDisplayedInSelect": false,
+            "multilingual": false,
+            "isCustom": false,
+            "isParameterized": null,
+            "children": null
+          }
+        ],
+        "filters": null,
+        "hiddenFilters": null,
+        "subQueries": [],
+        "joinSameFields": null,
+        "excluded": false,
+        "order": null,
+        "joinSameModel": false
+      }
+    ],
+    "joinSameFields": true,
+    "excluded": true
+  },
+  "searchResultGlobal": {
+    "columns": [],
+    "filters": null,
+    "hiddenFilters": { "booleanOperator": null, "conditions": [] },
+    "sorts": [
+      {
+        "guid": "ca3f754b-7e08-44e2-a533-c0c0dcc60843",
+        "visible": null,
+        "path": "Registration-obligation",
+        "api": "obligations",
+        "field": "code",
+        "label": null,
+        "defaultLabel": null,
+        "modelName": "Obligation",
+        "modelDestName": null,
+        "isReverted": null,
+        "type": null,
+        "order": null,
+        "orderGlobal": null,
+        "excluded": null,
+        "desc": false
+      }
+    ],
+    "dataviz": null,
+    "timezone": "Europe/Paris"
+  },
+  "queryId": 945
+}

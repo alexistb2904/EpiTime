@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import {
 	BellRing,
@@ -21,14 +21,18 @@ import {
 	Sun,
 	Trash2,
 	User,
+	X,
 } from "lucide-react-native";
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useVersion } from "../context/VersionContext";
 import { registerExpoPushToken } from "../services/api";
+import { logoutAuriga } from "../services/aurigaAuth";
+import { clearAurigaCache } from "../services/aurigaCache";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
+import { getUseWeightedAverages, setUseWeightedAverages } from "../services/gradePreferences";
 import { getDeletedRealEventsCount, restoreDeletedRealEvents } from "../services/localEvents";
 import {
 	getLiveCourseNotificationSettings,
@@ -66,6 +70,9 @@ export default function SettingsScreen() {
 	const [debugStatus, setDebugStatus] = useState("");
 	const [scheduledNotifications, setScheduledNotifications] = useState<ScheduledNotificationItem[]>([]);
 	const [scheduledNotificationsLoading, setScheduledNotificationsLoading] = useState(false);
+	const [useWeightedAverages, setUseWeightedAveragesState] = useState(true);
+	const [aurigaDisconnecting, setAurigaDisconnecting] = useState(false);
+	const [creditsVisible, setCreditsVisible] = useState(false);
 	const [deletedEventsCount, setDeletedEventsCount] = useState(0);
 	const [permissionState, setPermissionState] = useState<RequiredPermissionsResult | null>(null);
 	const [permissionsLoading, setPermissionsLoading] = useState(false);
@@ -102,6 +109,9 @@ export default function SettingsScreen() {
 				setNotificationDebugSettingsState(debugSettings);
 			})
 			.catch(() => {});
+		getUseWeightedAverages()
+			.then(setUseWeightedAveragesState)
+			.catch(() => {});
 	}, []);
 
 	useFocusEffect(
@@ -127,6 +137,37 @@ export default function SettingsScreen() {
 		} catch {
 			setLiveCourseProgressEnabled(!enabled);
 		}
+	};
+
+	const toggleGradeWeighting = async (enabled: boolean) => {
+		setUseWeightedAveragesState(enabled);
+		try {
+			await setUseWeightedAverages(enabled);
+		} catch {
+			setUseWeightedAveragesState(!enabled);
+		}
+	};
+
+	const disconnectAuriga = () => {
+		Alert.alert("Déconnexion Auriga", "Supprimer la session Auriga et le cache Auriga local ?", [
+			{ text: "Annuler", style: "cancel" },
+			{
+				text: "Déconnecter",
+				style: "destructive",
+				onPress: () =>
+					void (async () => {
+						setAurigaDisconnecting(true);
+						try {
+							await Promise.all([logoutAuriga(), clearAurigaCache()]);
+							Alert.alert("Auriga déconnecté", "La session Auriga et le cache local ont été supprimés.");
+						} catch {
+							Alert.alert("Erreur", "La déconnexion Auriga n'a pas pu être terminée.");
+						} finally {
+							setAurigaDisconnecting(false);
+						}
+					})(),
+			},
+		]);
 	};
 
 	const saveNotificationDebugSettings = async (next: NotificationDebugSettings) => {
@@ -235,9 +276,15 @@ export default function SettingsScreen() {
 		await rescheduleCourseNoteReminders(cachedSchedule.visibleEvents).catch(() => {});
 		if (!notificationSettings.enabled) return;
 
-		await scheduleLocalCourseNotifications(cachedSchedule.activeEvents, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType, {
-			requestPermission: false,
-		}).catch(() => {});
+		await scheduleLocalCourseNotifications(
+			cachedSchedule.activeEvents,
+			notificationSettings.minutesBefore,
+			notificationSettings.selectedDays,
+			notificationSettings.notificationType,
+			{
+				requestPermission: false,
+			}
+		).catch(() => {});
 		await registerPlanningNotificationBackgroundSync().catch(() => {});
 		if (!userId) return;
 		const token = await requestPushToken().catch(() => null);
@@ -375,6 +422,31 @@ export default function SettingsScreen() {
 				/>
 			</Card>
 
+			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>NOTES</Text>
+			<Card style={s.settingRow} variant="default" glow={false}>
+				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
+					<Code2 color={theme.accent} size={20} />
+				</View>
+				<View style={s.settingBody}>
+					<Text style={[s.settingTitle, { color: theme.text }]}>Moyennes pondérées</Text>
+					<Text style={[s.meta, { color: theme.muted }]}>Utiliser les coefficients Auriga quand ils existent, sinon coefficient 1</Text>
+				</View>
+				<Switch
+					value={useWeightedAverages}
+					onValueChange={(enabled) => void toggleGradeWeighting(enabled)}
+					thumbColor={theme.accent}
+					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
+				/>
+			</Card>
+			<View style={s.group}>
+				<Action
+					icon={aurigaDisconnecting ? <ActivityIndicator color={theme.danger} /> : <LogOut color={theme.danger} size={20} />}
+					label={aurigaDisconnecting ? "Déconnexion Auriga..." : "Se déconnecter d'Auriga"}
+					onPress={disconnectAuriga}
+					disabled={aurigaDisconnecting}
+				/>
+			</View>
+
 			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>PERMISSIONS</Text>
 			<View style={s.group}>
 				<Action
@@ -397,7 +469,11 @@ export default function SettingsScreen() {
 			<View style={s.group}>
 				<Action
 					icon={<RotateCcw color={theme.accent} size={20} />}
-					label={deletedEventsCount ? `Restaurer ${deletedEventsCount} cours supprimé${deletedEventsCount > 1 ? "s" : ""} ou ignoré${deletedEventsCount > 1 ? "s" : ""}` : "Aucun cours à restaurer"}
+					label={
+						deletedEventsCount
+							? `Restaurer ${deletedEventsCount} cours supprimé${deletedEventsCount > 1 ? "s" : ""} ou ignoré${deletedEventsCount > 1 ? "s" : ""}`
+							: "Aucun cours à restaurer"
+					}
 					onPress={() => void restoreEvents()}
 					disabled={!deletedEventsCount}
 				/>
@@ -456,6 +532,7 @@ export default function SettingsScreen() {
 					</View>
 					<Text style={[s.meta, { color: theme.muted }]}>EpiTime est un projet étudiant indépendant, non affilié à Zeus, IONIS Education Group ou EPITA.</Text>
 				</Card>
+				<Action icon={<Info color={theme.accent} size={20} />} label="Crédits" onPress={() => setCreditsVisible(true)} />
 			</View>
 
 			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>DÉVELOPPEUR</Text>
@@ -599,7 +676,68 @@ export default function SettingsScreen() {
 					<Text style={[s.versionText, { color: theme.muted }]}>EpiTime • Made by Alexis Thierry-Bellefond</Text>
 				</View>
 			</View>
+			<CreditsModal visible={creditsVisible} onClose={() => setCreditsVisible(false)} />
 		</ScrollView>
+	);
+}
+
+function CreditsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+	const { theme } = useTheme();
+	return (
+		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+			<View style={[s.creditsRoot, { backgroundColor: theme.bg }]}>
+				<View style={[s.creditsHeader, { borderBottomColor: theme.border }]}>
+					<View style={s.settingBody}>
+						<Text style={[s.eyebrow, { color: theme.accent }]}>TRANSPARENCE</Text>
+						<Text style={[s.infoTitle, { color: theme.text }]}>Crédits</Text>
+					</View>
+					<Pressable style={[s.iconAction, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={onClose}>
+						<X color={theme.text} size={18} />
+					</Pressable>
+				</View>
+				<ScrollView contentContainerStyle={s.creditsContent}>
+					<CreditSection
+						title="Services et sources"
+						items={[
+							"Zeus : planning et groupes EPITA.",
+							"Auriga : notes, syllabus et informations administratives.",
+							"Chrysalide : inspiration pour le flux de connexion et la synchronisation Auriga.",
+						]}
+					/>
+					<CreditSection
+						title="Paquets open source principaux"
+						items={[
+							"Expo, React, React Native",
+							"React Navigation",
+							"React Native Reanimated",
+							"Lucide React Native",
+							"React Native WebView",
+							"Expo Auth Session, Secure Store, Notifications",
+							"Async Storage",
+							"React Native Android Widget",
+							"Material 3 Theme",
+						]}
+					/>
+				</ScrollView>
+			</View>
+		</Modal>
+	);
+}
+
+function CreditSection({ title, items }: { title: string; items: string[] }) {
+	const { theme } = useTheme();
+	return (
+		<Card style={s.creditsCard} variant="default" glow={false}>
+			<Text style={[s.infoTitle, { color: theme.text }]}>{title}</Text>
+			<View style={s.creditList}>
+				{items.map((item) => (
+					<View key={item} style={s.creditRow}>
+						<Text style={[s.creditBullet, { color: theme.accent }]}>•</Text>
+						<Text style={[s.meta, { color: theme.muted }]}>{item}</Text>
+					</View>
+				))}
+			</View>
+		</Card>
 	);
 }
 
@@ -760,4 +898,11 @@ const s = StyleSheet.create({
 
 	brandFooter: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, opacity: 0.7 },
 	versionText: { fontSize: 13, fontWeight: "600" },
+	creditsRoot: { flex: 1 },
+	creditsHeader: { minHeight: 76, borderBottomWidth: 1, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
+	creditsContent: { padding: 18, paddingBottom: 42, gap: 14 },
+	creditsCard: { gap: 12 },
+	creditList: { gap: 8 },
+	creditRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+	creditBullet: { width: 12, fontSize: 14, lineHeight: 20, fontWeight: "900" },
 });
