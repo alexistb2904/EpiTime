@@ -1,6 +1,6 @@
-# EpiTime - l’EDT joli pour remplacer Zeus
+# EpiTime - l’EDT joli pour remplacer Zeus (et Auriga)
 
-Zeus (https://zeus.ionis-it.com/) est pratique mais… pas franchement beau. EpiTime apporte une version propre. Il existait bien EpiLife mais bon l'application n'est plus maintenue
+Zeus (https://zeus.ionis-it.com/) est pratique mais… pas franchement beau ni pensé pour le mobile. EpiTime apporte une version propre. Il existait bien EpiLife mais bon l'application n'est plus maintenue. Puis sur cette version tu peut consulter t'es notes.
 
 ## Aperçus
 
