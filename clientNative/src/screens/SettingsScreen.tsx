@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useVersion } from "../context/VersionContext";
 import { registerExpoPushToken } from "../services/api";
-import { logoutAuriga } from "../services/aurigaAuth";
+import { clearRememberedAurigaCredentials, logoutAuriga } from "../services/aurigaAuth";
 import { clearAurigaCache } from "../services/aurigaCache";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
@@ -136,8 +136,8 @@ export default function SettingsScreen() {
 					void (async () => {
 						setAurigaDisconnecting(true);
 						try {
-							await Promise.all([logoutAuriga(), clearAurigaCache()]);
-							Alert.alert("Auriga déconnecté", "La session Auriga et le cache local ont été supprimés.");
+							await Promise.all([logoutAuriga(), clearRememberedAurigaCredentials(), clearAurigaCache()]);
+							Alert.alert("Auriga déconnecté", "La session Auriga, les identifiants mémorisés et le cache local ont été supprimés.");
 						} catch {
 							Alert.alert("Erreur", "La déconnexion Auriga n'a pas pu être terminée.");
 						} finally {

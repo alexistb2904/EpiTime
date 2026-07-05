@@ -2,41 +2,33 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type WebViewNavigation } from "react-native-webview";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import {
-	BookOpen,
-	Calculator,
-	GraduationCap,
-	LogOut,
-	RefreshCw,
-	Search,
-	WifiOff,
-	X,
-} from "lucide-react-native";
+import { BookOpen, Calculator, GraduationCap, LogOut, RefreshCw, Search, WifiOff, X } from "lucide-react-native";
 import Card from "../components/Card";
 import SyllabusCard from "../components/grades/SyllabusCard";
 import SyllabusDetailModal from "../components/grades/SyllabusDetailModal";
 import { useTheme } from "../context/ThemeContext";
 import { clearAurigaCache, getAurigaLastSync, getCachedAurigaGrades, getCachedAurigaSyllabus } from "../services/aurigaCache";
 import {
-	AURIGA_REDIRECT_URI,
 	AurigaAuthError,
-	type AurigaLoginSession,
-	completeAurigaLoginFromUrl,
-	createAurigaLoginSession,
+	clearRememberedAurigaCredentials,
+	getRememberedAurigaCredentials,
 	hasAurigaRefreshToken,
 	loginAurigaWithCredentials,
 	logoutAuriga,
+	saveRememberedAurigaCredentials,
 } from "../services/aurigaAuth";
 import { syncAurigaData } from "../services/aurigaClient";
+import { cancelAutofillContext, commitAutofillContext } from "../services/autofill";
 import { getUseWeightedAverages } from "../services/gradePreferences";
 import { addManualGrade, deleteManualGrade, getManualGrades, type ManualGrade } from "../services/manualGrades";
 import type { AurigaGrade, AurigaSyllabus } from "../services/aurigaTypes";
 import { buildGradesPeriods, type DisplayGrade, type DisplaySubject, type DisplayUE, type GradesPeriod } from "../services/gradesService";
-import { AuthHeader, ConnectCard, GradesContent, WebLoginModal, s } from "../components/grades/GradesComponents";
+import { AuthHeader, ConnectCard, GradesContent, s } from "../components/grades/GradesComponents";
 
 type GradesMode = "notes" | "syllabus";
+type AurigaSyncSource = "auto" | "button" | "login" | "pull";
+type AurigaStatus = { type: "error" | "loading" | "success"; message: string } | null;
 
 function scoreLabel(score?: { value: number; outOf?: number; status?: string }) {
 	if (!score) return "-";
@@ -85,8 +77,10 @@ export default function GradesScreen() {
 	const [loading, setLoading] = useState(true);
 	const [connecting, setConnecting] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
+	const [buttonRefreshing, setButtonRefreshing] = useState(false);
 	const [syncingAuriga, setSyncingAuriga] = useState(false);
 	const [offline, setOffline] = useState(false);
+	const [aurigaStatus, setAurigaStatus] = useState<AurigaStatus>(null);
 	const [rawGrades, setRawGrades] = useState<AurigaGrade[]>([]);
 	const [periods, setPeriods] = useState<GradesPeriod[]>([]);
 	const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
@@ -99,12 +93,29 @@ export default function GradesScreen() {
 	const [selectedSubject, setSelectedSubject] = useState<DisplaySubject | null>(null);
 	const [selectedGrade, setSelectedGrade] = useState<DisplayGrade | null>(null);
 	const [selectedSyllabus, setSelectedSyllabus] = useState<AurigaSyllabus | null>(null);
-	const [loginSession, setLoginSession] = useState<AurigaLoginSession | null>(null);
-	const [showWebLogin, setShowWebLogin] = useState(false);
-	const [webLoginCompleting, setWebLoginCompleting] = useState(false);
 	const [aurigaIdentifier, setAurigaIdentifier] = useState("");
 	const [aurigaPassword, setAurigaPassword] = useState("");
-	const [showAurigaIdPanel, setShowAurigaIdPanel] = useState(false);
+	const [rememberAurigaCredentials, setRememberAurigaCredentials] = useState(false);
+
+	const resetAurigaView = useCallback((options: { clearCredentials?: boolean } = {}) => {
+		setConnected(false);
+		setOffline(false);
+		setRawGrades([]);
+		setSyllabusList([]);
+		setPeriods([]);
+		setSelectedSemester(null);
+		setSelectedSubject(null);
+		setSelectedGrade(null);
+		setSelectedSyllabus(null);
+		setLastSync(null);
+		setSearch("");
+		setMode("notes");
+		if (options.clearCredentials) {
+			setAurigaIdentifier("");
+			setAurigaPassword("");
+			setRememberAurigaCredentials(false);
+		}
+	}, []);
 
 	const rebuildPeriods = useCallback((grades: AurigaGrade[], syllabus: AurigaSyllabus[], manual: ManualGrade[], weighted: boolean) => {
 		const built = buildGradesPeriods(grades, syllabus, { manualGrades: manual, useWeightedAverages: weighted });
@@ -129,9 +140,15 @@ export default function GradesScreen() {
 		rebuildPeriods(cachedGrades, cachedSyllabus, manual, weighted);
 	}, [rebuildPeriods]);
 
-	const refreshAuriga = useCallback(async () => {
-		setRefreshing(true);
-		setSyncingAuriga(true);
+	const refreshAuriga = useCallback(async (source: AurigaSyncSource = "button") => {
+		const isPullRefresh = source === "pull";
+		const isButtonRefresh = source === "button";
+		const showSyncStatus = source === "login" || source === "auto";
+		setRefreshing(isPullRefresh);
+		setButtonRefreshing(isButtonRefresh);
+		setSyncingAuriga(showSyncStatus);
+		if (source === "login") setAurigaStatus({ type: "loading", message: "Connexion réussie. Récupération des informations Auriga..." });
+		if (source === "auto") setAurigaStatus({ type: "loading", message: "Récupération des informations Auriga..." });
 		try {
 			const data = await syncAurigaData();
 			const manual = await getManualGrades();
@@ -144,26 +161,67 @@ export default function GradesScreen() {
 			setLastSync(await getAurigaLastSync());
 			setConnected(true);
 			setOffline(false);
+			if (source === "login") setAurigaStatus({ type: "success", message: "Connexion Auriga réussie. Notes synchronisées." });
+			if (source === "button" || source === "pull") setAurigaStatus({ type: "success", message: "Notes Auriga mises à jour." });
+			if (source === "auto") setAurigaStatus(null);
+			return true;
 		} catch (error) {
 			if (error instanceof AurigaAuthError) setConnected(false);
 			setOffline(true);
+			setAurigaStatus({ type: "error", message: error instanceof Error ? error.message : "Récupération Auriga impossible." });
+			return false;
 		} finally {
 			setRefreshing(false);
+			setButtonRefreshing(false);
 			setSyncingAuriga(false);
 			setLoading(false);
 		}
 	}, [rebuildPeriods]);
 
 	useEffect(() => {
+		if (aurigaStatus?.type !== "success") return;
+		const timeout = setTimeout(() => setAurigaStatus((current) => (current === aurigaStatus ? null : current)), 3600);
+		return () => clearTimeout(timeout);
+	}, [aurigaStatus]);
+
+	useEffect(() => {
 		let mounted = true;
 		(async () => {
 			try {
 				await hydrateCache();
-				const hasToken = await hasAurigaRefreshToken();
+				const [hasToken, rememberedCredentials] = await Promise.all([hasAurigaRefreshToken(), getRememberedAurigaCredentials()]);
 				if (!mounted) return;
+				if (rememberedCredentials) {
+					setRememberAurigaCredentials(true);
+					setAurigaIdentifier(rememberedCredentials.identifier);
+					setAurigaPassword(rememberedCredentials.password);
+				}
 				setConnected(hasToken);
-				setLoading(false);
-				if (hasToken) await refreshAuriga();
+				if (hasToken) {
+					setLoading(false);
+					await refreshAuriga("auto");
+					return;
+				}
+				if (rememberedCredentials) {
+					setConnecting(true);
+					try {
+						await loginAurigaWithCredentials(rememberedCredentials.identifier, rememberedCredentials.password);
+						setConnecting(false);
+						await refreshAuriga("auto");
+						return;
+					} catch {
+						await clearRememberedAurigaCredentials();
+						if (!mounted) return;
+						setRememberAurigaCredentials(false);
+						setAurigaPassword("");
+						setConnected(false);
+						setOffline(true);
+						setAurigaStatus({ type: "error", message: "Reconnexion automatique Auriga impossible. Vérifie tes identifiants." });
+					} finally {
+						if (mounted) setConnecting(false);
+					}
+				}
+				if (mounted) setLoading(false);
 			} catch {
 				if (mounted) setLoading(false);
 			}
@@ -176,9 +234,13 @@ export default function GradesScreen() {
 	useFocusEffect(
 		useCallback(() => {
 			let active = true;
-			Promise.all([getManualGrades(), getUseWeightedAverages()])
-				.then(([manual, weighted]) => {
+			Promise.all([getManualGrades(), getUseWeightedAverages(), hasAurigaRefreshToken(), getCachedAurigaGrades(), getCachedAurigaSyllabus(), getAurigaLastSync()])
+				.then(([manual, weighted, hasToken, cachedGrades, cachedSyllabus, syncDate]) => {
 					if (!active) return;
+					if (!hasToken && cachedGrades.length === 0 && cachedSyllabus.length === 0 && !syncDate) {
+						resetAurigaView();
+						return;
+					}
 					setManualGrades(manual);
 					setUseWeightedAveragesState(weighted);
 					rebuildPeriods(rawGrades, syllabusList, manual, weighted);
@@ -187,7 +249,7 @@ export default function GradesScreen() {
 			return () => {
 				active = false;
 			};
-		}, [rawGrades, rebuildPeriods, syllabusList])
+		}, [rawGrades, rebuildPeriods, resetAurigaView, syllabusList])
 	);
 
 	useEffect(() => {
@@ -204,67 +266,29 @@ export default function GradesScreen() {
 		setSelectedSyllabus(syllabus);
 	}, [routeParams?.mode, routeParams?.syllabusId, routeParams?.syllabusRequestAt, syllabusList]);
 
-	const startMicrosoftLogin = async () => {
-		setConnecting(true);
-		setOffline(false);
-		try {
-			const session = await createAurigaLoginSession({ microsoftHint: true });
-			setLoginSession(session);
-			setShowWebLogin(true);
-		} catch (error) {
-			Alert.alert("Connexion Auriga impossible", error instanceof Error ? error.message : "La connexion a échoué.");
-		} finally {
-			setConnecting(false);
-		}
-	};
-
-	const startWebLogin = async () => {
-		setConnecting(true);
-		try {
-			const session = await createAurigaLoginSession({ microsoftHint: true });
-			setLoginSession(session);
-			setShowWebLogin(true);
-		} catch (error) {
-			Alert.alert("Connexion Auriga impossible", error instanceof Error ? error.message : "La connexion a échoué.");
-		} finally {
-			setConnecting(false);
-		}
-	};
-
 	const connectWithAurigaId = async () => {
 		setConnecting(true);
 		setOffline(false);
+		setAurigaStatus({ type: "loading", message: "Connexion à Auriga..." });
 		try {
 			await loginAurigaWithCredentials(aurigaIdentifier, aurigaPassword);
-			setAurigaPassword("");
-			await refreshAuriga();
+			await commitAutofillContext();
+			if (rememberAurigaCredentials) {
+				await saveRememberedAurigaCredentials({ identifier: aurigaIdentifier, password: aurigaPassword });
+			} else {
+				await clearRememberedAurigaCredentials();
+				setAurigaPassword("");
+			}
+			setConnecting(false);
+			await refreshAuriga("login");
 		} catch (error) {
+			await cancelAutofillContext();
+			const message = error instanceof Error ? error.message : "Verifie tes identifiants Auriga.";
+			setAurigaStatus({ type: "error", message });
 			Alert.alert("Connexion Auriga impossible", error instanceof Error ? error.message : "Verifie tes identifiants Auriga.");
 		} finally {
 			setConnecting(false);
 		}
-	};
-
-	const completeWebLogin = async (url: string) => {
-		if (!loginSession || webLoginCompleting) return;
-		setWebLoginCompleting(true);
-		setConnecting(true);
-		try {
-			await completeAurigaLoginFromUrl(url, loginSession);
-			setShowWebLogin(false);
-			setLoginSession(null);
-			await refreshAuriga();
-		} catch (error) {
-			Alert.alert("Connexion Auriga impossible", error instanceof Error ? error.message : "Le code Auriga n'a pas pu être validé.");
-		} finally {
-			setWebLoginCompleting(false);
-			setConnecting(false);
-		}
-	};
-
-	const onWebNavigation = (nav: WebViewNavigation) => {
-		if ((nav.url.startsWith(AURIGA_REDIRECT_URI) || (nav.url.startsWith("https://auriga.epita.fr") && nav.url.includes("code="))) && loginSession)
-			void completeWebLogin(nav.url);
 	};
 
 	const selectedPeriod = useMemo(() => {
@@ -319,16 +343,8 @@ export default function GradesScreen() {
 				text: "Déconnecter",
 				style: "destructive",
 				onPress: () =>
-					void Promise.all([logoutAuriga(), clearAurigaCache()]).then(() => {
-						setConnected(false);
-						setRawGrades([]);
-						setSyllabusList([]);
-						setPeriods([]);
-						setSelectedSemester(null);
-						setSelectedSubject(null);
-						setSelectedGrade(null);
-						setSelectedSyllabus(null);
-						setLastSync(null);
+					void Promise.all([logoutAuriga(), clearRememberedAurigaCredentials(), clearAurigaCache()]).then(() => {
+						resetAurigaView({ clearCredentials: true });
 					}),
 			},
 		]);
@@ -352,20 +368,13 @@ export default function GradesScreen() {
 					connecting={connecting}
 					identifier={aurigaIdentifier}
 					password={aurigaPassword}
-					showAurigaIdPanel={showAurigaIdPanel}
+					rememberCredentials={rememberAurigaCredentials}
+					status={aurigaStatus}
+					syncing={syncingAuriga}
 					onChangeIdentifier={setAurigaIdentifier}
 					onChangePassword={setAurigaPassword}
-					onToggleAurigaIdPanel={() => setShowAurigaIdPanel((value) => !value)}
-					onMicrosoft={startMicrosoftLogin}
+					onChangeRememberCredentials={setRememberAurigaCredentials}
 					onAurigaId={connectWithAurigaId}
-				/>
-				<WebLoginModal
-					visible={showWebLogin}
-					loginSession={loginSession}
-					connecting={connecting}
-					onClose={() => setShowWebLogin(false)}
-					onNavigation={onWebNavigation}
-					onStartFallback={startWebLogin}
 				/>
 			</ScrollView>
 		);
@@ -379,6 +388,7 @@ export default function GradesScreen() {
 			connectWithAurigaId={connectWithAurigaId}
 			connected={connected}
 			connecting={connecting}
+			buttonRefreshing={buttonRefreshing}
 			contentPaddingBottom={contentPaddingBottom}
 			deleteManualGrade={deleteManualGrade}
 			disconnectAuriga={disconnectAuriga}
@@ -387,15 +397,14 @@ export default function GradesScreen() {
 			groupedSyllabus={groupedSyllabus}
 			insets={insets}
 			lastSyncLabel={formatLastSync(lastSync)}
-			loginSession={loginSession}
 			manualGrades={manualGrades}
 			mode={mode}
 			noteUes={noteUes}
 			offline={offline}
-			onWebNavigation={onWebNavigation}
 			periods={periods}
 			refreshAuriga={refreshAuriga}
 			refreshing={refreshing}
+			rememberAurigaCredentials={rememberAurigaCredentials}
 			search={search}
 			selectedGrade={selectedGrade}
 			selectedPeriod={selectedPeriod}
@@ -403,18 +412,14 @@ export default function GradesScreen() {
 			selectedSyllabus={selectedSyllabus}
 			setAurigaIdentifier={setAurigaIdentifier}
 			setAurigaPassword={setAurigaPassword}
+			setRememberAurigaCredentials={setRememberAurigaCredentials}
+			status={aurigaStatus}
 			setMode={setMode}
 			setSearch={setSearch}
 			setSelectedGrade={setSelectedGrade}
 			setSelectedSemester={setSelectedSemester}
 			setSelectedSubject={setSelectedSubject}
 			setSelectedSyllabus={setSelectedSyllabus}
-			setShowAurigaIdPanel={setShowAurigaIdPanel}
-			setShowWebLogin={setShowWebLogin}
-			showAurigaIdPanel={showAurigaIdPanel}
-			showWebLogin={showWebLogin}
-			startMicrosoftLogin={startMicrosoftLogin}
-			startWebLogin={startWebLogin}
 			syncingAuriga={syncingAuriga}
 			updateManualGrades={updateManualGrades}
 			useWeightedAverages={useWeightedAverages}

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, type TextInputProps, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WebView, type WebViewNavigation } from "react-native-webview";
 import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
 import {
 	Award,
@@ -10,13 +9,12 @@ import {
 	BookOpen,
 	Calculator,
 	ChartNoAxesCombined,
-	ChevronDown,
+	Check,
 	ChevronRight,
 	ClipboardList,
 	GraduationCap,
 	Hash,
 	KeyRound,
-	LogIn,
 	LogOut,
 	Mail,
 	Percent,
@@ -32,7 +30,6 @@ import Card from "../Card";
 import SyllabusCard from "./SyllabusCard";
 import SyllabusDetailModal from "./SyllabusDetailModal";
 import { useTheme } from "../../context/ThemeContext";
-import { type AurigaLoginSession } from "../../services/aurigaAuth";
 import { type ManualGrade } from "../../services/manualGrades";
 import type { AurigaSyllabus } from "../../services/aurigaTypes";
 import { type DisplayGrade, type DisplaySubject, type DisplayUE } from "../../services/gradesService";
@@ -53,6 +50,7 @@ function averageLabel(score?: { value: number; outOf?: number; status?: string }
 
 export function GradesContent({
 	addManualGrade,
+	buttonRefreshing,
 	connectWithAurigaId,
 	connected,
 	connecting,
@@ -64,15 +62,14 @@ export function GradesContent({
 	groupedSyllabus,
 	insets,
 	lastSyncLabel,
-	loginSession,
 	manualGrades,
 	mode,
 	noteUes,
 	offline,
-	onWebNavigation,
 	periods,
 	refreshAuriga,
 	refreshing,
+	rememberAurigaCredentials,
 	search,
 	selectedGrade,
 	selectedPeriod,
@@ -80,18 +77,14 @@ export function GradesContent({
 	selectedSyllabus,
 	setAurigaIdentifier,
 	setAurigaPassword,
+	setRememberAurigaCredentials,
 	setMode,
 	setSearch,
 	setSelectedGrade,
 	setSelectedSemester,
 	setSelectedSubject,
 	setSelectedSyllabus,
-	setShowAurigaIdPanel,
-	setShowWebLogin,
-	showAurigaIdPanel,
-	showWebLogin,
-	startMicrosoftLogin,
-	startWebLogin,
+	status,
 	syncingAuriga,
 	updateManualGrades,
 	useWeightedAverages,
@@ -101,28 +94,21 @@ export function GradesContent({
 	const { theme } = useTheme();
 	return (
 		<View style={[s.root, { backgroundColor: theme.bg }]}>
-			{syncingAuriga ? (
-				<Animated.View
-					entering={FadeInDown.duration(240)}
-					style={[s.syncToast, { top: insets.top + 8, backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.cardShadow }]}>
-					<ActivityIndicator color={theme.accent} />
-					<Text style={[s.syncToastText, { color: theme.text }]}>Récupération des informations d'Auriga, cela peut prendre un certain temps...</Text>
-				</Animated.View>
-			) : null}
 			<ScrollView
 				contentContainerStyle={[s.content, { paddingTop: insets.top + 28, paddingBottom: contentPaddingBottom }]}
-				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAuriga} tintColor={theme.accent} />}>
+				refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => refreshAuriga("pull")} tintColor={theme.accent} />}>
 				<Animated.View entering={FadeInUp.duration(340)} style={s.headerRow}>
 					<View style={s.headerText}>
 						<Text style={[s.eyebrow, { color: theme.accent }]}>AURIGA</Text>
 						<Text style={[s.title, { color: theme.text }]}>Notes</Text>
 						<Text style={[s.lastSync, { color: theme.muted }]}>{lastSyncLabel}</Text>
 					</View>
-					<Pressable style={[s.iconButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={refreshAuriga} disabled={refreshing}>
-						{refreshing ? <ActivityIndicator color={theme.accent} /> : <RefreshCw color={theme.accent} size={20} />}
+					<Pressable style={[s.iconButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => refreshAuriga("button")} disabled={refreshing || buttonRefreshing || syncingAuriga}>
+						{buttonRefreshing ? <ActivityIndicator color={theme.accent} /> : <RefreshCw color={theme.accent} size={20} />}
 					</Pressable>
 				</Animated.View>
 
+				{status && connected ? <AurigaStatusBanner status={status} /> : null}
 				{offline ? (
 					<Animated.View entering={FadeInDown.duration(260)} style={[s.offline, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
 						<WifiOff color={theme.accent} size={17} />
@@ -141,11 +127,12 @@ export function GradesContent({
 						connecting={connecting}
 						identifier={aurigaIdentifier}
 						password={aurigaPassword}
-						showAurigaIdPanel={showAurigaIdPanel}
+						rememberCredentials={rememberAurigaCredentials}
+						status={status}
+						syncing={syncingAuriga}
 						onChangeIdentifier={setAurigaIdentifier}
 						onChangePassword={setAurigaPassword}
-						onToggleAurigaIdPanel={() => setShowAurigaIdPanel((value: boolean) => !value)}
-						onMicrosoft={startMicrosoftLogin}
+						onChangeRememberCredentials={setRememberAurigaCredentials}
 						onAurigaId={connectWithAurigaId}
 					/>
 				) : null}
@@ -291,14 +278,6 @@ export function GradesContent({
 				}}
 			/>
 			<SyllabusDetailModal visible={Boolean(selectedSyllabus)} syllabus={selectedSyllabus} onClose={() => setSelectedSyllabus(null)} />
-			<WebLoginModal
-				visible={showWebLogin}
-				loginSession={loginSession}
-				connecting={connecting}
-				onClose={() => setShowWebLogin(false)}
-				onNavigation={onWebNavigation}
-				onStartFallback={startWebLogin}
-			/>
 		</View>
 	);
 }
@@ -317,78 +296,129 @@ export function ConnectCard({
 	connecting,
 	identifier,
 	password,
-	showAurigaIdPanel,
+	rememberCredentials,
+	status,
+	syncing,
 	onChangeIdentifier,
 	onChangePassword,
-	onToggleAurigaIdPanel,
-	onMicrosoft,
+	onChangeRememberCredentials,
 	onAurigaId,
 }: {
 	compact?: boolean;
 	connecting: boolean;
 	identifier: string;
 	password: string;
-	showAurigaIdPanel: boolean;
+	rememberCredentials: boolean;
+	status?: { type: "error" | "loading" | "success"; message: string } | null;
+	syncing?: boolean;
 	onChangeIdentifier: (value: string) => void;
 	onChangePassword: (value: string) => void;
-	onToggleAurigaIdPanel: () => void;
-	onMicrosoft: () => void;
+	onChangeRememberCredentials: (value: boolean) => void;
 	onAurigaId: () => void;
 }) {
 	const { theme } = useTheme();
+	const canSubmit = Boolean(identifier.trim() && password);
+	const busy = connecting || Boolean(syncing);
+	const identifierAutofillProps: Pick<TextInputProps, "autoComplete" | "importantForAutofill" | "textContentType"> =
+		Platform.OS === "ios"
+			? { textContentType: "username" }
+			: Platform.OS === "android"
+				? { autoComplete: "username", importantForAutofill: "yes" }
+				: { autoComplete: "username" };
+	const passwordAutofillProps: Pick<TextInputProps, "autoComplete" | "importantForAutofill" | "textContentType"> =
+		Platform.OS === "ios"
+			? { textContentType: "password" }
+			: Platform.OS === "android"
+				? { autoComplete: "password", importantForAutofill: "yes" }
+				: { autoComplete: "current-password" };
 	return (
-		<Card style={[s.connectCard, compact && s.connectCardCompact]} accent={!compact}>
-			<View style={[s.connectIcon, { backgroundColor: theme.accentSoft }]}>
-				<GraduationCap color={theme.accent} size={compact ? 26 : 34} />
+		<Card style={[s.loginCard, compact && s.loginCardCompact]} accent={!compact}>
+			<View style={s.loginHeader}>
+				<View style={[s.loginIcon, { backgroundColor: theme.accentSoft }]}>
+					<KeyRound color={theme.accent} size={24} />
+				</View>
+				<View style={s.loginHeaderText}>
+					<Text style={[s.loginEyebrow, { color: theme.accent }]}>Auriga ID</Text>
+					<Text style={[s.loginTitle, compact && s.loginTitleCompact, { color: theme.text }]}>
+						{compact ? "Reconnecte-toi" : "Connexion aux notes"}
+					</Text>
+				</View>
 			</View>
-			<Text style={[s.connectTitle, compact && s.connectTitleCompact, { color: theme.text }]}>
-				{compact ? "Reconnecte Auriga pour synchroniser les données." : "Connecte Auriga pour afficher tes notes, moyennes et syllabus."}
-			</Text>
-			<Text style={[s.connectText, { color: theme.muted }]}>Choisis Microsoft ou tes identifiants Auriga.</Text>
-			<Pressable style={[s.primaryButton, { backgroundColor: theme.accent, opacity: connecting ? 0.7 : 1 }]} disabled={connecting} onPress={onMicrosoft}>
-				{connecting ? <ActivityIndicator color="#fff" /> : <LogIn color="#fff" size={19} />}
-				<Text style={s.primaryButtonText}>Connexion via Microsoft</Text>
-			</Pressable>
-			<Pressable style={[s.secondaryButton, { borderColor: theme.border }]} onPress={onToggleAurigaIdPanel}>
-				<KeyRound color={theme.accent} size={18} />
-				<Text style={[s.secondaryButtonText, { color: theme.text }]}>Connexion via ID Auriga</Text>
-				{showAurigaIdPanel ? <ChevronDown color={theme.muted} size={18} /> : <ChevronRight color={theme.muted} size={18} />}
-			</Pressable>
-			{showAurigaIdPanel ? (
-				<Animated.View entering={FadeInDown.duration(220)} style={[s.idLoginPanel, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-					<View style={[s.inputBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-						<Mail color={theme.muted} size={18} />
-						<TextInput
-							value={identifier}
-							onChangeText={onChangeIdentifier}
-							placeholder="Mail ou login Auriga"
-							placeholderTextColor={theme.muted}
-							autoCapitalize="none"
-							autoCorrect={false}
-							keyboardType="email-address"
-							style={[s.idInput, { color: theme.text }]}
-						/>
+			<View style={s.loginForm}>
+				<View style={[s.inputBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+					<Mail color={theme.muted} size={18} />
+					<TextInput
+						value={identifier}
+						onChangeText={onChangeIdentifier}
+						placeholder="Mail ou login Auriga"
+						placeholderTextColor={theme.muted}
+						accessibilityLabel="Identifiant Auriga"
+						autoCapitalize="none"
+						autoCorrect={false}
+						keyboardType="email-address"
+						nativeID="auriga-login-identifier"
+						returnKeyType="next"
+						testID="auriga-login-identifier"
+						{...identifierAutofillProps}
+						style={[s.idInput, { color: theme.text }]}
+					/>
+				</View>
+				<View style={[s.inputBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+					<KeyRound color={theme.muted} size={18} />
+					<TextInput
+						value={password}
+						onChangeText={onChangePassword}
+						placeholder="Mot de passe"
+						placeholderTextColor={theme.muted}
+						secureTextEntry
+						accessibilityLabel="Mot de passe Auriga"
+						autoCapitalize="none"
+						autoCorrect={false}
+						nativeID="auriga-login-password"
+						returnKeyType="done"
+						testID="auriga-login-password"
+						{...passwordAutofillProps}
+						onSubmitEditing={() => {
+							if (canSubmit && !connecting) onAurigaId();
+						}}
+						style={[s.idInput, { color: theme.text }]}
+					/>
+				</View>
+				<Pressable style={s.rememberRow} onPress={() => onChangeRememberCredentials(!rememberCredentials)} hitSlop={8}>
+					<View style={[s.checkbox, { borderColor: rememberCredentials ? theme.accent : theme.border, backgroundColor: rememberCredentials ? theme.accent : theme.surface }]}>
+						{rememberCredentials ? <Check color="#fff" size={16} strokeWidth={3} /> : null}
 					</View>
-					<View style={[s.inputBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-						<KeyRound color={theme.muted} size={18} />
-						<TextInput
-							value={password}
-							onChangeText={onChangePassword}
-							placeholder="Mot de passe"
-							placeholderTextColor={theme.muted}
-							secureTextEntry
-							autoCapitalize="none"
-							autoCorrect={false}
-							style={[s.idInput, { color: theme.text }]}
-						/>
-					</View>
-					<Pressable style={[s.idSubmitButton, { backgroundColor: theme.accent, opacity: connecting ? 0.65 : 1 }]} disabled={connecting} onPress={onAurigaId}>
-						{connecting ? <ActivityIndicator color="#fff" /> : <KeyRound color="#fff" size={18} />}
-						<Text style={s.primaryButtonText}>Se connecter avec ID Auriga</Text>
-					</Pressable>
-				</Animated.View>
-			) : null}
+					<Text style={[s.rememberText, { color: theme.text }]}>Se souvenir de moi</Text>
+				</Pressable>
+				{status ? <AurigaStatusBanner status={status} compact /> : null}
+				<Pressable
+					accessibilityLabel="Se connecter à Auriga"
+					accessibilityRole="button"
+					nativeID="auriga-login-submit"
+					testID="auriga-login-submit"
+					style={[s.idSubmitButton, { backgroundColor: theme.accent, opacity: busy || !canSubmit ? 0.65 : 1 }]}
+					disabled={busy || !canSubmit}
+					onPress={onAurigaId}>
+					{busy ? <ActivityIndicator color="#fff" /> : <KeyRound color="#fff" size={18} />}
+					<Text style={s.primaryButtonText}>{syncing ? "Récupération..." : connecting ? "Connexion..." : "Se connecter"}</Text>
+				</Pressable>
+			</View>
 		</Card>
+	);
+}
+
+export function AurigaStatusBanner({ status, compact }: { status: { type: "error" | "loading" | "success"; message: string }; compact?: boolean }) {
+	const { theme } = useTheme();
+	const isError = status.type === "error";
+	const isSuccess = status.type === "success";
+	const borderColor = isError ? theme.danger : isSuccess ? theme.accent : theme.border;
+	const backgroundColor = isError ? "rgba(239, 68, 68, 0.12)" : isSuccess ? theme.accentSoft : theme.surface;
+	const textColor = isError ? theme.danger : theme.text;
+	return (
+		<Animated.View entering={FadeInDown.duration(180)} style={[s.statusBanner, compact && s.statusBannerCompact, { backgroundColor, borderColor }]}>
+			{status.type === "loading" ? <ActivityIndicator color={theme.accent} size="small" /> : isSuccess ? <Check color={theme.accent} size={17} /> : <X color={theme.danger} size={17} />}
+			<Text style={[s.statusText, { color: textColor }]}>{status.message}</Text>
+		</Animated.View>
 	);
 }
 
@@ -689,78 +719,10 @@ export function EmptyState({ text }: { text: string }) {
 	);
 }
 
-export function WebLoginModal({
-	visible,
-	loginSession,
-	connecting,
-	onClose,
-	onNavigation,
-	onStartFallback,
-}: {
-	visible: boolean;
-	loginSession: AurigaLoginSession | null;
-	connecting: boolean;
-	onClose: () => void;
-	onNavigation: (nav: WebViewNavigation) => void;
-	onStartFallback: () => void;
-}) {
-	const { theme } = useTheme();
-	const insets = useSafeAreaInsets();
-	return (
-		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-			<View style={[s.webRoot, { backgroundColor: theme.bg, paddingTop: insets.top }]}>
-				<View style={[s.webHeader, { borderBottomColor: theme.border }]}>
-					<Text style={[s.webTitle, { color: theme.text }]}>Connexion Auriga</Text>
-					<Pressable style={[s.iconButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={onClose}>
-						<X color={theme.text} size={20} />
-					</Pressable>
-				</View>
-				{loginSession ? (
-					<WebView
-						source={{ uri: loginSession.authUrl }}
-						onNavigationStateChange={onNavigation}
-						startInLoadingState
-						renderLoading={() => (
-							<View style={[s.webLoading, { backgroundColor: theme.bg }]}>
-								<ActivityIndicator color={theme.accent} size="large" />
-							</View>
-						)}
-					/>
-				) : (
-					<View style={s.webFallback}>
-						<Pressable style={[s.primaryButton, { backgroundColor: theme.accent, opacity: connecting ? 0.7 : 1 }]} onPress={onStartFallback} disabled={connecting}>
-							{connecting ? <ActivityIndicator color="#fff" /> : <LogIn color="#fff" size={19} />}
-							<Text style={s.primaryButtonText}>Relancer la connexion</Text>
-						</Pressable>
-					</View>
-				)}
-			</View>
-		</Modal>
-	);
-}
-
 export const s = StyleSheet.create({
 	root: { flex: 1 },
 	loading: { flex: 1, alignItems: "center", justifyContent: "center" },
 	content: { paddingHorizontal: 18 },
-	syncToast: {
-		position: "absolute",
-		left: 18,
-		right: 18,
-		zIndex: 20,
-		borderWidth: 1,
-		borderRadius: 16,
-		paddingHorizontal: 13,
-		paddingVertical: 12,
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 10,
-		shadowOpacity: 0.14,
-		shadowRadius: 18,
-		shadowOffset: { width: 0, height: 10 },
-		elevation: 8,
-	},
-	syncToastText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: "900" },
 	header: { marginBottom: 22 },
 	headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 },
 	headerText: { flex: 1, minWidth: 0 },
@@ -768,30 +730,25 @@ export const s = StyleSheet.create({
 	title: { fontSize: 30, fontWeight: "900", letterSpacing: 0, marginTop: 3 },
 	lastSync: { marginTop: 5, fontSize: 12, fontWeight: "800" },
 	iconButton: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-	connectCard: { gap: 16, alignItems: "flex-start" },
-	connectCardCompact: { marginBottom: 14 },
-	connectIcon: { width: 64, height: 64, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-	connectTitle: { fontSize: 22, fontWeight: "900", lineHeight: 28 },
-	connectTitleCompact: { fontSize: 18, lineHeight: 23 },
-	connectText: { fontSize: 14, fontWeight: "700", lineHeight: 20 },
-	idLoginPanel: { alignSelf: "stretch", borderWidth: 1, borderRadius: 16, padding: 12, gap: 10 },
+	loginCard: { gap: 18, padding: 18 },
+	loginCardCompact: { marginBottom: 14, padding: 16 },
+	loginHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+	loginIcon: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+	loginHeaderText: { flex: 1, minWidth: 0 },
+	loginEyebrow: { fontSize: 11, fontWeight: "900", letterSpacing: 0, textTransform: "uppercase" },
+	loginTitle: { marginTop: 2, fontSize: 22, lineHeight: 27, fontWeight: "900", letterSpacing: 0 },
+	loginTitleCompact: { fontSize: 18, lineHeight: 23 },
+	loginForm: { gap: 10 },
 	inputBox: { minHeight: 50, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9 },
 	idInput: { flex: 1, fontSize: 15, fontWeight: "800", paddingVertical: 0 },
-	primaryButton: { minHeight: 52, borderRadius: 14, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, alignSelf: "stretch" },
 	primaryButtonText: { color: "#fff", fontSize: 15, fontWeight: "900" },
-	secondaryButton: {
-		minHeight: 48,
-		borderRadius: 14,
-		borderWidth: 1,
-		paddingHorizontal: 14,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 9,
-		alignSelf: "stretch",
-	},
-	secondaryButtonText: { flex: 1, fontSize: 15, fontWeight: "900" },
+	rememberRow: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 10, alignSelf: "stretch" },
+	checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+	rememberText: { flex: 1, fontSize: 14, fontWeight: "800" },
 	idSubmitButton: { minHeight: 48, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+	statusBanner: { minHeight: 44, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 12 },
+	statusBannerCompact: { marginBottom: 0 },
+	statusText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: "800" },
 	offline: { borderWidth: 1, borderRadius: 8, padding: 11, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
 	offlineText: { flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 },
 	manualNotice: { borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 12 },
@@ -879,11 +836,6 @@ export const s = StyleSheet.create({
 	infoValue: { marginTop: 5, fontSize: 15, fontWeight: "800" },
 	deleteButton: { minHeight: 50, borderRadius: 14, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
 	deleteButtonText: { fontWeight: "900" },
-	webRoot: { flex: 1 },
-	webHeader: { minHeight: 62, borderBottomWidth: 1, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-	webTitle: { fontSize: 18, fontWeight: "900" },
-	webLoading: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" },
-	webFallback: { flex: 1, padding: 18, justifyContent: "center" },
 	disconnectButton: { minHeight: 50, borderRadius: 14, borderWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, marginTop: 18 },
 	disconnectText: { fontSize: 14, fontWeight: "900" },
 });

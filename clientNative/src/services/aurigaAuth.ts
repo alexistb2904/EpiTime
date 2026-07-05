@@ -1,7 +1,6 @@
 import { Platform } from "react-native";
 import * as AuthSession from "expo-auth-session";
 import * as SecureStore from "expo-secure-store";
-import * as WebBrowser from "expo-web-browser";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { AurigaTokenSet } from "./aurigaTypes";
 
@@ -19,6 +18,8 @@ export const AURIGA_ROOT_REDIRECT_URI = "https://auriga.epita.fr/";
 
 const REFRESH_TOKEN_KEY = "auriga.refreshToken";
 const REFRESH_EXPIRES_AT_KEY = "auriga.refreshExpiresAt";
+const REMEMBERED_IDENTIFIER_KEY = "auriga.rememberedIdentifier";
+const REMEMBERED_PASSWORD_KEY = "auriga.rememberedPassword";
 const TOKEN_EXPIRY_MARGIN_MS = 10_000;
 const canUseSecureStore = Platform.OS !== "web";
 
@@ -32,24 +33,18 @@ export type AurigaLoginSession = {
 };
 
 type AurigaLoginSessionOptions = {
-	microsoftHint?: boolean;
 	redirectUri?: string;
+};
+
+export type RememberedAurigaCredentials = {
+	identifier: string;
+	password: string;
 };
 
 export class AurigaAuthError extends Error {
 	constructor(message = "Authentification Auriga requise") {
 		super(message);
 		this.name = "AurigaAuthError";
-	}
-}
-
-export class AurigaBrowserRedirectError extends AurigaAuthError {
-	session: AurigaLoginSession;
-
-	constructor(session: AurigaLoginSession) {
-		super("Le navigateur n'a pas renvoye le code Auriga a l'application.");
-		this.name = "AurigaBrowserRedirectError";
-		this.session = session;
 	}
 }
 
@@ -124,11 +119,7 @@ function extractLoginAction(html: string, baseUrl: string) {
 function extractKeycloakCookies(response: Response) {
 	const setCookie = response.headers.get("set-cookie");
 	if (!setCookie) return "";
-	return (
-		setCookie
-			.match(/(?:AUTH_SESSION_ID|KC_RESTART|KEYCLOAK_SESSION|KEYCLOAK_IDENTITY)=[^;,]+/g)
-			?.join("; ") || ""
-	);
+	return setCookie.match(/(?:AUTH_SESSION_ID|KC_RESTART|KEYCLOAK_SESSION|KEYCLOAK_IDENTITY)=[^;,]+/g)?.join("; ") || "";
 }
 
 function extractLoginError(html: string) {
@@ -141,7 +132,6 @@ export async function createAurigaLoginSession(options: AurigaLoginSessionOption
 	const extraParams: Record<string, string> = {
 		response_mode: "query",
 	};
-	if (options.microsoftHint) extraParams.kc_idp_hint = "oidc";
 	const request = new AuthSession.AuthRequest({
 		clientId: AURIGA_CLIENT_ID,
 		redirectUri,
@@ -179,7 +169,7 @@ export async function completeAurigaLoginFromUrl(url: string, session: AurigaLog
 export async function loginAurigaWithCredentials(username: string, password: string): Promise<AurigaTokenSet> {
 	const trimmedUsername = username.trim();
 	if (!trimmedUsername || !password) throw new AurigaAuthError("Renseigne ton mail/login Auriga et ton mot de passe.");
-	const session = await createAurigaLoginSession({ microsoftHint: false, redirectUri: AURIGA_ROOT_REDIRECT_URI });
+	const session = await createAurigaLoginSession({ redirectUri: AURIGA_ROOT_REDIRECT_URI });
 	const htmlHeaders = {
 		"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148",
 		Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -206,13 +196,6 @@ export async function loginAurigaWithCredentials(username: string, password: str
 		throw new AurigaAuthError(extractLoginError(errorHtml));
 	}
 	return completeAurigaLoginFromUrl(returnedUrl, session);
-}
-
-export async function loginAurigaWithBrowser(): Promise<AurigaTokenSet> {
-	const session = await createAurigaLoginSession({ microsoftHint: true });
-	const result = await WebBrowser.openAuthSessionAsync(session.authUrl, AURIGA_REDIRECT_URI);
-	if (result.type !== "success" || !("url" in result)) throw new AurigaBrowserRedirectError(session);
-	return completeAurigaLoginFromUrl(result.url, session);
 }
 
 export async function refreshAurigaToken(refreshToken: string): Promise<AurigaTokenSet> {
@@ -248,6 +231,22 @@ export async function getValidAurigaAccessToken(): Promise<string | null> {
 
 export async function hasAurigaRefreshToken(): Promise<boolean> {
 	return Boolean(await secureGet(REFRESH_TOKEN_KEY));
+}
+
+export async function saveRememberedAurigaCredentials(credentials: RememberedAurigaCredentials): Promise<void> {
+	const identifier = credentials.identifier.trim();
+	if (!identifier || !credentials.password) throw new AurigaAuthError("Identifiants Auriga incomplets.");
+	await Promise.all([secureSet(REMEMBERED_IDENTIFIER_KEY, identifier), secureSet(REMEMBERED_PASSWORD_KEY, credentials.password)]);
+}
+
+export async function getRememberedAurigaCredentials(): Promise<RememberedAurigaCredentials | null> {
+	const [identifier, password] = await Promise.all([secureGet(REMEMBERED_IDENTIFIER_KEY), secureGet(REMEMBERED_PASSWORD_KEY)]);
+	if (!identifier || !password) return null;
+	return { identifier, password };
+}
+
+export async function clearRememberedAurigaCredentials(): Promise<void> {
+	await Promise.all([secureDelete(REMEMBERED_IDENTIFIER_KEY), secureDelete(REMEMBERED_PASSWORD_KEY)]);
 }
 
 export async function logoutAuriga(): Promise<void> {
