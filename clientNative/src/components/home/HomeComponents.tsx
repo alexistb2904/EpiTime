@@ -160,10 +160,12 @@ export function HomeContent({
 					<Text style={[s.cockpitSubtitle, { color: theme.muted }]} numberOfLines={2}>
 						{heroSubtitle}
 					</Text>
-					<View style={s.cockpitGrid}>
-						<InfoTile icon={<MapPin color={theme.accent} size={17} />} label="Salle" value={nextRooms || "À confirmer"} />
-						<InfoTile icon={<Route color={theme.accent} size={17} />} label="Statut" value={freeLabel} />
-					</View>
+					{nextEvent ? (
+						<View style={s.cockpitGrid}>
+							<InfoTile icon={<MapPin color={theme.accent} size={17} />} label="Salle" value={nextRooms || "À confirmer"} />
+							<InfoTile icon={<Route color={theme.accent} size={17} />} label="Statut" value={freeLabel} />
+						</View>
+					) : null}
 					{currentEvent ? (
 						<View style={s.liveProgress}>
 							<View style={s.liveProgressHeader}>
@@ -181,7 +183,12 @@ export function HomeContent({
 			<Animated.View entering={FadeInDown.delay(140).duration(420)} style={s.metricsRow}>
 				<Metric icon={<CalendarDays color={theme.accent} size={18} />} value={String(todayActiveCount)} label={dayIntensity} detail={dayRange} />
 				<Metric icon={<CalendarClock color={theme.accent} size={18} />} value={String(weekCount)} label="Cette semaine" detail="Cours actifs" />
-				<Metric icon={<TrendingUp color={theme.accent} size={18} />} value={aurigaAverage} label="Moyenne Auriga" detail={aurigaAverage === "-" ? "Non chargée" : "Notes"} />
+				<Metric
+					icon={<TrendingUp color={theme.accent} size={18} />}
+					value={aurigaAverage}
+					label="Moyenne Auriga"
+					detail={aurigaAverage === "-" ? "Non chargée" : "Notes"}
+				/>
 			</Animated.View>
 
 			<Animated.View entering={FadeInDown.delay(200).duration(420)} style={[s.studentPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -242,7 +249,13 @@ export function HomeContent({
 			) : (
 				<View style={s.timeline}>
 					{visibleEvents.slice(0, 5).map((event: ZeusEvent, index: number) => (
-						<TimelineRow key={`${event.idReservation || event.id || index}-${event.startDate}`} event={event} index={index} colored={homeTab === "today"} onPress={() => openEventInCalendar(event)} />
+						<TimelineRow
+							key={`${event.idReservation || event.id || index}-${event.startDate}`}
+							event={event}
+							index={index}
+							colored={homeTab === "today"}
+							onPress={() => openEventInCalendar(event)}
+						/>
 					))}
 				</View>
 			)}

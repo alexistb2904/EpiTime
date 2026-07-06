@@ -5,7 +5,7 @@ import { BellRing, BookOpenCheck, CalendarDays, Check, DoorOpen, LogOut, Search,
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { getGroups, registerExpoPushToken } from "../services/api";
+import { getGroups, registerExpoPushToken, isAuthReconnectRequiredError } from "../services/api";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getNotificationSettings, requestPushToken, scheduleLocalCourseNotifications, setNotificationSettings } from "../services/notifications";
@@ -29,7 +29,7 @@ const features = [
 
 export default function OnboardingScreen({ onDone }: Props) {
 	const { theme } = useTheme();
-	const { logout, session } = useAuth();
+	const { logout, session, handleAuthExpired } = useAuth();
 	const [step, setStep] = useState<"intro" | "groups">("intro");
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [selected, setSelected] = useState<(string | number)[]>([]);
@@ -49,13 +49,17 @@ export default function OnboardingScreen({ onDone }: Props) {
 				setSelected(savedGroups);
 				await setJSON("lastGroups", allGroups);
 			} catch (err: any) {
+				if (isAuthReconnectRequiredError(err)) {
+					await handleAuthExpired();
+					return;
+				}
 				setError(err?.message || "Impossible de charger les groupes.");
 				setGroups(await getJSON("lastGroups", []));
 			} finally {
 				setLoading(false);
 			}
 		})();
-	}, []);
+	}, [handleAuthExpired]);
 
 	const filteredGroups = useMemo(() => {
 		const term = search.trim().toLowerCase();
@@ -84,6 +88,12 @@ export default function OnboardingScreen({ onDone }: Props) {
 			await rescheduleCourseNoteReminders(schedule.visibleEvents);
 			await enableDefaultNotifications(schedule.activeEvents);
 			onDone();
+		} catch (err: any) {
+			if (isAuthReconnectRequiredError(err)) {
+				await handleAuthExpired();
+				return;
+			}
+			setError(err?.message || "La configuration n'a pas pu être terminée.");
 		} finally {
 			setSaving(false);
 		}
@@ -101,7 +111,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 			}).catch(() => {});
 			await registerPlanningNotificationBackgroundSync().catch(() => {});
 		}
-		if (token && userId) await registerExpoPushToken(token, userId, selected, notificationSettings).catch(() => {});
+		if (token && userId) await registerExpoPushToken(token, userId, selected, notificationSettings);
 	};
 
 	return (

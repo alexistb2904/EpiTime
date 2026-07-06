@@ -4,7 +4,7 @@ import { BellRing, CalendarClock, CheckCircle2, Clock, Send } from "lucide-react
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { registerExpoPushToken, sendMobileTestNotification } from "../services/api";
+import { registerExpoPushToken, sendMobileTestNotification, isAuthReconnectRequiredError } from "../services/api";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import {
@@ -23,7 +23,7 @@ import { daysOfWeek } from "../utils/calendar";
 
 export default function NotificationsScreen() {
 	const { theme } = useTheme();
-	const { session } = useAuth();
+	const { session, handleAuthExpired } = useAuth();
 	const [settings, setSettings] = useState(defaultNotificationSettings);
 	const [message, setMessage] = useState("Les rappels locaux sont planifiés automatiquement.");
 	const [loading, setLoading] = useState(false);
@@ -71,6 +71,10 @@ export default function NotificationsScreen() {
 			await saveSettings(next);
 			setMessage("Notifications activées pour cet appareil.");
 		} catch (err: any) {
+			if (isAuthReconnectRequiredError(err)) {
+				await handleAuthExpired();
+				return;
+			}
 			setMessage("Activation échouée : " + (err?.message || "erreur inconnue"));
 		} finally {
 			setLoading(false);
@@ -86,6 +90,10 @@ export default function NotificationsScreen() {
 				await sendMobileTestNotification(userId);
 				setMessage("Notification de test envoyée.");
 			} catch (err: any) {
+				if (isAuthReconnectRequiredError(err)) {
+					await handleAuthExpired();
+					return;
+				}
 				if (err?.status === 404) {
 					await ensureRemoteSubscription();
 					await sendMobileTestNotification(userId);
@@ -95,6 +103,10 @@ export default function NotificationsScreen() {
 				}
 			}
 		} catch (err: any) {
+			if (isAuthReconnectRequiredError(err)) {
+				await handleAuthExpired();
+				return;
+			}
 			setMessage("Test échoué : " + (err?.message || "erreur inconnue"));
 		} finally {
 			setLoading(false);
@@ -186,59 +198,59 @@ export default function NotificationsScreen() {
 						<Text style={[s.link, { color: theme.accent }]}>Aucun</Text>
 					</Pressable>
 				</View>
-				</Card>
+			</Card>
 
-				<Card style={s.rowCard}>
-					<View style={[s.iconBox, { backgroundColor: theme.accentSoft }]}>
-						<CalendarClock color={theme.accent} size={22} />
-					</View>
-					<View style={s.rowBody}>
-						<Text style={[s.rowTitle, { color: theme.text }]}>Changements de cours</Text>
-						<Text style={[s.meta, { color: theme.muted }]}>Détection sur {settings.changeDetectionWindowDays} jour(s)</Text>
-					</View>
-					<Switch
-						value={settings.changeDetectionEnabled}
-						onValueChange={(changeDetectionEnabled) => saveSettings({ ...settings, changeDetectionEnabled })}
-						thumbColor={theme.accent}
-					/>
-				</Card>
+			<Card style={s.rowCard}>
+				<View style={[s.iconBox, { backgroundColor: theme.accentSoft }]}>
+					<CalendarClock color={theme.accent} size={22} />
+				</View>
+				<View style={s.rowBody}>
+					<Text style={[s.rowTitle, { color: theme.text }]}>Changements de cours</Text>
+					<Text style={[s.meta, { color: theme.muted }]}>Détection sur {settings.changeDetectionWindowDays} jour(s)</Text>
+				</View>
+				<Switch
+					value={settings.changeDetectionEnabled}
+					onValueChange={(changeDetectionEnabled) => saveSettings({ ...settings, changeDetectionEnabled })}
+					thumbColor={theme.accent}
+				/>
+			</Card>
 
-				{settings.changeDetectionEnabled ? (
-					<Card>
-						<View style={s.rowHeader}>
-							<CalendarClock color={theme.accent} size={20} />
-							<Text style={[s.sectionTitle, { color: theme.text }]}>Détecter pendant</Text>
-						</View>
-						<View style={s.stepper}>
-							<Pressable
-								style={[s.stepBtn, { borderColor: theme.border }]}
-								onPress={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.max(1, settings.changeDetectionWindowDays - 1) })}>
-								<Text style={[s.stepText, { color: theme.text }]}>-</Text>
-							</Pressable>
-							<Text style={[s.minutes, { color: theme.text }]}>{settings.changeDetectionWindowDays} j</Text>
-							<Pressable
-								style={[s.stepBtn, { borderColor: theme.border }]}
-								onPress={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.min(14, settings.changeDetectionWindowDays + 1) })}>
-								<Text style={[s.stepText, { color: theme.text }]}>+</Text>
-							</Pressable>
-						</View>
-					</Card>
-				) : null}
-
+			{settings.changeDetectionEnabled ? (
 				<Card>
 					<View style={s.rowHeader}>
-						<CheckCircle2 color={theme.accent} size={20} />
+						<CalendarClock color={theme.accent} size={20} />
+						<Text style={[s.sectionTitle, { color: theme.text }]}>Détecter pendant</Text>
+					</View>
+					<View style={s.stepper}>
+						<Pressable
+							style={[s.stepBtn, { borderColor: theme.border }]}
+							onPress={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.max(1, settings.changeDetectionWindowDays - 1) })}>
+							<Text style={[s.stepText, { color: theme.text }]}>-</Text>
+						</Pressable>
+						<Text style={[s.minutes, { color: theme.text }]}>{settings.changeDetectionWindowDays} j</Text>
+						<Pressable
+							style={[s.stepBtn, { borderColor: theme.border }]}
+							onPress={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.min(14, settings.changeDetectionWindowDays + 1) })}>
+							<Text style={[s.stepText, { color: theme.text }]}>+</Text>
+						</Pressable>
+					</View>
+				</Card>
+			) : null}
+
+			<Card>
+				<View style={s.rowHeader}>
+					<CheckCircle2 color={theme.accent} size={20} />
 					<Text style={[s.sectionTitle, { color: theme.text }]}>Résumé</Text>
 				</View>
-					<Text style={[s.meta, { color: theme.muted }]}>
-						Notification {settings.minutesBefore} minutes avant chaque cours, sur{" "}
-						{settings.selectedDays.length === 7 ? "tous les jours" : `${settings.selectedDays.length} jour(s)`}.
-					</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>
-						Modifications {settings.changeDetectionEnabled ? `sur ${settings.changeDetectionWindowDays} jour(s)` : "désactivées"}.
-					</Text>
-					<Text style={[s.status, { color: theme.text }]}>{message}</Text>
-				</Card>
+				<Text style={[s.meta, { color: theme.muted }]}>
+					Notification {settings.minutesBefore} minutes avant chaque cours, sur{" "}
+					{settings.selectedDays.length === 7 ? "tous les jours" : `${settings.selectedDays.length} jour(s)`}.
+				</Text>
+				<Text style={[s.meta, { color: theme.muted }]}>
+					Modifications {settings.changeDetectionEnabled ? `sur ${settings.changeDetectionWindowDays} jour(s)` : "désactivées"}.
+				</Text>
+				<Text style={[s.status, { color: theme.text }]}>{message}</Text>
+			</Card>
 
 			<Pressable onPress={test} disabled={loading} style={[s.primaryBtn, { backgroundColor: theme.accent }]}>
 				{loading ? <ActivityIndicator color="#fff" /> : <Send color="#fff" size={18} />}

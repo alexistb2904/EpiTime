@@ -21,9 +21,12 @@ const REFRESH_EXPIRES_AT_KEY = "auriga.refreshExpiresAt";
 const REMEMBERED_IDENTIFIER_KEY = "auriga.rememberedIdentifier";
 const REMEMBERED_PASSWORD_KEY = "auriga.rememberedPassword";
 const TOKEN_EXPIRY_MARGIN_MS = 10_000;
+const SILENT_RECONNECT_COOLDOWN_MS = 2 * 60_000;
 const canUseSecureStore = Platform.OS !== "web";
 
 let memoryTokenSet: AurigaTokenSet | null = null;
+let silentReconnectPromise: Promise<string | null> | null = null;
+let lastSilentReconnectFailureAt = 0;
 
 export type AurigaLoginSession = {
 	authUrl: string;
@@ -206,22 +209,40 @@ export async function refreshAurigaToken(refreshToken: string): Promise<AurigaTo
 	return tokenSet;
 }
 
+async function silentReconnectWithRememberedCredentials(): Promise<string | null> {
+	if (silentReconnectPromise) return silentReconnectPromise;
+	if (Date.now() - lastSilentReconnectFailureAt < SILENT_RECONNECT_COOLDOWN_MS) return null;
+
+	silentReconnectPromise = (async () => {
+		const credentials = await getRememberedAurigaCredentials();
+		if (!credentials) return null;
+		try {
+			const tokenSet = await loginAurigaWithCredentials(credentials.identifier, credentials.password);
+			return tokenSet.accessToken;
+		} catch {
+			lastSilentReconnectFailureAt = Date.now();
+			return null;
+		} finally {
+			silentReconnectPromise = null;
+		}
+	})();
+
+	return silentReconnectPromise;
+}
+
 export async function forceRefreshAurigaAccessToken(): Promise<string | null> {
 	const refreshToken = await secureGet(REFRESH_TOKEN_KEY);
-	if (!refreshToken) return null;
 	const refreshExpiresRaw = await secureGet(REFRESH_EXPIRES_AT_KEY);
 	const refreshExpiresAt = refreshExpiresRaw ? Number(refreshExpiresRaw) : undefined;
-	if (refreshExpiresAt && refreshExpiresAt <= Date.now()) {
-		await logoutAuriga();
-		return null;
+	if (refreshToken && (!refreshExpiresAt || refreshExpiresAt > Date.now())) {
+		try {
+			const tokenSet = await refreshAurigaToken(refreshToken);
+			return tokenSet.accessToken;
+		} catch {
+			// Fall through to remembered credentials.
+		}
 	}
-	try {
-		const tokenSet = await refreshAurigaToken(refreshToken);
-		return tokenSet.accessToken;
-	} catch {
-		await logoutAuriga();
-		return null;
-	}
+	return silentReconnectWithRememberedCredentials();
 }
 
 export async function getValidAurigaAccessToken(): Promise<string | null> {

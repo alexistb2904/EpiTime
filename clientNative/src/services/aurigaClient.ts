@@ -12,6 +12,12 @@ import {
 import { extractSubjectCode, type AurigaCoeff, type AurigaGrade, type AurigaSyllabus } from "./aurigaTypes";
 
 const REQUEST_TIMEOUT_MS = 15_000;
+let aurigaSyncPromise: Promise<{
+	grades: AurigaGrade[];
+	coeffs: AurigaCoeff[];
+	syllabus: AurigaSyllabus[];
+	user: unknown;
+}> | null = null;
 
 type SearchResultResponse = {
 	content?: {
@@ -288,15 +294,21 @@ export async function syncAurigaData(): Promise<{
 	syllabus: AurigaSyllabus[];
 	user: unknown;
 }> {
-	const user = await fetchAurigaUser();
-	const grades = await preserveGradeSyncDates(await fetchAurigaGrades());
-	const coeffs: AurigaCoeff[] = [];
-	let syllabus: AurigaSyllabus[] = [];
-	try {
-		syllabus = await fetchAurigaSyllabus(coeffs);
-	} catch (error) {
-		console.warn("Auriga syllabus sync skipped", { status: error instanceof Error ? error.message : "unknown", endpoint: "/menuEntries/166" });
-	}
-	await Promise.all([saveAurigaUser(user), saveAurigaGrades(grades), saveAurigaCoeffs(coeffs), saveAurigaSyllabus(syllabus), saveAurigaLastSync()]);
-	return { grades, coeffs, syllabus, user };
+	if (aurigaSyncPromise) return aurigaSyncPromise;
+	aurigaSyncPromise = (async () => {
+		const user = await fetchAurigaUser();
+		const grades = await preserveGradeSyncDates(await fetchAurigaGrades());
+		const coeffs: AurigaCoeff[] = [];
+		let syllabus: AurigaSyllabus[] = [];
+		try {
+			syllabus = await fetchAurigaSyllabus(coeffs);
+		} catch (error) {
+			console.warn("Auriga syllabus sync skipped", { status: error instanceof Error ? error.message : "unknown", endpoint: "/menuEntries/166" });
+		}
+		await Promise.all([saveAurigaUser(user), saveAurigaGrades(grades), saveAurigaCoeffs(coeffs), saveAurigaSyllabus(syllabus), saveAurigaLastSync()]);
+		return { grades, coeffs, syllabus, user };
+	})().finally(() => {
+		aurigaSyncPromise = null;
+	});
+	return aurigaSyncPromise;
 }

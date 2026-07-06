@@ -10,6 +10,9 @@ import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { VersionProvider } from "./src/context/VersionContext";
 import { registerPlanningNotificationBackgroundSync, unregisterPlanningNotificationBackgroundSync } from "./src/services/backgroundSync";
+import { getRememberedAurigaCredentials, hasAurigaRefreshToken } from "./src/services/aurigaAuth";
+import { getAurigaLastSync, isAurigaSyncStale } from "./src/services/aurigaCache";
+import { syncAurigaData } from "./src/services/aurigaClient";
 import { stopLiveCourseNotification } from "./src/services/liveCourse";
 import { getJSON } from "./src/services/storage";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -65,6 +68,11 @@ function Root() {
 	const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 	const [onboardingReady, setOnboardingReady] = useState(false);
 	const handledNotificationResponseId = useRef<string | null>(null);
+	const aurigaAutoRefreshTriggeredRef = useRef(false);
+
+	useEffect(() => {
+		aurigaAutoRefreshTriggeredRef.current = false;
+	}, [session?.microsoftAccessToken, session?.zeusToken]);
 
 	useEffect(() => {
 		if (!session) {
@@ -86,6 +94,25 @@ function Root() {
 		if (!session || !onboardingReady) return;
 		registerPlanningNotificationBackgroundSync().catch(() => {});
 	}, [session, onboardingReady]);
+
+	useEffect(() => {
+		if (!session || !onboardingReady || aurigaAutoRefreshTriggeredRef.current) return;
+		aurigaAutoRefreshTriggeredRef.current = true;
+		let active = true;
+		(async () => {
+			try {
+				const [lastSync, hasRefreshToken, rememberedCredentials] = await Promise.all([getAurigaLastSync(), hasAurigaRefreshToken(), getRememberedAurigaCredentials()]);
+				if (!active) return;
+				if (!isAurigaSyncStale(lastSync) || (!hasRefreshToken && !rememberedCredentials)) return;
+				await syncAurigaData();
+			} catch {
+				// Silent background refresh: keep app launch smooth.
+			}
+		})();
+		return () => {
+			active = false;
+		};
+	}, [onboardingReady, session]);
 
 	useEffect(() => {
 		if (!session || !onboardingReady) return;
@@ -110,7 +137,9 @@ function Root() {
 			}
 		};
 		const subscription = Notifications.addNotificationResponseReceivedListener(openCourseChanges);
-		Notifications.getLastNotificationResponseAsync().then(openCourseChanges).catch(() => {});
+		Notifications.getLastNotificationResponseAsync()
+			.then(openCourseChanges)
+			.catch(() => {});
 		return () => subscription.remove();
 	}, [session, onboardingReady]);
 

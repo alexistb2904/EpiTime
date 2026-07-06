@@ -3,8 +3,9 @@ import { Alert, AppState } from "react-native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { runOnJS } from "react-native-reanimated";
 import { Gesture } from "react-native-gesture-handler";
+import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { getCourseType, getGroups, getReservationDetails } from "../services/api";
+import { getCourseType, getGroups, getReservationDetails, isAuthReconnectRequiredError } from "../services/api";
 import { CourseNoteSummary, getCourseNoteSummaries, rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getCachedAurigaSyllabus } from "../services/aurigaCache";
 import type { AurigaSyllabus } from "../services/aurigaTypes";
@@ -34,17 +35,12 @@ import {
 import { readCachedSchedule, syncSchedule } from "../services/scheduleRepository";
 import { refreshCourseWidgetsForGroups, syncCourseWidgets } from "../services/widgets";
 import { Group, ZeusEvent } from "../types";
-import {
-	eventOverlapsDay,
-	getCourseColor,
-	getRoomName,
-	getWeekRange,
-	startOfDay,
-} from "../utils/calendar";
+import { eventOverlapsDay, getCourseColor, getRoomName, getWeekRange, startOfDay } from "../utils/calendar";
 import { CalendarContent } from "../components/calendar/CalendarContent";
 import { CalendarRouteParams, ScheduleContext, ViewMode, dayKey, getCourseProgress, getTargetEventKey, minute, rangeFor } from "../components/calendar/calendarModel";
 
 export default function CalendarScreen() {
+	const { handleAuthExpired } = useAuth();
 	const { theme } = useTheme();
 	const route = useRoute<any>();
 	const navigation = useNavigation<any>();
@@ -75,7 +71,7 @@ export default function CalendarScreen() {
 
 	const refreshNoteSummaries = useCallback(async () => {
 		setNoteSummaries(await getCourseNoteSummaries());
-	}, []);
+	}, [handleAuthExpired]);
 
 	const refreshSyllabusList = useCallback(async () => {
 		setSyllabusList(await getCachedAurigaSyllabus());
@@ -115,13 +111,22 @@ export default function CalendarScreen() {
 						}
 					}
 					if (notificationSettings.enabled) {
-						await scheduleLocalCourseNotifications(result.activeEvents, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType);
+						await scheduleLocalCourseNotifications(
+							result.activeEvents,
+							notificationSettings.minutesBefore,
+							notificationSettings.selectedDays,
+							notificationSettings.notificationType
+						);
 					}
 				}
 				await rescheduleCourseNoteReminders(result.visibleEvents);
 				await refreshNoteSummaries();
 				setUsingCache(result.source === "cache");
 			} catch (err: any) {
+				if (isAuthReconnectRequiredError(err)) {
+					await handleAuthExpired();
+					return;
+				}
 				const cached = await readCachedSchedule(start, end, query, true);
 				setEvents(cached.visibleEvents);
 				await rescheduleCourseNoteReminders(cached.visibleEvents);
@@ -132,7 +137,7 @@ export default function CalendarScreen() {
 				setLoading(false);
 			}
 		},
-		[context, currentDate, refreshChangeHistory, refreshNoteSummaries, viewMode]
+		[context, currentDate, handleAuthExpired, refreshChangeHistory, refreshNoteSummaries, viewMode]
 	);
 
 	useEffect(() => {
@@ -158,7 +163,11 @@ export default function CalendarScreen() {
 					const allGroups = await getGroups();
 					setGroups(allGroups);
 					await setJSON("lastGroups", allGroups);
-				} catch {
+				} catch (err) {
+					if (isAuthReconnectRequiredError(err)) {
+						await handleAuthExpired();
+						return;
+					}
 					if (!cachedGroups.length) setGroups([]);
 				}
 				setSelectedGroups(savedGroups);
@@ -315,7 +324,7 @@ export default function CalendarScreen() {
 				? `${selectedDayCancelledCount} cours annulé${selectedDayCancelledCount > 1 ? "s" : ""}`
 				: selectedDayIgnoredCount
 					? `${selectedDayIgnoredCount} cours ignoré${selectedDayIgnoredCount > 1 ? "s" : ""}`
-				: "Journée libre";
+					: "Journée libre";
 	const showCacheBanner = usingCache;
 	const selectedEventSyllabus = useMemo(() => (selectedEvent ? findSyllabusForEvent(selectedEvent, syllabusList) : null), [selectedEvent, syllabusList]);
 	const openEventSyllabus = (syllabus: AurigaSyllabus) => {
@@ -387,11 +396,18 @@ export default function CalendarScreen() {
 			const details = await getReservationDetails(event.idReservation);
 			let courseTypeName = details?.courseTypeName;
 			if (!courseTypeName && details?.idType) {
-				const type = await getCourseType(details.idType).catch(() => null);
+				const type = await getCourseType(details.idType).catch((err) => {
+					if (isAuthReconnectRequiredError(err)) throw err;
+					return null;
+				});
 				courseTypeName = type?.type;
 			}
 			setSelectedEvent({ ...event, ...details, courseTypeName });
-		} catch {
+		} catch (err) {
+			if (isAuthReconnectRequiredError(err)) {
+				await handleAuthExpired();
+				return;
+			}
 			setSelectedEvent(event);
 		}
 	};

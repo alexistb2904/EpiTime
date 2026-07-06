@@ -48,7 +48,9 @@ export default function LoginScreen() {
 					<Animated.View style={[s.logoPlate, { borderColor: theme.border, borderWidth: 0 }, logoStyle]}>
 						<Image source={require("../../assets/logo.png")} style={[s.logo, compact && s.logoCompact]} resizeMode="contain" />
 					</Animated.View>
-					<Text style={[s.sub, { color: theme.muted }]}>Ton agenda EPITA, tes salles, tes notes Auriga, tes syllabus et tes rappels dans une app pensée pour le quotidien.</Text>
+					<Text style={[s.sub, { color: theme.muted }]}>
+						Ton agenda EPITA, tes salles, tes notes Auriga, tes syllabus et tes rappels dans une app pensée pour le quotidien.
+					</Text>
 					<Pressable disabled={loading} onPress={login} style={({ pressed }) => [s.btn, { backgroundColor: theme.accent, opacity: pressed || loading ? 0.76 : 1 }]}>
 						{loading ? <ActivityIndicator color="#fff" /> : <LogIn color="#fff" size={20} />}
 						<Text style={s.btnText}>Connexion Microsoft</Text>

@@ -1,17 +1,77 @@
-import { getSession } from "./storage";
+import { clearSession, getSession } from "./storage";
 import { Platform } from "react-native";
 import { LocationNode, Room, RoomType } from "../types";
 import { publicConfig } from "./config";
+import type { Session } from "../types";
 
 const API_BASE = (publicConfig.apiBase || "").replace(/\/$/, "");
 const REQUEST_TIMEOUT_MS = 15_000;
+const AUTH_RECONNECT_REQUIRED_CODE = "AUTH_RECONNECT_REQUIRED";
 
-async function request<T>(path: string, init: RequestInit = {}) {
+type AuthReconnectRequiredError = Error & { status: 401; code: typeof AUTH_RECONNECT_REQUIRED_CODE };
+
+let refreshPromise: Promise<Session> | null = null;
+let refreshSessionImpl: (() => Promise<Session>) | null = null;
+
+export function setRefreshSessionHandler(handler: (() => Promise<Session>) | null) {
+	refreshSessionImpl = handler;
+}
+
+export function createAuthReconnectRequiredError(message = "Session expirée, reconnecte-toi pour continuer.") {
+	const error = new Error(message) as AuthReconnectRequiredError;
+	error.status = 401;
+	error.code = AUTH_RECONNECT_REQUIRED_CODE;
+	return error;
+}
+
+export function isAuthReconnectRequiredError(error: unknown): error is AuthReconnectRequiredError {
+	return Boolean(
+		error &&
+		typeof error === "object" &&
+		"status" in error &&
+		(error as { status?: unknown }).status === 401 &&
+		"code" in error &&
+		(error as { code?: unknown }).code === AUTH_RECONNECT_REQUIRED_CODE
+	);
+}
+
+async function readResponse<T>(res: Response) {
+	const text = await res.text();
+	let data: any = null;
+	try {
+		data = text ? JSON.parse(text) : null;
+	} catch {
+		data = text;
+	}
+
+	if (!res.ok) {
+		const error = new Error(data?.error || `HTTP ${res.status}`) as Error & { status?: number; data?: unknown; code?: string };
+		error.status = res.status;
+		error.data = data;
+		if (res.status === 401 && !error.code) error.code = AUTH_RECONNECT_REQUIRED_CODE;
+		throw error;
+	}
+
+	return data as T;
+}
+
+async function performRequest<T>(path: string, init: RequestInit = {}, withAuth: boolean, retried = false): Promise<T> {
 	if (!API_BASE && Platform.OS !== "web") throw new Error("EXPO_PUBLIC_API_BASE manquant");
-	const session = await getSession();
 	const headers = new Headers(init.headers);
 	headers.set("Content-Type", headers.get("Content-Type") || "application/json");
-	if (session?.zeusToken) headers.set("Authorization", `Bearer ${session.zeusToken}`);
+
+	if (withAuth) {
+		const session = await getSession();
+		if (!session?.zeusToken) throw createAuthReconnectRequiredError();
+
+		if (session.microsoftRefreshToken && session.microsoftExpiresAt && session.microsoftExpiresAt <= Date.now()) {
+			await refreshSessionOnce();
+		}
+
+		const currentSession = await getSession();
+		if (!currentSession?.zeusToken) throw createAuthReconnectRequiredError();
+		headers.set("Authorization", `Bearer ${currentSession.zeusToken}`);
+	}
 
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -29,23 +89,50 @@ async function request<T>(path: string, init: RequestInit = {}) {
 		clearTimeout(timeout);
 	}
 
-	const text = await res.text();
-	let data: any = null;
-	try {
-		data = text ? JSON.parse(text) : null;
-	} catch {
-		data = text;
+	if (withAuth && res.status === 401 && !retried && path !== "/api/auth") {
+		try {
+			await refreshSessionOnce();
+			return await performRequest<T>(path, init, true, true);
+		} catch {
+			await clearSession();
+			throw createAuthReconnectRequiredError();
+		}
 	}
-	if (!res.ok) {
-		const error = new Error(data?.error || `HTTP ${res.status}`) as Error & { status?: number; data?: unknown };
-		error.status = res.status;
-		error.data = data;
-		throw error;
+
+	if (withAuth && res.status === 401) {
+		await clearSession();
+		throw createAuthReconnectRequiredError();
 	}
-	return data as T;
+
+	return readResponse<T>(res);
 }
+
+async function refreshSessionOnce() {
+	if (refreshPromise) return refreshPromise;
+	if (!refreshSessionImpl) {
+		await clearSession();
+		throw createAuthReconnectRequiredError();
+	}
+	refreshPromise = refreshSessionImpl()
+		.catch((error) => {
+			throw error;
+		})
+		.finally(() => {
+			refreshPromise = null;
+		});
+	return refreshPromise;
+}
+
+export async function publicRequest<T>(path: string, init: RequestInit = {}) {
+	return performRequest<T>(path, init, false);
+}
+
+export async function request<T>(path: string, init: RequestInit = {}) {
+	return performRequest<T>(path, init, true);
+}
+
 export async function exchangeMicrosoftToken(accessToken: string) {
-	return request<{ token: string }>("/api/auth", { method: "POST", body: JSON.stringify({ accessToken }) });
+	return publicRequest<{ token: string }>("/api/auth", { method: "POST", body: JSON.stringify({ accessToken }) });
 }
 export async function getGroups() {
 	return request<any[]>("/api/groups");

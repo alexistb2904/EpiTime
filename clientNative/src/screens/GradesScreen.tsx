@@ -8,7 +8,7 @@ import Card from "../components/Card";
 import SyllabusCard from "../components/grades/SyllabusCard";
 import SyllabusDetailModal from "../components/grades/SyllabusDetailModal";
 import { useTheme } from "../context/ThemeContext";
-import { clearAurigaCache, getAurigaLastSync, getCachedAurigaGrades, getCachedAurigaSyllabus } from "../services/aurigaCache";
+import { clearAurigaCache, getAurigaLastSync, getCachedAurigaGrades, getCachedAurigaSyllabus, isAurigaSyncStale } from "../services/aurigaCache";
 import {
 	AurigaAuthError,
 	clearRememberedAurigaCredentials,
@@ -140,43 +140,46 @@ export default function GradesScreen() {
 		rebuildPeriods(cachedGrades, cachedSyllabus, manual, weighted);
 	}, [rebuildPeriods]);
 
-	const refreshAuriga = useCallback(async (source: AurigaSyncSource = "button") => {
-		const isPullRefresh = source === "pull";
-		const isButtonRefresh = source === "button";
-		const showSyncStatus = source === "login" || source === "auto";
-		setRefreshing(isPullRefresh);
-		setButtonRefreshing(isButtonRefresh);
-		setSyncingAuriga(showSyncStatus);
-		if (source === "login") setAurigaStatus({ type: "loading", message: "Connexion réussie. Récupération des informations Auriga..." });
-		if (source === "auto") setAurigaStatus({ type: "loading", message: "Récupération des informations Auriga..." });
-		try {
-			const data = await syncAurigaData();
-			const manual = await getManualGrades();
-			const weighted = await getUseWeightedAverages();
-			setRawGrades(data.grades);
-			setSyllabusList(data.syllabus);
-			setManualGrades(manual);
-			setUseWeightedAveragesState(weighted);
-			rebuildPeriods(data.grades, data.syllabus, manual, weighted);
-			setLastSync(await getAurigaLastSync());
-			setConnected(true);
-			setOffline(false);
-			if (source === "login") setAurigaStatus({ type: "success", message: "Connexion Auriga réussie. Notes synchronisées." });
-			if (source === "button" || source === "pull") setAurigaStatus({ type: "success", message: "Notes Auriga mises à jour." });
-			if (source === "auto") setAurigaStatus(null);
-			return true;
-		} catch (error) {
-			if (error instanceof AurigaAuthError) setConnected(false);
-			setOffline(true);
-			setAurigaStatus({ type: "error", message: error instanceof Error ? error.message : "Récupération Auriga impossible." });
-			return false;
-		} finally {
-			setRefreshing(false);
-			setButtonRefreshing(false);
-			setSyncingAuriga(false);
-			setLoading(false);
-		}
-	}, [rebuildPeriods]);
+	const refreshAuriga = useCallback(
+		async (source: AurigaSyncSource = "button") => {
+			const isPullRefresh = source === "pull";
+			const isButtonRefresh = source === "button";
+			const showSyncStatus = source === "login" || source === "auto";
+			setRefreshing(isPullRefresh);
+			setButtonRefreshing(isButtonRefresh);
+			setSyncingAuriga(showSyncStatus);
+			if (source === "login") setAurigaStatus({ type: "loading", message: "Connexion réussie. Récupération des informations Auriga..." });
+			if (source === "auto") setAurigaStatus({ type: "loading", message: "Récupération des informations Auriga..." });
+			try {
+				const data = await syncAurigaData();
+				const manual = await getManualGrades();
+				const weighted = await getUseWeightedAverages();
+				setRawGrades(data.grades);
+				setSyllabusList(data.syllabus);
+				setManualGrades(manual);
+				setUseWeightedAveragesState(weighted);
+				rebuildPeriods(data.grades, data.syllabus, manual, weighted);
+				setLastSync(await getAurigaLastSync());
+				setConnected(true);
+				setOffline(false);
+				if (source === "login") setAurigaStatus({ type: "success", message: "Connexion Auriga réussie. Notes synchronisées." });
+				if (source === "button" || source === "pull") setAurigaStatus({ type: "success", message: "Notes Auriga mises à jour." });
+				if (source === "auto") setAurigaStatus(null);
+				return true;
+			} catch (error) {
+				if (error instanceof AurigaAuthError) setConnected(false);
+				setOffline(true);
+				setAurigaStatus({ type: "error", message: error instanceof Error ? error.message : "Récupération Auriga impossible." });
+				return false;
+			} finally {
+				setRefreshing(false);
+				setButtonRefreshing(false);
+				setSyncingAuriga(false);
+				setLoading(false);
+			}
+		},
+		[rebuildPeriods]
+	);
 
 	useEffect(() => {
 		if (aurigaStatus?.type !== "success") return;
@@ -189,7 +192,7 @@ export default function GradesScreen() {
 		(async () => {
 			try {
 				await hydrateCache();
-				const [hasToken, rememberedCredentials] = await Promise.all([hasAurigaRefreshToken(), getRememberedAurigaCredentials()]);
+				const [hasToken, rememberedCredentials, syncDate] = await Promise.all([hasAurigaRefreshToken(), getRememberedAurigaCredentials(), getAurigaLastSync()]);
 				if (!mounted) return;
 				if (rememberedCredentials) {
 					setRememberAurigaCredentials(true);
@@ -199,7 +202,9 @@ export default function GradesScreen() {
 				setConnected(hasToken);
 				if (hasToken) {
 					setLoading(false);
-					await refreshAuriga("auto");
+					if (isAurigaSyncStale(syncDate)) {
+						await refreshAuriga("auto");
+					}
 					return;
 				}
 				if (rememberedCredentials) {
@@ -209,14 +214,22 @@ export default function GradesScreen() {
 						setConnecting(false);
 						await refreshAuriga("auto");
 						return;
-					} catch {
-						await clearRememberedAurigaCredentials();
+					} catch (error) {
+						if (error instanceof AurigaAuthError) {
+							await clearRememberedAurigaCredentials();
+						}
 						if (!mounted) return;
 						setRememberAurigaCredentials(false);
 						setAurigaPassword("");
 						setConnected(false);
 						setOffline(true);
-						setAurigaStatus({ type: "error", message: "Reconnexion automatique Auriga impossible. Vérifie tes identifiants." });
+						setAurigaStatus({
+							type: "error",
+							message:
+								error instanceof AurigaAuthError
+									? "Reconnexion automatique Auriga impossible. Vérifie tes identifiants."
+									: "Reconnexion automatique Auriga impossible pour le moment.",
+						});
 					} finally {
 						if (mounted) setConnecting(false);
 					}

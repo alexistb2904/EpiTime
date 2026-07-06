@@ -4,7 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useVersion } from "../context/VersionContext";
-import { registerExpoPushToken } from "../services/api";
+import { registerExpoPushToken, isAuthReconnectRequiredError } from "../services/api";
 import { clearRememberedAurigaCredentials, logoutAuriga } from "../services/aurigaAuth";
 import { clearAurigaCache } from "../services/aurigaCache";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
@@ -39,7 +39,7 @@ import { getJSON } from "../services/storage";
 import { SettingsContent, buildNextDebugTargetDate, formatDebugTargetDate, wrapNumber } from "../components/settings/SettingsComponents";
 
 export default function SettingsScreen() {
-	const { logout, session } = useAuth();
+	const { logout, session, handleAuthExpired } = useAuth();
 	const { mode, resolvedMode, setThemeMode, materialYouEnabled, materialYouAvailable, materialYouActive, setMaterialYouEnabled } = useTheme();
 	const { currentVersion, latestVersion, updateAvailable, checking, error, lastCheckedAt, checkForUpdates, openLatestRelease } = useVersion();
 	const [liveCourseProgressEnabled, setLiveCourseProgressEnabled] = useState(true);
@@ -266,7 +266,16 @@ export default function SettingsScreen() {
 		await registerPlanningNotificationBackgroundSync().catch(() => {});
 		if (!userId) return;
 		const token = await requestPushToken().catch(() => null);
-		if (token) await registerExpoPushToken(token, userId, groups, notificationSettings).catch(() => {});
+		if (token) {
+			try {
+				await registerExpoPushToken(token, userId, groups, notificationSettings);
+			} catch (err) {
+				if (isAuthReconnectRequiredError(err)) {
+					await handleAuthExpired();
+					return;
+				}
+			}
+		}
 	};
 
 	const requestMissingPermissions = async () => {

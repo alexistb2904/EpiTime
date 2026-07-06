@@ -1,4 +1,4 @@
-import { getEvents } from "./api";
+import { getEvents, isAuthReconnectRequiredError } from "./api";
 import {
 	EventChange,
 	EventsCacheQuery,
@@ -96,6 +96,7 @@ export async function syncSchedule(options: SyncScheduleOptions): Promise<Schedu
 			changes,
 		});
 	} catch (error) {
+		if (isAuthReconnectRequiredError(error)) throw error;
 		const visibleEvents = await mergeEventsWithLocal(cachedEvents, start, end);
 		return buildResult({
 			source: "cache",

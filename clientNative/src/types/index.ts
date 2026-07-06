@@ -39,4 +39,11 @@ export type MicrosoftProfile = {
 	userPrincipalName?: string;
 };
 
-export type Session = { microsoftAccessToken: string; zeusToken: string; account?: MicrosoftProfile | Record<string, unknown> | null };
+export type Session = {
+	microsoftAccessToken: string;
+	microsoftRefreshToken?: string | null;
+	microsoftExpiresAt?: number | null;
+	zeusToken: string;
+	zeusRefreshedAt?: number | null;
+	account?: MicrosoftProfile | Record<string, unknown> | null;
+};

@@ -2,6 +2,7 @@ import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 import { rescheduleCourseNoteReminders } from "./courseNotes";
+import { isAuthReconnectRequiredError } from "./api";
 import { isEventCancelled, isEventIgnored } from "./localEvents";
 import { getNotificationSettings, notifyEventChanges, scheduleLocalCourseNotifications } from "./notifications";
 import { syncSchedule } from "./scheduleRepository";
@@ -18,34 +19,39 @@ async function syncPlanningNotificationsInBackground() {
 
 	if (!session?.zeusToken || !selectedGroups.length) return true;
 
-	const start = new Date();
-	const end = new Date(start);
-	end.setDate(end.getDate() + BACKGROUND_NOTIFICATION_WINDOW_DAYS);
+	try {
+		const start = new Date();
+		const end = new Date(start);
+		end.setDate(end.getDate() + BACKGROUND_NOTIFICATION_WINDOW_DAYS);
 
-	const result = await syncSchedule({
-		start,
-		end,
-		query: { groups: selectedGroups },
-		changeDetectionWindowDays: notificationSettings.changeDetectionWindowDays,
-	});
-	const visibleEvents = result.visibleEvents;
-	await syncCourseWidgets(visibleEvents);
-	await rescheduleCourseNoteReminders(visibleEvents);
-	if (notificationSettings.enabled) {
-		await scheduleLocalCourseNotifications(
-			visibleEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)),
-			notificationSettings.minutesBefore,
-			notificationSettings.selectedDays,
-			notificationSettings.notificationType,
-			{ requestPermission: false, windowDays: BACKGROUND_NOTIFICATION_WINDOW_DAYS }
-		);
-	}
-	if (result.source === "network" && notificationSettings.changeDetectionEnabled && result.changes.length) {
-		await notifyEventChanges(result.changes, notificationSettings.notificationType);
-	}
-	await setJSON(LAST_BACKGROUND_SYNC_KEY, new Date().toISOString());
+		const result = await syncSchedule({
+			start,
+			end,
+			query: { groups: selectedGroups },
+			changeDetectionWindowDays: notificationSettings.changeDetectionWindowDays,
+		});
+		const visibleEvents = result.visibleEvents;
+		await syncCourseWidgets(visibleEvents);
+		await rescheduleCourseNoteReminders(visibleEvents);
+		if (notificationSettings.enabled) {
+			await scheduleLocalCourseNotifications(
+				visibleEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)),
+				notificationSettings.minutesBefore,
+				notificationSettings.selectedDays,
+				notificationSettings.notificationType,
+				{ requestPermission: false, windowDays: BACKGROUND_NOTIFICATION_WINDOW_DAYS }
+			);
+		}
+		if (result.source === "network" && notificationSettings.changeDetectionEnabled && result.changes.length) {
+			await notifyEventChanges(result.changes, notificationSettings.notificationType);
+		}
+		await setJSON(LAST_BACKGROUND_SYNC_KEY, new Date().toISOString());
 
-	return result.source === "network";
+		return result.source === "network";
+	} catch (error) {
+		if (isAuthReconnectRequiredError(error)) return true;
+		throw error;
+	}
 }
 
 if (!TaskManager.isTaskDefined(PLANNING_NOTIFICATION_SYNC_TASK)) {

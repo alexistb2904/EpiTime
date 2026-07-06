@@ -1,19 +1,30 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { getSession, clearSession } from "../services/storage";
 import { loginWithMicrosoft } from "../services/auth";
 import { Session } from "../types";
-type C = { session: Session | null; loading: boolean; login: () => Promise<void>; logout: () => Promise<void> };
+type C = {
+	session: Session | null;
+	loading: boolean;
+	login: () => Promise<void>;
+	logout: () => Promise<void>;
+	handleAuthExpired: () => Promise<void>;
+};
 const AuthContext = createContext<C | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [session, setSession] = useState<Session | null>(null);
 	const [loading, setLoading] = useState(true);
+	const authExpiredPromptedRef = useRef(false);
 	useEffect(() => {
 		getSession()
 			.then(setSession)
 			.finally(() => setLoading(false));
 	}, []);
-	async function login() {
+
+	useEffect(() => {
+		if (session) authExpiredPromptedRef.current = false;
+	}, [session]);
+	const login = useCallback(async () => {
 		setLoading(true);
 
 		try {
@@ -32,12 +43,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		} finally {
 			setLoading(false);
 		}
-	}
-	async function logout() {
+	}, []);
+
+	const logout = useCallback(async () => {
 		await clearSession();
 		setSession(null);
-	}
-	return <AuthContext.Provider value={{ session, loading, login, logout }}>{children}</AuthContext.Provider>;
+	}, []);
+
+	const handleAuthExpired = useCallback(async () => {
+		await clearSession();
+		setSession(null);
+		if (authExpiredPromptedRef.current) return;
+		authExpiredPromptedRef.current = true;
+		Alert.alert("Session expirée", "Reconnecte-toi pour continuer.");
+	}, []);
+
+	const value = useMemo(() => ({ session, loading, login, logout, handleAuthExpired }), [handleAuthExpired, loading, login, logout, session]);
+	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 export function useAuth() {
 	const v = useContext(AuthContext);

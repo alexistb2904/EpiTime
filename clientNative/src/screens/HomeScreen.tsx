@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { getGroups } from "../services/api";
+import { getGroups, isAuthReconnectRequiredError } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import { getCachedAurigaGrades, getCachedAurigaSyllabus } from "../services/aurigaCache";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getUseWeightedAverages } from "../services/gradePreferences";
@@ -35,6 +36,7 @@ import {
 type HomeTab = "today" | "next";
 
 export default function HomeScreen() {
+	const { handleAuthExpired } = useAuth();
 	const navigation = useNavigation<any>();
 	const [events, setEvents] = useState<ZeusEvent[]>([]);
 	const [groups, setGroups] = useState<Group[]>([]);
@@ -73,7 +75,11 @@ export default function HomeScreen() {
 				const allGroups = await getGroups();
 				setGroups(allGroups);
 				await setJSON("lastGroups", allGroups);
-			} catch {
+			} catch (error) {
+				if (isAuthReconnectRequiredError(error)) {
+					await handleAuthExpired();
+					return;
+				}
 				if (!cachedGroups.length) setGroups([]);
 			}
 
@@ -117,7 +123,11 @@ export default function HomeScreen() {
 				await rescheduleCourseNoteReminders(result.visibleEvents);
 				setUsingCache(false);
 			}
-		} catch {
+		} catch (error) {
+			if (isAuthReconnectRequiredError(error)) {
+				await handleAuthExpired();
+				return;
+			}
 			const fallback = ids.length ? await readCachedSchedule(start, end, { groups: ids }, true) : await syncSchedule({ start, end, query: {} });
 			setEvents(fallback.visibleEvents);
 			setGroups(await getJSON("lastGroups", []));
@@ -128,7 +138,7 @@ export default function HomeScreen() {
 			refreshingRef.current = false;
 			setRefreshing(false);
 		}
-	}, []);
+	}, [handleAuthExpired]);
 
 	useEffect(() => {
 		refresh();
@@ -272,7 +282,9 @@ export default function HomeScreen() {
 		? `${selectedLabels.length} groupe${selectedLabels.length > 1 ? "s" : ""} suivi${selectedLabels.length > 1 ? "s" : ""}`
 		: "Planning non personnalisé";
 	const changedCount = eventChanges.length;
-	const heroSubtitle = nextEvent ? `${nextTimeLabel} · ${formatDateRange(nextEvent).split("·")[0].trim()}` : "Connecte tes groupes pour afficher ton prochain cours ici.";
+	const heroSubtitle = nextEvent
+		? `${nextTimeLabel} · ${formatDateRange(nextEvent).split("·")[0].trim()}`
+		: "Pas de cours à venir. Ajoute tes groupes pour remplir la liste automatiquement.";
 	const sectionEyebrow = homeTab === "today" ? "Planning" : "Projection";
 	const sectionTitle = homeTab === "today" ? "Aujourd'hui" : "À venir";
 	const primaryInsightTitle = homeTab === "today" ? dayIntensity : `${upcomingActiveEvents.length} cours à venir`;
@@ -285,7 +297,13 @@ export default function HomeScreen() {
 				? `Prochain repère : ${formatStartLabel(nextTimelineStart, now)}.`
 				: "Aucun cours à venir dans le planning chargé.";
 	const secondaryInsightTitle =
-		homeTab === "today" ? (changedCount ? `${changedCount} changement${changedCount > 1 ? "s" : ""}` : "Planning stable") : nextTimelineEvent ? getEventTitle(nextTimelineEvent) : "Planning libre";
+		homeTab === "today"
+			? changedCount
+				? `${changedCount} changement${changedCount > 1 ? "s" : ""}`
+				: "Planning stable"
+			: nextTimelineEvent
+				? getEventTitle(nextTimelineEvent)
+				: "Planning libre";
 	const secondaryInsightBody =
 		homeTab === "today"
 			? changedCount

@@ -6,6 +6,14 @@ const AURIGA_SYLLABUS_KEY = "auriga.syllabus";
 const AURIGA_COEFFS_KEY = "auriga.coeffs";
 const AURIGA_USER_KEY = "auriga.user";
 const AURIGA_LAST_SYNC_KEY = "auriga.lastSync";
+export const AURIGA_AUTO_REFRESH_MAX_AGE_MS = 5 * 60_000;
+
+export function isAurigaSyncStale(lastSync: string | null, maxAgeMs = AURIGA_AUTO_REFRESH_MAX_AGE_MS) {
+	if (!lastSync) return true;
+	const timestamp = new Date(lastSync).getTime();
+	if (Number.isNaN(timestamp)) return true;
+	return Date.now() - timestamp > maxAgeMs;
+}
 
 export async function saveAurigaGrades(grades: AurigaGrade[]): Promise<void> {
 	await setJSON(AURIGA_GRADES_KEY, grades);

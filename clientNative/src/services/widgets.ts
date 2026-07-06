@@ -2,6 +2,7 @@ import React from "react";
 import { NativeModules, Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import { publicConfig } from "./config";
+import { isAuthReconnectRequiredError } from "./api";
 import { readEventsCache, reconcileEventsWithCache, writeEventsCache } from "./eventsCache";
 import { isEventCancelled, isEventIgnored, mergeEventsWithLocal } from "./localEvents";
 import { syncSchedule } from "./scheduleRepository";
@@ -89,7 +90,8 @@ export async function getStoredCourseWidgetPayload() {
 
 export async function refreshCourseWidgetsFromStoredConfig() {
 	const stored = await getStoredCourseWidgetPayload();
-	if (!stored?.apiBase || !stored.zeusToken || !stored.groups.length) return stored;
+	const session = await getSession();
+	if (!stored?.apiBase || !stored.zeusToken || !stored.groups.length || !session?.zeusToken) return stored;
 
 	const start = startOfDay(new Date());
 	const end = new Date(start);
@@ -110,7 +112,8 @@ export async function refreshCourseWidgetsFromStoredConfig() {
 		};
 		await persistCourseWidgetPayload(nextPayload, false);
 		return nextPayload;
-	} catch {
+	} catch (error) {
+		if (isAuthReconnectRequiredError(error)) return stored;
 		return stored;
 	}
 }
@@ -198,6 +201,9 @@ async function fetchWidgetEvents(apiBase: string, zeusToken: string, start: Date
 			Authorization: `Bearer ${zeusToken}`,
 		},
 	});
-	if (!response.ok) throw new Error(`Widget refresh failed: HTTP ${response.status}`);
+	if (!response.ok) {
+		if (response.status === 401) throw Object.assign(new Error("Session expirée, reconnecte-toi pour continuer."), { status: 401, code: "AUTH_RECONNECT_REQUIRED" });
+		throw new Error(`Widget refresh failed: HTTP ${response.status}`);
+	}
 	return (await response.json()) as ZeusEvent[];
 }
