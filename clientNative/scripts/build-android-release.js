@@ -6,6 +6,7 @@ const path = require("node:path");
 
 const projectRoot = path.resolve(__dirname, "..");
 const androidDirectory = path.join(projectRoot, "android");
+const expoCli = path.join(projectRoot, "node_modules", "expo", "bin", "cli");
 const gradleWrapper = process.platform === "win32" ? "gradlew.bat" : "./gradlew";
 const fallbackJavaHome = "C:\\Program Files\\Android\\Android Studio\\jbr";
 const env = { ...process.env, NODE_ENV: "production" };
@@ -26,11 +27,19 @@ if (env.JAVA_HOME) {
 	}
 }
 
-const configValidation = childProcess.spawnSync("npx", ["expo", "config", "--json"], {
+// Gradle settings invoke `node` directly. npm can launch this script even when
+// node.exe's directory is absent from PATH, so expose the running Node runtime.
+const nodeDirectory = path.dirname(process.execPath);
+env.PATH = `${nodeDirectory}${path.delimiter}${env.PATH || ""}`;
+
+if (!fs.existsSync(expoCli)) {
+	throw new Error("Expo is not installed. Run npm ci before building the Android release.");
+}
+
+const configValidation = childProcess.spawnSync(process.execPath, [expoCli, "config", "--json"], {
 	cwd: projectRoot,
 	env,
 	encoding: "utf8",
-	shell: process.platform === "win32",
 });
 if (configValidation.status !== 0) {
 	process.stderr.write(configValidation.stderr || configValidation.stdout || "Expo release configuration validation failed.\n");
