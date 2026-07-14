@@ -16,6 +16,15 @@ export type RequiredPermissionsResult = {
 	missing: RequiredPermissionState[];
 };
 
+export type RequiredAppPermissionsOptions = {
+	/**
+	 * Exact alarms are a special access, not a normal notification permission.
+	 * Keep the onboarding request focused on notifications and ask for this
+	 * capability only from a feature-specific user action or the Settings screen.
+	 */
+	includeExactAlarms?: boolean;
+};
+
 function buildResult(permissions: RequiredPermissionState[]): RequiredPermissionsResult {
 	return {
 		permissions,
@@ -23,27 +32,32 @@ function buildResult(permissions: RequiredPermissionState[]): RequiredPermission
 	};
 }
 
-export async function getRequiredAppPermissions(): Promise<RequiredPermissionsResult> {
+export async function getRequiredAppPermissions(options: RequiredAppPermissionsOptions = {}): Promise<RequiredPermissionsResult> {
 	if (Platform.OS === "web") return buildResult([]);
-	const [notifications, exactAlarmsGranted] = await Promise.all([getNotificationPermissionStatus(), canScheduleExactLiveCourseNotification()]);
-	return buildResult([
+	const notifications = await getNotificationPermissionStatus();
+	const permissions: RequiredPermissionState[] = [
 		{
 			id: "notifications",
 			label: "Notifications",
 			granted: notifications.granted || notifications.status === "granted",
 			canAskAgain: notifications.canAskAgain,
 		},
-		{
+	];
+
+	if (options.includeExactAlarms) {
+		permissions.push({
 			id: "exactAlarms",
 			label: "Alarmes exactes",
-			granted: exactAlarmsGranted,
+			granted: await canScheduleExactLiveCourseNotification(),
 			canAskAgain: true,
-		},
-	]);
+		});
+	}
+
+	return buildResult(permissions);
 }
 
-export async function requestRequiredAppPermissions(): Promise<RequiredPermissionsResult> {
-	const current = await getRequiredAppPermissions();
+export async function requestRequiredAppPermissions(options: RequiredAppPermissionsOptions = {}): Promise<RequiredPermissionsResult> {
+	const current = await getRequiredAppPermissions(options);
 	if (!current.missing.length) return current;
 
 	for (const permission of current.missing) {
@@ -55,7 +69,7 @@ export async function requestRequiredAppPermissions(): Promise<RequiredPermissio
 		}
 	}
 
-	return getRequiredAppPermissions();
+	return getRequiredAppPermissions(options);
 }
 
 export async function openAppPermissionSettings() {

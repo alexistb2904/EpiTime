@@ -45,6 +45,7 @@ out/
 *.aab
 *.ipa
 *.app
+*-release-mapping.txt
 *.tsbuildinfo
 
 *.log

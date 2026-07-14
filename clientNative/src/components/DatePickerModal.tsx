@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import { startOfDay } from "../utils/calendar";
@@ -31,6 +32,7 @@ const buildMonthGrid = (monthRef: Date) => {
 
 export default function DatePickerModal({ visible, currentDate, pickerMonth, onChangeMonth, onSelectDate, onToday, onClose }: DatePickerModalProps) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
 	const today = new Date();
 	const monthDays = useMemo(() => buildMonthGrid(pickerMonth), [pickerMonth]);
 	const weekDays = ["L", "M", "M", "J", "V", "S", "D"];
@@ -44,7 +46,7 @@ export default function DatePickerModal({ visible, currentDate, pickerMonth, onC
 
 	return (
 		<Modal visible={visible} animationType="fade" transparent>
-			<View style={s.overlay}>
+			<View style={[s.overlay, { paddingTop: Math.max(insets.top, 18), paddingBottom: Math.max(insets.bottom, 18) }]}>
 				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 				<Animated.View entering={FadeInDown.duration(260)} style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 					<View style={s.head}>

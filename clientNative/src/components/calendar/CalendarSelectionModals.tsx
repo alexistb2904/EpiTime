@@ -1,20 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown, Layout } from "react-native-reanimated";
-import {
-	Check,
-	Clock,
-	DoorOpen,
-	Filter,
-	Layers,
-	MapPin,
-	Navigation,
-	RotateCcw,
-	Search,
-	SlidersHorizontal,
-	Users,
-	X,
-} from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Check, Clock, DoorOpen, Filter, Layers, MapPin, Navigation, RotateCcw, Search, SlidersHorizontal, Users, X } from "lucide-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { getAvailableRooms, getLocations, getRooms, getRoomTypes } from "../../services/api";
 import { Group, LocationNode, Room, RoomType } from "../../types";
@@ -45,21 +33,30 @@ export function GroupModal({
 	groups,
 	selected,
 	search,
-	selectedLabels,
 	onSearch,
-	onToggle,
+	onApply,
 	onClose,
 }: {
 	visible: boolean;
 	groups: Group[];
 	selected: (string | number)[];
 	search: string;
-	selectedLabels: string[];
 	onSearch: (value: string) => void;
-	onToggle: (id: string | number) => void;
+	onApply: (ids: (string | number)[]) => void;
 	onClose: () => void;
 }) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
+	const [draftSelected, setDraftSelected] = useState<(string | number)[]>(selected);
+
+	useEffect(() => {
+		if (visible) setDraftSelected(selected);
+	}, [selected, visible]);
+
+	const toggleGroup = (id: string | number) => {
+		setDraftSelected((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
+	};
+
 	return (
 		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
 			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
@@ -74,17 +71,19 @@ export function GroupModal({
 						style={[s.searchInput, { color: theme.text }]}
 					/>
 				</View>
-				<Text style={[s.modalMeta, { color: theme.muted }]} numberOfLines={2}>
-					{selected.length ? selectedLabels.join(", ") : "Aucun groupe sélectionné"}
+				<Text style={[s.modalMeta, { color: theme.muted }]}>
+					{draftSelected.length
+						? `${draftSelected.length} groupe${draftSelected.length > 1 ? "s" : ""} sélectionné${draftSelected.length > 1 ? "s" : ""}`
+						: "Choisis au moins un groupe"}
 				</Text>
-				<ScrollView contentContainerStyle={s.modalList}>
-					{groups.map((group) => {
-						const active = selected.includes(group.id);
+				<ScrollView contentContainerStyle={s.modalList} keyboardShouldPersistTaps="handled">
+					{groups.map((group, index) => {
+						const active = draftSelected.includes(group.id);
 						return (
-							<Animated.View key={String(group.id)} entering={FadeInDown.delay(Math.min(groups.indexOf(group), 18) * 20).duration(250)} layout={Layout.springify()}>
+							<Animated.View key={String(group.id)} entering={FadeInDown.delay(Math.min(index, 18) * 20).duration(250)} layout={Layout.springify()}>
 								<Pressable
 									style={[s.groupRow, { backgroundColor: theme.surface, borderColor: active ? theme.accent : theme.border }]}
-									onPress={() => onToggle(group.id)}>
+									onPress={() => toggleGroup(group.id)}>
 									<View style={[s.check, { backgroundColor: active ? theme.accent : "transparent", borderColor: active ? theme.accent : theme.border }]}>
 										{active ? <Check color="#fff" size={14} /> : null}
 									</View>
@@ -96,6 +95,20 @@ export function GroupModal({
 						);
 					})}
 				</ScrollView>
+				<View style={[s.groupModalFooter, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+					<Pressable
+						style={[s.groupModalApply, { backgroundColor: draftSelected.length ? theme.accent : theme.border }]}
+						disabled={!draftSelected.length}
+						onPress={() => {
+							onApply(draftSelected);
+							onClose();
+						}}>
+						<Check color="#fff" size={18} />
+						<Text style={s.primaryText}>
+							Choisir {draftSelected.length} groupe{draftSelected.length > 1 ? "s" : ""}
+						</Text>
+					</Pressable>
+				</View>
 			</View>
 		</Modal>
 	);
@@ -626,8 +639,9 @@ function RoomResultCard({
 
 export function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
 	return (
-		<View style={[s.modalHeader, { borderBottomColor: theme.border }]}>
+		<View style={[s.modalHeader, { borderBottomColor: theme.border, paddingTop: Math.max(insets.top, 18) }]}>
 			<Text style={[s.modalTitle, { color: theme.text }]}>{title}</Text>
 			<Pressable style={[s.iconBtn, { borderColor: theme.border }]} onPress={onClose}>
 				<X color={theme.text} size={20} />

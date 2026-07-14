@@ -1,6 +1,7 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { FadeInDown, Layout } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Bell, Clock, Filter, MapPin, Paperclip, StickyNote, Trash2, Users, X } from "lucide-react-native";
 import Card from "../Card";
 import { useTheme } from "../../context/ThemeContext";
@@ -47,10 +48,11 @@ export function ChangeHistoryModal({
 	onClear: () => void;
 }) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
 	return (
 		<Modal visible={visible} animationType="slide" onRequestClose={onClose}>
 			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
-				<View style={[s.modalHeader, { borderBottomColor: theme.border }]}>
+				<View style={[s.modalHeader, { borderBottomColor: theme.border, paddingTop: Math.max(insets.top, 18) }]}>
 					<View style={s.changeModalTitleWrap}>
 						<Text style={[s.modalTitle, { color: theme.text }]}>Modifications</Text>
 						<Text style={[s.changeModalSubtitle, { color: theme.muted }]}>{changes.length ? `${changes.length} changement(s) conservé(s)` : "Aucune modification enregistrée"}</Text>
@@ -73,7 +75,7 @@ export function ChangeHistoryModal({
 				</ScrollView>
 
 				{changes.length ? (
-					<View style={[s.changeModalFooter, { borderTopColor: theme.border, backgroundColor: theme.bg }]}>
+					<View style={[s.changeModalFooter, { borderTopColor: theme.border, backgroundColor: theme.bg, paddingBottom: Math.max(insets.bottom, 18) }]}>
 						<Pressable style={[s.clearChangesBtn, { backgroundColor: theme.warn }]} onPress={onClear}>
 							<Trash2 color="#fff" size={18} />
 							<Text style={s.clearChangesText}>Effacer les modifications</Text>

@@ -129,10 +129,13 @@ export const s = StyleSheet.create({
 	searchBox: { margin: 18, marginBottom: 8, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
 	searchInput: { flex: 1, minHeight: 46, fontSize: 16 },
 	modalMeta: { marginHorizontal: 18, marginBottom: 10, fontWeight: "700" },
-	modalList: { padding: 18, gap: 12, paddingBottom: 48 },
+	groupModalHint: { marginHorizontal: 18, marginBottom: 4, fontSize: 12, fontWeight: "800", letterSpacing: 0.2 },
+	modalList: { padding: 18, gap: 12, paddingBottom: 116 },
 	groupRow: { borderWidth: 1, borderRadius: 14, padding: 13, flexDirection: "row", alignItems: "center", gap: 10 },
 	check: { width: 22, height: 22, borderWidth: 1, borderRadius: 6, alignItems: "center", justifyContent: "center" },
 	groupName: { flex: 1, fontWeight: "800" },
+	groupModalFooter: { position: "absolute", left: 0, right: 0, bottom: 0, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 18, paddingTop: 12, paddingBottom: 16 },
+	groupModalApply: { minHeight: 52, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
 	modalColorBadge: { alignSelf: "flex-start", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 12 },
 	mapBtn: { width: 44, height: 42, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 	stepper: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
@@ -235,4 +238,3 @@ export const s = StyleSheet.create({
 	roomApplyAction: { flex: 1, minHeight: 42, borderRadius: 13, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
 	roomApplyText: { color: "#fff", fontSize: 13, fontWeight: "900" },
 });
-

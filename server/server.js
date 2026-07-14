@@ -7,6 +7,10 @@ import { fileURLToPath } from "url";
 import webpush from "web-push";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const readPositiveDuration = (value, fallback, minimum) => {
+	const parsed = Number(value);
+	return Number.isFinite(parsed) && parsed >= minimum ? Math.floor(parsed) : fallback;
+};
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -17,10 +21,16 @@ const RYBBIT_SITE_ID = process.env.RYBBIT_SITE_ID || "";
 const RYBBIT_API_KEY = process.env.RYBBIT_API_KEY || "";
 const RYBBIT_TIME_ZONE = process.env.RYBBIT_TIME_ZONE || "Europe/Paris";
 const EXPO_PUSH_API_URL = process.env.EXPO_PUSH_API_URL || "https://exp.host/--/api/v2/push/send";
+const EXPO_PUSH_RECEIPTS_API_URL = process.env.EXPO_PUSH_RECEIPTS_API_URL || "https://exp.host/--/api/v2/push/getReceipts";
 const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, "data");
 const WEB_PUSH_STORE = process.env.WEB_PUSH_STORE ? path.resolve(process.env.WEB_PUSH_STORE) : path.join(DATA_DIR, "web-push-subscriptions.json");
 const MOBILE_PUSH_STORE = process.env.MOBILE_PUSH_STORE ? path.resolve(process.env.MOBILE_PUSH_STORE) : path.join(DATA_DIR, "mobile-push-subscriptions.json");
-
+const MOBILE_PUSH_RECEIPTS_STORE = process.env.MOBILE_PUSH_RECEIPTS_STORE ? path.resolve(process.env.MOBILE_PUSH_RECEIPTS_STORE) : path.join(DATA_DIR, "mobile-push-receipts.json");
+// Expo recommends checking receipts about 15 minutes after the ticket is issued.
+const EXPO_PUSH_RECEIPT_DELAY_MS = readPositiveDuration(process.env.EXPO_PUSH_RECEIPT_DELAY_MS, 15 * 60 * 1000, 60 * 1000);
+const EXPO_PUSH_RECEIPT_RETRY_DELAY_MS = readPositiveDuration(process.env.EXPO_PUSH_RECEIPT_RETRY_DELAY_MS, 15 * 60 * 1000, 60 * 1000);
+const EXPO_PUSH_RECEIPT_TTL_MS = readPositiveDuration(process.env.EXPO_PUSH_RECEIPT_TTL_MS, 24 * 60 * 60 * 1000, 60 * 60 * 1000);
+const MAX_PENDING_EXPO_PUSH_RECEIPTS = readPositiveDuration(process.env.MAX_PENDING_EXPO_PUSH_RECEIPTS, 5000, 100);
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
 
@@ -57,9 +67,11 @@ if (vapidPublicKey && vapidPrivateKey) {
 // Possiblement utiliser une BD plus tard
 const subscriptions = new Map();
 const mobileSubscriptions = new Map();
+const mobilePushReceipts = new Map();
 const sentNotifications = new Map();
 const eventsCache = new Map();
 const storeWriteQueues = new Map();
+let mobilePushReceiptCheckInFlight = null;
 
 const isExpoPushToken = (token) => /^Expo(nent)?PushToken\[[^\]]+\]$/.test(String(token || ""));
 
@@ -74,14 +86,30 @@ const normalizeIdArray = (value) => {
 const normalizeNotificationSettings = (settings = {}) => {
 	const minutesBefore = Number(settings.minutesBefore ?? settings.minuesBefore);
 	const selectedDays = Array.isArray(settings.selectedDays) ? settings.selectedDays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6) : [];
+	const notificationType = settings.notificationType === "banner" || settings.notificationType === "sound" || settings.notificationType === "both" ? settings.notificationType : "both";
 
 	return {
 		minutesBefore: Number.isFinite(minutesBefore) && minutesBefore > 0 ? Math.min(minutesBefore, 24 * 60) : 15,
 		selectedDays: selectedDays.length > 0 ? selectedDays : [0, 1, 2, 3, 4, 5, 6],
+		notificationType,
 	};
 };
 
+const mobileCourseChannelId = (notificationType) => (notificationType === "banner" ? "courses-silent" : "courses");
+const mobileCourseSound = (notificationType) => (notificationType === "banner" ? undefined : "default");
+
 const mobileSubscriptionKey = (userId, expoPushToken) => `${userId}:${expoPushToken}`;
+
+const removeMobileSubscriptionsForExpoPushToken = (expoPushToken) => {
+	let removed = 0;
+	for (const [key, subscription] of mobileSubscriptions) {
+		if (subscription.expoPushToken === expoPushToken) {
+			mobileSubscriptions.delete(key);
+			removed++;
+		}
+	}
+	return removed;
+};
 
 const writeJsonStoreUnsafe = async (storePath, rows) => {
 	await fs.promises.mkdir(path.dirname(storePath), { recursive: true });
@@ -163,47 +191,239 @@ const persistMobileSubscriptions = async () => {
 	await writeJsonStore(MOBILE_PUSH_STORE, rows);
 };
 
-const sendExpoPushMessages = async (messages) => {
-	if (!messages.length) return [];
-	const results = [];
+const persistMobilePushReceipts = async () => {
+	const rows = Array.from(mobilePushReceipts.values());
+	await writeJsonStore(MOBILE_PUSH_RECEIPTS_STORE, rows);
+};
 
-	for (let i = 0; i < messages.length; i += 100) {
-		const chunk = messages.slice(i, i + 100);
-		const response = await fetch(EXPO_PUSH_API_URL, {
-			method: "POST",
-			headers: {
-				Accept: "application/json",
-				"Accept-encoding": "gzip, deflate",
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(chunk),
+const loadMobilePushReceipts = async () => {
+	try {
+		const raw = await fs.promises.readFile(MOBILE_PUSH_RECEIPTS_STORE, "utf8");
+		const rows = JSON.parse(raw);
+		if (!Array.isArray(rows)) return;
+
+		const now = Date.now();
+		let pruned = false;
+		rows.forEach((row) => {
+			const ticketId = String(row?.ticketId || "").trim();
+			const expoPushToken = String(row?.expoPushToken || "").trim();
+			const queuedAt = Number.isFinite(Number(row?.queuedAt)) ? Number(row.queuedAt) : now;
+			const expiresAt = Number.isFinite(Number(row?.expiresAt)) ? Number(row.expiresAt) : queuedAt + EXPO_PUSH_RECEIPT_TTL_MS;
+			const nextCheckAt = Number.isFinite(Number(row?.nextCheckAt)) ? Number(row.nextCheckAt) : now;
+
+			if (!ticketId || !isExpoPushToken(expoPushToken) || expiresAt <= now) {
+				pruned = true;
+				return;
+			}
+
+			mobilePushReceipts.set(ticketId, {
+				ticketId,
+				expoPushToken,
+				queuedAt,
+				expiresAt,
+				nextCheckAt,
+				attempts: Math.max(0, Number.isFinite(Number(row?.attempts)) ? Math.floor(Number(row.attempts)) : 0),
+				lastCheckedAt: Number.isFinite(Number(row?.lastCheckedAt)) ? Number(row.lastCheckedAt) : undefined,
+			});
 		});
-		const text = await response.text();
-		const parsed = text ? JSON.parse(text) : {};
-		if (!response.ok) {
-			throw new Error(parsed?.errors?.[0]?.message || parsed?.error || `Expo push HTTP ${response.status}`);
-		}
-		const data = Array.isArray(parsed?.data) ? parsed.data : [];
-		results.push(...data);
 
-		data.forEach((ticket, index) => {
-			if (ticket?.status === "error" && ticket?.details?.error === "DeviceNotRegistered") {
-				const failed = chunk[index];
-				for (const [key, subscription] of mobileSubscriptions) {
-					if (subscription.expoPushToken === failed.to) {
-						mobileSubscriptions.delete(key);
+		if (pruned) {
+			await persistMobilePushReceipts();
+		}
+		console.log(`Mobile push: ${mobilePushReceipts.size} reçu(s) Expo en attente chargé(s)`);
+	} catch (err) {
+		if (err.code !== "ENOENT") {
+			console.error("Mobile push receipt store load error:", err.message);
+		}
+	}
+};
+
+const cleanupExpiredMobilePushReceipts = (now = Date.now()) => {
+	let removed = 0;
+	for (const [ticketId, receipt] of mobilePushReceipts) {
+		if (receipt.expiresAt <= now) {
+			mobilePushReceipts.delete(ticketId);
+			removed++;
+		}
+	}
+	return removed;
+};
+
+const scheduleReceiptRetry = (receipt, now) => {
+	const attempts = receipt.attempts + 1;
+	const delay = Math.min(60 * 60 * 1000, EXPO_PUSH_RECEIPT_RETRY_DELAY_MS * 2 ** Math.min(attempts - 1, 2));
+	receipt.attempts = attempts;
+	receipt.lastCheckedAt = now;
+	receipt.nextCheckAt = Math.min(receipt.expiresAt, now + delay);
+};
+
+const trackExpoPushReceipt = (ticket, message, now) => {
+	const ticketId = String(ticket?.id || "").trim();
+	const expoPushToken = typeof message?.to === "string" ? message.to.trim() : "";
+	if (!ticketId || !isExpoPushToken(expoPushToken)) return false;
+
+	mobilePushReceipts.set(ticketId, {
+		ticketId,
+		expoPushToken,
+		queuedAt: now,
+		expiresAt: now + EXPO_PUSH_RECEIPT_TTL_MS,
+		nextCheckAt: now + EXPO_PUSH_RECEIPT_DELAY_MS,
+		attempts: 0,
+	});
+
+	while (mobilePushReceipts.size > MAX_PENDING_EXPO_PUSH_RECEIPTS) {
+		let oldestTicketId = null;
+		let oldestQueuedAt = Infinity;
+		for (const [pendingTicketId, pendingReceipt] of mobilePushReceipts) {
+			if (pendingReceipt.queuedAt < oldestQueuedAt) {
+				oldestTicketId = pendingTicketId;
+				oldestQueuedAt = pendingReceipt.queuedAt;
+			}
+		}
+		if (!oldestTicketId) break;
+		mobilePushReceipts.delete(oldestTicketId);
+		console.warn("Mobile push: limite de reçus en attente atteinte, ancien reçu purgé");
+	}
+
+	return true;
+};
+
+const getExpoPushReceipts = async (ticketIds) => {
+	const response = await fetch(EXPO_PUSH_RECEIPTS_API_URL, {
+		method: "POST",
+		headers: {
+			Accept: "application/json",
+			"Accept-encoding": "gzip, deflate",
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({ ids: ticketIds }),
+	});
+	const text = await response.text();
+	const parsed = text ? JSON.parse(text) : {};
+	if (!response.ok) {
+		throw new Error(parsed?.errors?.[0]?.message || parsed?.error || `Expo push receipts HTTP ${response.status}`);
+	}
+	return parsed?.data && typeof parsed.data === "object" && !Array.isArray(parsed.data) ? parsed.data : {};
+};
+
+const checkExpoPushReceipts = async () => {
+	if (mobilePushReceiptCheckInFlight) return mobilePushReceiptCheckInFlight;
+
+	const check = (async () => {
+		const now = Date.now();
+		let receiptsChanged = cleanupExpiredMobilePushReceipts(now) > 0;
+		let subscriptionsChanged = false;
+		const dueReceipts = Array.from(mobilePushReceipts.values()).filter((receipt) => receipt.nextCheckAt <= now && receipt.expiresAt > now);
+
+		if (dueReceipts.length === 0) {
+			if (receiptsChanged) await persistMobilePushReceipts();
+			return { checked: 0, removed: 0 };
+		}
+
+		let checked = 0;
+		let removed = 0;
+		try {
+			for (let i = 0; i < dueReceipts.length; i += 1000) {
+				const chunk = dueReceipts.slice(i, i + 1000);
+				let receipts;
+				try {
+					receipts = await getExpoPushReceipts(chunk.map((receipt) => receipt.ticketId));
+				} catch (err) {
+					chunk.forEach((receipt) => scheduleReceiptRetry(receipt, now));
+					receiptsChanged = true;
+					throw err;
+				}
+
+				for (const pendingReceipt of chunk) {
+					checked++;
+					const receipt = receipts[pendingReceipt.ticketId];
+					if (!receipt) {
+						scheduleReceiptRetry(pendingReceipt, now);
+						receiptsChanged = true;
+						continue;
+					}
+
+					mobilePushReceipts.delete(pendingReceipt.ticketId);
+					receiptsChanged = true;
+					removed++;
+
+					if (receipt.status === "error") {
+						const errorCode = receipt?.details?.error || "UnknownError";
+						if (errorCode === "DeviceNotRegistered") {
+							const deletedSubscriptions = removeMobileSubscriptionsForExpoPushToken(pendingReceipt.expoPushToken);
+							subscriptionsChanged = subscriptionsChanged || deletedSubscriptions > 0;
+							console.log(`Mobile push: token désinscrit après reçu Expo (${deletedSubscriptions} subscription(s) supprimée(s))`);
+						} else {
+							console.error(`Mobile push receipt error ${errorCode}:`, receipt.message || "échec de livraison");
+						}
 					}
 				}
 			}
-		});
+		} finally {
+			if (subscriptionsChanged) await persistMobileSubscriptions();
+			if (receiptsChanged) await persistMobilePushReceipts();
+		}
+
+		return { checked, removed };
+	})();
+
+	mobilePushReceiptCheckInFlight = check;
+	try {
+		return await check;
+	} finally {
+		if (mobilePushReceiptCheckInFlight === check) {
+			mobilePushReceiptCheckInFlight = null;
+		}
+	}
+};
+
+const sendExpoPushMessages = async (messages) => {
+	if (!messages.length) return [];
+	const results = [];
+	let subscriptionsChanged = false;
+	let receiptsChanged = false;
+
+	try {
+		for (let i = 0; i < messages.length; i += 100) {
+			const chunk = messages.slice(i, i + 100);
+			const response = await fetch(EXPO_PUSH_API_URL, {
+				method: "POST",
+				headers: {
+					Accept: "application/json",
+					"Accept-encoding": "gzip, deflate",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(chunk),
+			});
+			const text = await response.text();
+			const parsed = text ? JSON.parse(text) : {};
+			if (!response.ok) {
+				throw new Error(parsed?.errors?.[0]?.message || parsed?.error || `Expo push HTTP ${response.status}`);
+			}
+			const data = Array.isArray(parsed?.data) ? parsed.data : [];
+			results.push(...data);
+
+			data.forEach((ticket, index) => {
+				const message = chunk[index];
+				if (ticket?.status === "error" && ticket?.details?.error === "DeviceNotRegistered") {
+					subscriptionsChanged = removeMobileSubscriptionsForExpoPushToken(message?.to) > 0 || subscriptionsChanged;
+				} else if (ticket?.status === "ok" && trackExpoPushReceipt(ticket, message, Date.now())) {
+					receiptsChanged = true;
+				}
+			});
+		}
+	} finally {
+		// Do not lose receipts accepted in an earlier chunk if a later Expo call fails.
+		if (subscriptionsChanged) await persistMobileSubscriptions();
+		if (receiptsChanged) await persistMobilePushReceipts();
 	}
 
-	await persistMobileSubscriptions();
 	return results;
 };
 
 await loadWebSubscriptions();
 await loadMobileSubscriptions();
+await loadMobilePushReceipts();
 
 const cleanupSentNotifications = () => {
 	const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
@@ -742,6 +962,13 @@ app.post("/api/mobile/subscribe", async (req, res) => {
 		const now = new Date().toISOString();
 		const key = mobileSubscriptionKey(userId, expoPushToken);
 		const existing = mobileSubscriptions.get(key);
+		// An Expo token identifies one app installation.  Keeping it attached to
+		// two accounts can leak a previous account's reminders after account switch.
+		for (const [existingKey, existingSubscription] of mobileSubscriptions) {
+			if (existingKey !== key && existingSubscription.expoPushToken === expoPushToken) {
+				mobileSubscriptions.delete(existingKey);
+			}
+		}
 		const subscription = {
 			userId,
 			expoPushToken,
@@ -870,6 +1097,13 @@ app.get("/api/vapid-key", (_req, res) => {
 });
 
 const notificationWorker = async () => {
+	try {
+		await checkExpoPushReceipts();
+	} catch (err) {
+		// Leave pending receipts on disk and retry with backoff on the next worker pass.
+		console.error("Erreur vérification des reçus Expo:", err.message);
+	}
+
 	if (!pushEnabled && mobileSubscriptions.size === 0) return;
 	if (subscriptions.size === 0 && mobileSubscriptions.size === 0) return;
 
@@ -956,7 +1190,7 @@ const notificationWorker = async () => {
 
 	for (const [subscriptionKey, subscription] of mobileSubscriptions) {
 		try {
-			const settings = subscription.settings || { minutesBefore: 15, selectedDays: [0, 1, 2, 3, 4, 5, 6] };
+			const settings = subscription.settings || { minutesBefore: 15, selectedDays: [0, 1, 2, 3, 4, 5, 6], notificationType: "both" };
 			const userGroups = subscription.groups || [];
 
 			if (!settings.selectedDays.includes(currentDay) || userGroups.length === 0) {
@@ -969,6 +1203,7 @@ const notificationWorker = async () => {
 			}
 
 			const minutesBefore = settings.minutesBefore || 15;
+			const notificationType = settings.notificationType === "banner" || settings.notificationType === "sound" || settings.notificationType === "both" ? settings.notificationType : "both";
 
 			for (const event of events) {
 				const eventStart = new Date(event.startDate || event.start);
@@ -987,14 +1222,15 @@ const notificationWorker = async () => {
 				if (minutesUntilEvent >= minutesBefore - 1 && minutesUntilEvent <= minutesBefore + 1) {
 					mobileMessages.push({
 						to: subscription.expoPushToken,
-						sound: "default",
+						sound: mobileCourseSound(notificationType),
 						title: "Cours bientôt",
 						body: `${eventName} commence dans ${Math.round(minutesUntilEvent)} minutes`,
-						channelId: "courses",
+						channelId: mobileCourseChannelId(notificationType),
 						data: {
 							type: "course-reminder",
 							eventId,
 							timestamp: Date.now(),
+							notificationType,
 						},
 					});
 					mobileNotifKeys.push(notifKey);

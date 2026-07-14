@@ -1,15 +1,9 @@
 import gradesPayload from "./aurigaPayloads/grades.json";
 import syllabusPayload from "./aurigaPayloads/syllabus.json";
 import { AURIGA_API, AurigaAuthError, forceRefreshAurigaAccessToken, getValidAurigaAccessToken } from "./aurigaAuth";
-import {
-	getCachedAurigaGrades,
-	saveAurigaCoeffs,
-	saveAurigaGrades,
-	saveAurigaLastSync,
-	saveAurigaSyllabus,
-	saveAurigaUser,
-} from "./aurigaCache";
+import { getCachedAurigaGrades, saveAurigaCoeffs, saveAurigaGrades, saveAurigaLastSync, saveAurigaSyllabus, saveAurigaUser } from "./aurigaCache";
 import { extractSubjectCode, type AurigaCoeff, type AurigaGrade, type AurigaSyllabus } from "./aurigaTypes";
+import { syncGradeWidgetsFromStoredData } from "./widgets";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 let aurigaSyncPromise: Promise<{
@@ -280,12 +274,26 @@ export async function fetchAurigaSyllabus(coeffs: AurigaCoeff[] = []): Promise<A
 async function preserveGradeSyncDates(grades: AurigaGrade[]) {
 	const cached = await getCachedAurigaGrades();
 	if (!cached.length) return grades;
-	const byIdentity = new Map(cached.map((grade) => [`${grade.code}|${grade.name}`, grade.syncedAt]));
+	const byIdentity = new Map(cached.map((grade) => [aurigaGradeIdentity(grade), grade]));
 	const now = Date.now();
-	return grades.map((grade) => ({
-		...grade,
-		syncedAt: byIdentity.get(`${grade.code}|${grade.name}`) || grade.syncedAt || now,
-	}));
+	return grades.map((grade) => {
+		const previous = byIdentity.get(aurigaGradeIdentity(grade));
+		const unchanged = previous && aurigaGradeValueSignature(previous) === aurigaGradeValueSignature(grade);
+		return {
+			...grade,
+			syncedAt: unchanged ? previous.syncedAt || grade.syncedAt || now : now,
+		};
+	});
+}
+
+function aurigaGradeIdentity(grade: AurigaGrade) {
+	return [grade.code, grade.name, grade.type, grade.semester].map((value) => encodeURIComponent(String(value ?? "").trim())).join("|");
+}
+
+function aurigaGradeValueSignature(grade: AurigaGrade) {
+	return [grade.alphaMark || "", Number.isFinite(grade.grade) ? grade.grade : "", Number.isFinite(grade.coefficient) ? grade.coefficient : ""]
+		.map((value) => String(value))
+		.join("|");
 }
 
 export async function syncAurigaData(): Promise<{
@@ -306,6 +314,8 @@ export async function syncAurigaData(): Promise<{
 			console.warn("Auriga syllabus sync skipped", { status: error instanceof Error ? error.message : "unknown", endpoint: "/menuEntries/166" });
 		}
 		await Promise.all([saveAurigaUser(user), saveAurigaGrades(grades), saveAurigaCoeffs(coeffs), saveAurigaSyllabus(syllabus), saveAurigaLastSync()]);
+		// The widget payload is display-only and must use the same cached data as Notes.
+		await syncGradeWidgetsFromStoredData().catch(() => {});
 		return { grades, coeffs, syllabus, user };
 	})().finally(() => {
 		aurigaSyncPromise = null;

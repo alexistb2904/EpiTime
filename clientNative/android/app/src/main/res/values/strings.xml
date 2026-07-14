@@ -1,5 +1,12 @@
 <resources>
   <string name="app_name">EpiTime</string>
-  <string name="widget_nextcourse_description" translatable="false">Affiche le prochain cours EpiTime.</string>
-  <string name="widget_upcomingcourses_description" translatable="false">Affiche les prochains cours EpiTime.</string>
+  <string name="widget_nextcourse_label">Prochain cours</string>
+  <string name="widget_nextcourse_description">Affiche le prochain cours EpiTime.</string>
+  <string name="widget_upcomingcourses_label">Prochains cours</string>
+  <string name="widget_upcomingcourses_description">Affiche les prochains cours EpiTime.</string>
+  <string name="widget_semestergrades_label">Moyenne et notes</string>
+  <string name="widget_semestergrades_description">Affiche la moyenne du semestre et les dernières notes EpiTime.</string>
+  <string name="widget_semesteroverview_label">Vue du semestre</string>
+  <string name="widget_semesteroverview_description">Affiche la moyenne du semestre et les prochains cours EpiTime.</string>
+  <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
 </resources>

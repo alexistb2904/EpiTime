@@ -17,10 +17,12 @@ import {
 	shouldShowAnalyticsBanner,
 } from "./utils/analyticsConsent";
 import { trackEvent } from "./utils/analyticsTracker";
+import LegalPage from "./components/LegalPage";
 import "./App.css";
 
 function AppContent() {
 	const { user, loading } = useAuth();
+	const isLegalPage = window.location.pathname.replace(/\/+$/, "") === "/legal";
 
 	const { showInstallBanner, isOnline, installMethod, isAndroid, androidApkUrl, handleInstall, handleAndroidBetaInstall, handleDismiss } = usePWA();
 
@@ -56,6 +58,10 @@ function AppContent() {
 		disableAnalyticsTracking();
 		setShowCookieBanner(false);
 	}, []);
+
+	if (isLegalPage) {
+		return <LegalPage />;
+	}
 
 	if (loading) {
 		return (

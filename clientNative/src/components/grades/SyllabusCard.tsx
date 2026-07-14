@@ -5,8 +5,9 @@ import { useTheme } from "../../context/ThemeContext";
 import type { AurigaSyllabus } from "../../services/aurigaTypes";
 import { formatSecondsAsHours } from "../../utils/syllabusTime";
 
-export default function SyllabusCard({ syllabus, onPress }: { syllabus: AurigaSyllabus; onPress: () => void }) {
+export default function SyllabusCard({ syllabus, coefficient, onPress }: { syllabus: AurigaSyllabus; coefficient?: number; onPress: () => void }) {
 	const { theme } = useTheme();
+	const displayedCoefficient = coefficient ?? syllabus.coeff;
 	return (
 		<Pressable style={[s.root, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={onPress}>
 			<View style={[s.icon, { backgroundColor: theme.accentSoft }]}>
@@ -18,7 +19,7 @@ export default function SyllabusCard({ syllabus, onPress }: { syllabus: AurigaSy
 				</Text>
 				<Text style={[s.meta, { color: theme.muted }]} numberOfLines={1}>
 					{syllabus.UE} · {syllabus.exams.length} examen{syllabus.exams.length > 1 ? "s" : ""} · {formatSecondsAsHours(syllabus.duration, "Durée inconnue")} encadrées
-					{syllabus.coeff ? ` · coeff ${syllabus.coeff}` : ""}
+					{displayedCoefficient ? ` · coeff ${displayedCoefficient}` : ""}
 				</Text>
 				{syllabus.estimatedStudentWorkload ? (
 					<Text style={[s.workload, { color: theme.muted }]} numberOfLines={1}>

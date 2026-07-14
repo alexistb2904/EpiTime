@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	BellElectric,
 	BellRing,
@@ -455,6 +456,7 @@ export function ManualEventModal({
 	onClose: () => void;
 }) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
 	const selectedDate = parseInputDate(date) || new Date();
 	const [showDatePicker, setShowDatePicker] = useState(false);
 	const [pickerMonth, setPickerMonth] = useState(selectedDate);
@@ -471,13 +473,13 @@ export function ManualEventModal({
 	return (
 		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
 			<View style={[s.manualRoot, { backgroundColor: theme.bg }]}>
-				<View style={[s.manualHeader, { borderBottomColor: theme.border }]}>
+				<View style={[s.manualHeader, { borderBottomColor: theme.border, paddingTop: Math.max(insets.top, 18) }]}>
 					<Text style={[s.manualTitle, { color: theme.text }]}>Nouvel événement</Text>
 					<Pressable style={[s.manualClose, { borderColor: theme.border }]} onPress={onClose}>
 						<X color={theme.text} size={20} />
 					</Pressable>
 				</View>
-				<ScrollView contentContainerStyle={s.manualContent}>
+				<ScrollView contentContainerStyle={[s.manualContent, { paddingBottom: insets.bottom + 32 }]}>
 					<FormField label="Titre" value={title} onChangeText={onChangeTitle} placeholder="Ex: Projet, entretien..." />
 					<View style={s.formField}>
 						<Text style={[s.formLabel, { color: theme.muted }]}>Date</Text>

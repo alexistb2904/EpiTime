@@ -63,7 +63,10 @@ export default function OnboardingScreen({ onDone }: Props) {
 
 	const filteredGroups = useMemo(() => {
 		const term = search.trim().toLowerCase();
-		return groups.filter((group) => !term || group.name.toLowerCase().includes(term)).slice(0, 220);
+		return groups
+			.filter((group) => !term || group.name.toLowerCase().includes(term))
+			.sort((first, second) => first.name.localeCompare(second.name, "fr", { sensitivity: "base", numeric: true }))
+			.slice(0, 220);
 	}, [groups, search]);
 
 	const toggle = (id: string | number) => {
@@ -116,7 +119,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 
 	return (
 		<View style={[s.root, { backgroundColor: theme.bg }]}>
-			<ScrollView contentContainerStyle={s.content}>
+			<ScrollView contentContainerStyle={[s.content, step === "groups" && s.groupsContent]} keyboardShouldPersistTaps="handled">
 				<Animated.View entering={FadeInUp.duration(520)} style={s.brandRow}>
 					<Image source={require("../../assets/logo.png")} style={s.logo} resizeMode="contain" />
 					<View style={s.brandCopy}>
@@ -179,12 +182,15 @@ export default function OnboardingScreen({ onDone }: Props) {
 
 						<View style={[s.selectionBar, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
 							<ShieldCheck color={theme.accent} size={18} />
-							<Text style={[s.selectionText, { color: theme.text }]}>{selected.length} groupe(s) sélectionné(s)</Text>
+							<Text style={[s.selectionText, { color: theme.text }]}>
+								{selected.length === 0
+									? "Choisis au moins un groupe"
+									: `${selected.length} groupe${selected.length > 1 ? "s" : ""} sélectionné${selected.length > 1 ? "s" : ""}`}
+							</Text>
 						</View>
 
 						{error ? <Text style={[s.error, { color: theme.danger }]}>{error}</Text> : null}
 						{loading ? <ActivityIndicator color={theme.accent} /> : null}
-
 						<View style={s.groupList}>
 							{filteredGroups.map((group, index) => {
 								const active = selected.includes(group.id);
@@ -204,17 +210,20 @@ export default function OnboardingScreen({ onDone }: Props) {
 								);
 							})}
 						</View>
-
-						<Pressable
-							style={[s.primary, { backgroundColor: selected.length ? theme.accent : theme.border, opacity: saving ? 0.72 : 1 }]}
-							onPress={finish}
-							disabled={saving}>
-							{saving ? <ActivityIndicator color="#fff" /> : <Check color="#fff" size={19} />}
-							<Text style={s.primaryText}>Terminer la configuration</Text>
-						</Pressable>
 					</Animated.View>
 				)}
 			</ScrollView>
+			{step === "groups" ? (
+				<View style={[s.stickyAction, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+					<Pressable
+						style={[s.primary, s.stickyButton, { backgroundColor: selected.length ? theme.accent : theme.border, opacity: saving ? 0.72 : 1 }]}
+						onPress={finish}
+						disabled={saving || !selected.length}>
+						{saving ? <ActivityIndicator color="#fff" /> : <Check color="#fff" size={19} />}
+						<Text style={s.primaryText}>{selected.length ? `Confirmer ${selected.length} groupe${selected.length > 1 ? "s" : ""}` : "Confirmer ma sélection"}</Text>
+					</Pressable>
+				</View>
+			) : null}
 		</View>
 	);
 }
@@ -222,6 +231,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 const s = StyleSheet.create({
 	root: { flex: 1 },
 	content: { padding: 20, paddingTop: 58, paddingBottom: 42 },
+	groupsContent: { paddingBottom: 112 },
 	brandRow: { flexDirection: "row", alignItems: "center", marginBottom: 24 },
 	logo: { width: 52, height: 52, marginRight: 12 },
 	brandCopy: { flex: 1 },
@@ -246,8 +256,11 @@ const s = StyleSheet.create({
 	selectionBar: { borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: "row", alignItems: "center", gap: 9 },
 	selectionText: { flex: 1, fontWeight: "900" },
 	error: { fontWeight: "800" },
+	listHint: { fontSize: 12, fontWeight: "800", letterSpacing: 0.2, marginTop: 2 },
 	groupList: { gap: 8 },
 	groupRow: { borderWidth: 1, borderRadius: 14, padding: 13, flexDirection: "row", alignItems: "center", gap: 10 },
 	check: { width: 22, height: 22, borderWidth: 1, borderRadius: 6, alignItems: "center", justifyContent: "center" },
 	groupName: { flex: 1, fontWeight: "800" },
+	stickyAction: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14 },
+	stickyButton: { marginTop: 0 },
 });

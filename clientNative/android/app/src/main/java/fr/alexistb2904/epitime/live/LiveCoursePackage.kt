@@ -5,6 +5,7 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 import fr.alexistb2904.epitime.autofill.AutofillModule
+import fr.alexistb2904.epitime.downloads.PdfDownloadsModule
 import fr.alexistb2904.epitime.network.NetworkStatusModule
 import fr.alexistb2904.epitime.widget.CourseWidgetsModule
 
@@ -12,6 +13,7 @@ class LiveCoursePackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
     listOf(
       LiveCourseNotificationModule(reactContext),
+      PdfDownloadsModule(reactContext),
       AutofillModule(reactContext),
       NetworkStatusModule(reactContext),
       CourseWidgetsModule(reactContext)

@@ -37,7 +37,21 @@ module.exports = ({ config }) => {
 	};
 
 	const expoProjectId = read("EXPO_PUBLIC_EXPO_PROJECT_ID", extra.eas?.projectId);
+	const googleServicesFile = read("GOOGLE_SERVICES_JSON", config.android?.googleServicesFile);
+	const apiBase = read("EXPO_PUBLIC_API_BASE", extra.apiBase);
+	const isReleaseBuild =
+		process.env.NODE_ENV === "production" ||
+		["preview", "production"].includes(process.env.EAS_BUILD_PROFILE);
+	if (isReleaseBuild && apiBase && !/^https:\/\//i.test(apiBase)) {
+		throw new Error("EXPO_PUBLIC_API_BASE must use HTTPS for preview and production Android builds.");
+	}
 	const appGroupIdentifier = "group.fr.alexistb2904.epitime";
+	const blockedAndroidPermissions = [
+		...new Set([
+			...(config.android?.blockedPermissions || []),
+			"android.permission.SYSTEM_ALERT_WINDOW",
+		]),
+	];
 	const androidWidgetConfig = {
 		widgets: [
 			{
@@ -64,12 +78,41 @@ module.exports = ({ config }) => {
 				previewImage: "./assets/widget-preview/upcomingcourses.png",
 				updatePeriodMillis: 1800000,
 			},
+			{
+				name: "SemesterGrades",
+				label: "Moyenne et notes",
+				description: "Affiche la moyenne du semestre et les dernières notes EpiTime.",
+				minWidth: "230dp",
+				minHeight: "180dp",
+				targetCellWidth: 4,
+				targetCellHeight: 3,
+				resizeMode: "horizontal|vertical",
+				previewImage: "./assets/widget-preview/semestergrades.png",
+				updatePeriodMillis: 1800000,
+			},
+			{
+				name: "SemesterOverview",
+				label: "Vue du semestre",
+				description: "Affiche la moyenne du semestre et les prochains cours EpiTime.",
+				minWidth: "230dp",
+				minHeight: "180dp",
+				targetCellWidth: 4,
+				targetCellHeight: 3,
+				resizeMode: "horizontal|vertical",
+				previewImage: "./assets/widget-preview/semesteroverview.png",
+				updatePeriodMillis: 1800000,
+			},
 		],
 	};
 	const basePlugins = config.plugins || [];
 
 	return {
 		...config,
+		android: {
+			...config.android,
+			googleServicesFile,
+			blockedPermissions: blockedAndroidPermissions,
+		},
 		plugins: [
 			...basePlugins,
 			[
@@ -82,6 +125,7 @@ module.exports = ({ config }) => {
 			],
 			"expo-document-picker",
 			"expo-file-system",
+			"expo-sharing",
 			"expo-background-task",
 			["react-native-android-widget", androidWidgetConfig],
 		],
@@ -94,7 +138,7 @@ module.exports = ({ config }) => {
 		},
 		extra: {
 			...extra,
-			apiBase: read("EXPO_PUBLIC_API_BASE", extra.apiBase),
+			apiBase,
 			microsoftClientId: read("EXPO_PUBLIC_MICROSOFT_CLIENT_ID", extra.microsoftClientId),
 			microsoftTenant: read("EXPO_PUBLIC_MICROSOFT_TENANT", extra.microsoftTenant),
 			microsoftRedirectUri: read("EXPO_PUBLIC_MICROSOFT_REDIRECT_URI", extra.microsoftRedirectUri),

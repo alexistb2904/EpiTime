@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createNavigationContainerRef, NavigationContainer, type LinkingOptions } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import * as Notifications from "expo-notifications";
@@ -9,11 +10,13 @@ import { Bell, CalendarDays, GraduationCap, Home, Settings } from "lucide-react-
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { VersionProvider } from "./src/context/VersionContext";
+import { registerExpoPushToken } from "./src/services/api";
 import { registerPlanningNotificationBackgroundSync, unregisterPlanningNotificationBackgroundSync } from "./src/services/backgroundSync";
 import { getRememberedAurigaCredentials, hasAurigaRefreshToken } from "./src/services/aurigaAuth";
 import { getAurigaLastSync, isAurigaSyncStale } from "./src/services/aurigaCache";
 import { syncAurigaData } from "./src/services/aurigaClient";
 import { stopLiveCourseNotification } from "./src/services/liveCourse";
+import { getNotificationPermissionStatus, getNotificationSettings, requestPushToken } from "./src/services/notifications";
 import { getJSON } from "./src/services/storage";
 import LoginScreen from "./src/screens/LoginScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
@@ -96,6 +99,29 @@ function Root() {
 	}, [session, onboardingReady]);
 
 	useEffect(() => {
+		if (!session || !onboardingReady) return;
+		const account = session.account as { id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
+		const userId = account?.id || account?.userPrincipalName || account?.mail || "";
+		if (!userId) return;
+
+		let active = true;
+		const reregisterExpoPushToken = async () => {
+			const settings = await getNotificationSettings();
+			if (!settings.enabled) return;
+			const permission = await getNotificationPermissionStatus();
+			if (!permission.granted && permission.status !== "granted") return;
+			const [groups, token] = await Promise.all([getJSON<(string | number)[]>("selectedGroups", []), requestPushToken()]);
+			if (!active || !token) return;
+			await registerExpoPushToken(token, userId, groups, settings);
+		};
+
+		void reregisterExpoPushToken().catch(() => {});
+		return () => {
+			active = false;
+		};
+	}, [session, onboardingReady]);
+
+	useEffect(() => {
 		if (!session || !onboardingReady || aurigaAutoRefreshTriggeredRef.current) return;
 		aurigaAutoRefreshTriggeredRef.current = true;
 		let active = true;
@@ -120,7 +146,18 @@ function Root() {
 			if (!response) return;
 			const notificationId = response.notification.request.identifier;
 			if (handledNotificationResponseId.current === notificationId) return;
-			const data = response.notification.request.content.data as { type?: unknown; startsAt?: unknown; changeKey?: unknown; openPanel?: unknown } | undefined;
+			const data = response.notification.request.content.data as { type?: unknown; startsAt?: unknown; changeKey?: unknown; openPanel?: unknown; openTab?: unknown } | undefined;
+			if (data?.type === "auriga-grade" || data?.openTab === "notes") {
+				handledNotificationResponseId.current = notificationId;
+				if (navigationRef.isReady()) {
+					navigationRef.navigate("Notes", { mode: "notes" });
+				} else {
+					setTimeout(() => {
+						if (navigationRef.isReady()) navigationRef.navigate("Notes", { mode: "notes" });
+					}, 250);
+				}
+				return;
+			}
 			if (data?.type !== "course-change" && data?.openPanel !== "event-changes") return;
 			handledNotificationResponseId.current = notificationId;
 			const params = {
@@ -200,13 +237,15 @@ function Root() {
 export default function App() {
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
-			<ThemeProvider>
-				<AuthProvider>
-					<VersionProvider>
-						<Root />
-					</VersionProvider>
-				</AuthProvider>
-			</ThemeProvider>
+			<SafeAreaProvider>
+				<ThemeProvider>
+					<AuthProvider>
+						<VersionProvider>
+							<Root />
+						</VersionProvider>
+					</AuthProvider>
+				</ThemeProvider>
+			</SafeAreaProvider>
 		</GestureHandlerRootView>
 	);
 }

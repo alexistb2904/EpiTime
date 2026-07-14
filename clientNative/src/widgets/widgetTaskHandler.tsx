@@ -3,12 +3,16 @@ import { NativeModules, Platform } from "react-native";
 import type { WidgetTaskHandlerProps } from "react-native-android-widget";
 import { COURSE_WIDGET_REFRESH_ACTION, getStoredCourseWidgetPayload, refreshCourseWidgetsFromStoredConfig, requestCourseWidgetUpdates } from "../services/widgets";
 import { NextCourseWidget } from "./NextCourseWidget";
+import { SemesterGradesWidget } from "./SemesterGradesWidget";
+import { SemesterOverviewWidget } from "./SemesterOverviewWidget";
 import { UpcomingCoursesWidget } from "./UpcomingCoursesWidget";
 import { emptyWidgetPayload } from "./courseWidgetFormat";
 
 const widgets = {
 	NextCourse: NextCourseWidget,
 	UpcomingCourses: UpcomingCoursesWidget,
+	SemesterGrades: SemesterGradesWidget,
+	SemesterOverview: SemesterOverviewWidget,
 };
 
 const CourseWidgets = NativeModules.EpiTimeCourseWidgets as

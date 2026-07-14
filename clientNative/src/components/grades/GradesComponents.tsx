@@ -12,6 +12,7 @@ import {
 	Check,
 	ChevronRight,
 	ClipboardList,
+	FileDown,
 	GraduationCap,
 	Hash,
 	KeyRound,
@@ -27,11 +28,14 @@ import {
 	X,
 } from "lucide-react-native";
 import Card from "../Card";
+import CoefficientEditorModal from "./CoefficientEditorModal";
 import SyllabusCard from "./SyllabusCard";
 import SyllabusDetailModal from "./SyllabusDetailModal";
+import SyllabusExportModal from "./SyllabusExportModal";
 import { useTheme } from "../../context/ThemeContext";
 import { type ManualGrade } from "../../services/manualGrades";
 import type { AurigaSyllabus } from "../../services/aurigaTypes";
+import { getSubjectCoefficientOverride, type SubjectCoefficientOverrides, type SubjectCoefficientReference } from "../../services/gradeCoefficientOverrides";
 import { type DisplayGrade, type DisplaySubject, type DisplayUE } from "../../services/gradesService";
 
 function scoreLabel(score?: { value: number; outOf?: number; status?: string }) {
@@ -57,6 +61,11 @@ export function GradesContent({
 	contentPaddingBottom,
 	deleteManualGrade,
 	disconnectAuriga,
+	exportEndSemester,
+	exportModalVisible,
+	exportStartSemester,
+	exportSemesters,
+	exportingSyllabus,
 	filteredSyllabus,
 	findSubjectInPeriods,
 	groupedSyllabus,
@@ -66,6 +75,12 @@ export function GradesContent({
 	mode,
 	noteUes,
 	offline,
+	onExportSyllabus,
+	onCloseSyllabusExport,
+	onChangeSyllabusExportEndSemester,
+	onChangeSyllabusExportStartSemester,
+	onOpenSyllabusExport,
+	onUpdateSubjectCoefficient,
 	periods,
 	refreshAuriga,
 	refreshing,
@@ -85,6 +100,7 @@ export function GradesContent({
 	setSelectedSubject,
 	setSelectedSyllabus,
 	status,
+	subjectCoefficientOverrides,
 	syncingAuriga,
 	updateManualGrades,
 	useWeightedAverages,
@@ -92,6 +108,30 @@ export function GradesContent({
 	aurigaPassword,
 }: any) {
 	const { theme } = useTheme();
+	const [coefficientEditor, setCoefficientEditor] = useState<{
+		title: string;
+		reference: SubjectCoefficientReference;
+		value: number;
+		overridden: boolean;
+	} | null>(null);
+	const syllabusCoefficient = (syllabus: AurigaSyllabus) => getSubjectCoefficientOverride({ syllabusId: syllabus.id }, subjectCoefficientOverrides as SubjectCoefficientOverrides) ?? syllabus.coeff ?? 1;
+	const openSubjectCoefficientEditor = (subject: DisplaySubject) => {
+		setCoefficientEditor({
+			title: subject.name,
+			reference: { syllabusId: subject.syllabus?.id, subjectId: subject.id },
+			value: subject.syllabusCoeff ?? 1,
+			overridden: Boolean(subject.coefficientOverridden),
+		});
+	};
+	const openSyllabusCoefficientEditor = (syllabus: AurigaSyllabus) => {
+		const override = getSubjectCoefficientOverride({ syllabusId: syllabus.id }, subjectCoefficientOverrides as SubjectCoefficientOverrides);
+		setCoefficientEditor({
+			title: syllabus.caption?.name || syllabus.name,
+			reference: { syllabusId: syllabus.id },
+			value: override ?? syllabus.coeff ?? 1,
+			overridden: override !== undefined,
+		});
+	};
 	return (
 		<View style={[s.root, { backgroundColor: theme.bg }]}>
 			<ScrollView
@@ -119,6 +159,12 @@ export function GradesContent({
 					<Animated.View entering={FadeInDown.duration(260)} style={[s.manualNotice, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
 						<Calculator color={theme.warn} size={18} />
 						<Text style={[s.manualNoticeText, { color: theme.text }]}>Cette moyenne inclut des notes ajoutées manuellement.</Text>
+					</Animated.View>
+				) : null}
+				{mode === "notes" && useWeightedAverages ? (
+					<Animated.View entering={FadeInDown.duration(240)} style={[s.coefficientNotice, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
+						<Percent color={theme.accent} size={17} />
+						<Text style={[s.coefficientNoticeText, { color: theme.text }]}>Les coefficients viennent d’Auriga et peuvent différer de ceux de l’administration.</Text>
 					</Animated.View>
 				) : null}
 				{!connected ? (
@@ -189,6 +235,15 @@ export function GradesContent({
 						</Pressable>
 					) : null}
 				</View>
+				{mode === "syllabus" ? (
+					<Pressable
+						style={[s.exportSyllabusButton, { backgroundColor: theme.accent, opacity: exportingSyllabus ? 0.72 : 1 }]}
+						disabled={exportingSyllabus || !exportSemesters.length}
+						onPress={onOpenSyllabusExport}>
+						{exportingSyllabus ? <ActivityIndicator color="#fff" size="small" /> : <FileDown color="#fff" size={20} />}
+						<Text style={s.exportSyllabusTitle}>{exportingSyllabus ? "Création du PDF..." : "Exporter le syllabus"}</Text>
+					</Pressable>
+				) : null}
 
 				{mode === "notes" ? (
 					<View style={s.list}>
@@ -235,7 +290,7 @@ export function GradesContent({
 								<View key={ue} style={s.syllabusGroup}>
 									<Text style={[s.sectionTitle, { color: theme.text }]}>{ue}</Text>
 									{items.map((syllabus: any) => (
-										<SyllabusCard key={syllabus.id} syllabus={syllabus} onPress={() => setSelectedSyllabus(syllabus)} />
+										<SyllabusCard key={syllabus.id} syllabus={syllabus} coefficient={syllabusCoefficient(syllabus)} onPress={() => setSelectedSyllabus(syllabus)} />
 									))}
 								</View>
 							))
@@ -255,8 +310,9 @@ export function GradesContent({
 				subject={selectedSubject}
 				manualGrades={manualGrades}
 				onClose={() => setSelectedSubject(null)}
-				onOpenGrade={setSelectedGrade}
+					onOpenGrade={setSelectedGrade}
 				onOpenSyllabus={setSelectedSyllabus}
+				onEditCoefficient={() => selectedSubject && openSubjectCoefficientEditor(selectedSubject)}
 				onAddManual={async (input) => {
 					const next = await addManualGrade(input);
 					const built = await updateManualGrades(next);
@@ -277,7 +333,44 @@ export function GradesContent({
 					if (selectedSubject) setSelectedSubject(findSubjectInPeriods(built, selectedSubject.id) || selectedSubject);
 				}}
 			/>
-			<SyllabusDetailModal visible={Boolean(selectedSyllabus)} syllabus={selectedSyllabus} onClose={() => setSelectedSyllabus(null)} />
+			<SyllabusDetailModal
+				visible={Boolean(selectedSyllabus)}
+				syllabus={selectedSyllabus}
+				coefficient={selectedSyllabus ? syllabusCoefficient(selectedSyllabus) : undefined}
+				coefficientOverridden={selectedSyllabus ? getSubjectCoefficientOverride({ syllabusId: selectedSyllabus.id }, subjectCoefficientOverrides as SubjectCoefficientOverrides) !== undefined : false}
+				onEditCoefficient={() => selectedSyllabus && openSyllabusCoefficientEditor(selectedSyllabus)}
+				onClose={() => setSelectedSyllabus(null)}
+			/>
+			<CoefficientEditorModal
+				visible={Boolean(coefficientEditor)}
+				title={coefficientEditor?.title || "Matière"}
+				value={coefficientEditor?.value || 1}
+				overridden={coefficientEditor?.overridden}
+				onClose={() => setCoefficientEditor(null)}
+				onSave={async (value) => {
+					if (!coefficientEditor) return;
+					await onUpdateSubjectCoefficient(coefficientEditor.reference, value);
+				}}
+				onReset={
+					coefficientEditor?.overridden
+						? async () => {
+								if (!coefficientEditor) return;
+								await onUpdateSubjectCoefficient(coefficientEditor.reference, undefined);
+							}
+						: undefined
+				}
+			/>
+			<SyllabusExportModal
+				visible={exportModalVisible}
+				semesters={exportSemesters}
+				selectedStartSemester={exportStartSemester}
+				selectedEndSemester={exportEndSemester}
+				exporting={exportingSyllabus}
+				onClose={onCloseSyllabusExport}
+				onChangeStartSemester={onChangeSyllabusExportStartSemester}
+				onChangeEndSemester={onChangeSyllabusExportEndSemester}
+				onGenerate={onExportSyllabus}
+			/>
 		</View>
 	);
 }
@@ -464,6 +557,7 @@ export function SubjectDetailModal({
 	subject,
 	manualGrades,
 	onClose,
+	onEditCoefficient,
 	onOpenGrade,
 	onOpenSyllabus,
 	onAddManual,
@@ -472,6 +566,7 @@ export function SubjectDetailModal({
 	subject: DisplaySubject | null;
 	manualGrades: ManualGrade[];
 	onClose: () => void;
+	onEditCoefficient: () => void;
 	onOpenGrade: (grade: DisplayGrade) => void;
 	onOpenSyllabus: (syllabus: AurigaSyllabus) => void;
 	onAddManual: (grade: Omit<ManualGrade, "id" | "createdAt">) => Promise<void>;
@@ -538,11 +633,15 @@ export function SubjectDetailModal({
 								<Text style={[s.heroStatValue, { color: theme.text }]}>{noteCount}</Text>
 								<Text style={[s.heroStatLabel, { color: theme.muted }]}>notes</Text>
 							</View>
-							<View style={[s.heroStat, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+							<Pressable
+								accessibilityRole="button"
+								accessibilityLabel="Modifier le coefficient de la matière"
+								style={[s.heroStat, { backgroundColor: theme.bg, borderColor: subject?.coefficientOverridden ? theme.accent : theme.border }]}
+								onPress={onEditCoefficient}>
 								<Percent color={theme.accent} size={17} />
 								<Text style={[s.heroStatValue, { color: theme.text }]}>{subjectCoeff}</Text>
-								<Text style={[s.heroStatLabel, { color: theme.muted }]}>coeff</Text>
-							</View>
+								<Text style={[s.heroStatLabel, { color: theme.muted }]}>{subject?.coefficientOverridden ? "coeff · modifié" : "coeff · modifier"}</Text>
+							</Pressable>
 							{subject?.hasNonValidated && (
 								<View style={[s.heroStat, { backgroundColor: theme.bg, borderColor: theme.border }]}>
 									<Target color={theme.danger} size={17} />
@@ -753,6 +852,8 @@ export const s = StyleSheet.create({
 	offlineText: { flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 },
 	manualNotice: { borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 12 },
 	manualNoticeText: { flex: 1, fontSize: 13, fontWeight: "800", lineHeight: 18 },
+	coefficientNotice: { borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 12 },
+	coefficientNoticeText: { flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 },
 	averageCard: { minHeight: 124, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
 	averageLabel: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	averageValue: { marginTop: 5, fontSize: 32, fontWeight: "900", letterSpacing: 0 },
@@ -765,6 +866,8 @@ export const s = StyleSheet.create({
 	semesterText: { fontSize: 13, fontWeight: "900" },
 	searchBox: { minHeight: 48, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 14 },
 	searchInput: { flex: 1, fontSize: 15, fontWeight: "800", paddingVertical: 0 },
+	exportSyllabusButton: { minHeight: 54, marginTop: -2, marginBottom: 14, borderRadius: 16, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, shadowColor: "#023c69", shadowOpacity: 0.16, shadowRadius: 10, elevation: 3 },
+	exportSyllabusTitle: { color: "#fff", fontSize: 15, fontWeight: "900" },
 	list: { gap: 12 },
 	ueBlock: { borderWidth: 1, borderRadius: 24, padding: 12, gap: 12 },
 	ueHeader: { flexDirection: "row", alignItems: "center", gap: 10 },

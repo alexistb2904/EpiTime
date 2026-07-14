@@ -6,9 +6,9 @@
   <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  <uses-feature android:name="android.hardware.camera" android:required="false" />
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
     android:maxSdkVersion="32" tools:replace="android:maxSdkVersion" />
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
     android:maxSdkVersion="32" tools:replace="android:maxSdkVersion" />
@@ -22,7 +22,6 @@
   <application android:name=".MainApplication" android:label="@string/app_name"
     android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round"
     android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true"
-    android:enableOnBackInvokedCallback="false"
     android:fullBackupContent="@xml/secure_store_backup_rules"
     android:dataExtractionRules="@xml/secure_store_data_extraction_rules">
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false" />
@@ -30,6 +29,16 @@
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH"
       android:value="ALWAYS" />
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0" />
+    <meta-data android:name="com.google.firebase.messaging.default_notification_icon"
+      android:resource="@drawable/ic_notification_epitime" />
+    <meta-data android:name="expo.modules.notifications.default_notification_icon"
+      android:resource="@drawable/ic_notification_epitime" />
+    <meta-data android:name="com.google.firebase.messaging.default_notification_color"
+      android:resource="@color/notification_icon_color" />
+    <meta-data android:name="expo.modules.notifications.default_notification_color"
+      android:resource="@color/notification_icon_color" />
+    <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id"
+      android:value="courses" />
     <service android:name="com.reactnativeandroidwidget.RNWidgetCollectionService"
       android:permission="android.permission.BIND_REMOTEVIEWS" />
     <activity android:name=".MainActivity"
@@ -49,7 +58,7 @@
       </intent-filter>
     </activity>
     <receiver android:name=".widget.NextCourse" android:exported="false"
-      android:label="Prochain cours">
+      android:label="@string/widget_nextcourse_label">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
         <action android:name="fr.alexistb2904.epitime.WIDGET_CLICK" />
@@ -58,7 +67,7 @@
         android:resource="@xml/widgetprovider_nextcourse" />
     </receiver>
     <receiver android:name=".widget.UpcomingCourses" android:exported="false"
-      android:label="Liste des prochains cours">
+      android:label="@string/widget_upcomingcourses_label">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
         <action android:name="fr.alexistb2904.epitime.WIDGET_CLICK" />
@@ -66,7 +75,34 @@
       <meta-data android:name="android.appwidget.provider"
         android:resource="@xml/widgetprovider_upcomingcourses" />
     </receiver>
+    <receiver android:name=".widget.SemesterGrades" android:exported="false"
+      android:label="@string/widget_semestergrades_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="fr.alexistb2904.epitime.WIDGET_CLICK" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider"
+        android:resource="@xml/widgetprovider_semestergrades" />
+    </receiver>
+    <receiver android:name=".widget.SemesterOverview" android:exported="false"
+      android:label="@string/widget_semesteroverview_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="fr.alexistb2904.epitime.WIDGET_CLICK" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider"
+        android:resource="@xml/widgetprovider_semesteroverview" />
+    </receiver>
     <receiver android:name=".live.LiveCourseNotificationReceiver" android:exported="false" />
+    <receiver android:name=".live.LiveCourseAlarmRestoreReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+        <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+      </intent-filter>
+    </receiver>
     <receiver android:name=".widget.CourseWidgetRefreshReceiver" android:exported="false">
       <intent-filter>
         <action android:name="fr.alexistb2904.epitime.widget.REFRESH_NEXT_COURSE" />
@@ -75,6 +111,7 @@
         <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
         <action android:name="android.intent.action.TIME_SET" />
         <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+        <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
       </intent-filter>
     </receiver>
   </application>

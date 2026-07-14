@@ -123,7 +123,17 @@ export async function getLiveCourseNotificationSettings() {
 export async function setLiveCourseProgressNotificationEnabled(progressEnabled: boolean) {
 	const current = await getLiveCourseNotificationSettings();
 	await setJSON<LiveCourseNotificationSettings>(LIVE_COURSE_NOTIFICATION_SETTINGS_KEY, { ...current, progressEnabled });
-	if (!progressEnabled) await stopLiveCourseNotification();
+	if (!progressEnabled) {
+		await stopLiveCourseNotification();
+		return;
+	}
+
+	// This is a deliberate user action: request special access only when the
+	// user enables the live course experience, while retaining the native
+	// inexact fallback if they decline it.
+	if (Platform.OS === "android" && !(await canScheduleExactLiveCourseNotification())) {
+		await requestExactLiveCourseNotificationPermission();
+	}
 }
 
 function getActiveCourse(events: ZeusEvent[], now: number) {

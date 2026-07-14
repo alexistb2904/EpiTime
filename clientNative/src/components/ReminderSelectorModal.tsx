@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Minus, Plus, X } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 
@@ -64,6 +65,7 @@ const buildMonthGrid = (monthRef: Date) => {
 
 export default function ReminderSelectorModal({ visible, eventStartDate, currentOffsetMinutes, hasReminder = false, onClose, onApply }: ReminderSelectorModalProps) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
 	const eventStart = useMemo(() => new Date(eventStartDate), [eventStartDate]);
 	const eventStartMillis = eventStart.getTime();
 	const [mode, setMode] = useState<PickerMode>("relative");
@@ -127,7 +129,7 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 
 	return (
 		<Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-			<View style={s.overlay}>
+			<View style={[s.overlay, { paddingTop: Math.max(insets.top, 18), paddingBottom: Math.max(insets.bottom, 18) }]}>
 				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 				<Animated.View entering={FadeInDown.duration(260)} style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.cardShadow }]}>
 					<View style={[s.header, { borderBottomColor: theme.border }]}>

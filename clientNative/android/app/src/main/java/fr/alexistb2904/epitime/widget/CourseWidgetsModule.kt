@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -17,9 +18,27 @@ import kotlin.math.min
 
 class CourseWidgetsModule(
   private val reactContext: ReactApplicationContext
-) : ReactContextBaseJavaModule(reactContext) {
+) : ReactContextBaseJavaModule(reactContext), LifecycleEventListener {
+
+  init {
+    reactContext.addLifecycleEventListener(this)
+  }
 
   override fun getName(): String = MODULE_NAME
+
+  /** Recreate a fallback alarm after the exact-alarm special access changes. */
+  override fun onHostResume() {
+    restoreScheduledRefresh(reactContext.applicationContext)
+  }
+
+  override fun onHostPause() = Unit
+
+  override fun onHostDestroy() = Unit
+
+  override fun invalidate() {
+    reactContext.removeLifecycleEventListener(this)
+    super.invalidate()
+  }
 
   @ReactMethod
   fun scheduleRefreshes(rawPayloadJson: String, promise: Promise) {
@@ -54,6 +73,7 @@ class CourseWidgetsModule(
     private const val TAG = "EpiTimeCourseWidgets"
     private const val MODULE_NAME = "EpiTimeCourseWidgets"
     private const val NEXT_COURSE_WIDGET_NAME = "NextCourse"
+    private const val SEMESTER_OVERVIEW_WIDGET_NAME = "SemesterOverview"
     private const val PREFS_NAME = "course_widget_refresh"
     private const val KEY_PAYLOAD = "payload"
     private const val KEY_PENDING_TIMELINE_REFRESHES = "pending_timeline_refreshes"
@@ -77,12 +97,18 @@ class CourseWidgetsModule(
         return false
       }
 
+      // The native alarm only needs course timestamps. Do not mirror the JS
+      // payload's API endpoint or Zeus token into plain SharedPreferences.
+      val timelinePayload = JSONObject()
+        .put("courses", JSONObject(rawPayloadJson).optJSONArray("courses"))
+        .toString()
+
       applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit()
-        .putString(KEY_PAYLOAD, rawPayloadJson)
+        .putString(KEY_PAYLOAD, timelinePayload)
         .apply()
 
-      return scheduleNextRefresh(applicationContext, rawPayloadJson)
+      return scheduleNextRefresh(applicationContext, timelinePayload)
     }
 
     internal fun restoreScheduledRefresh(context: Context): Boolean {
@@ -97,7 +123,9 @@ class CourseWidgetsModule(
     internal fun handleTimelineRefresh(context: Context) {
       val applicationContext = context.applicationContext
       markPendingTimelineRefresh(applicationContext)
-      RNWidgetJsCommunication.requestWidgetUpdate(applicationContext, NEXT_COURSE_WIDGET_NAME)
+      TIMELINE_WIDGET_NAMES.forEach { widgetName ->
+        RNWidgetJsCommunication.requestWidgetUpdate(applicationContext, widgetName)
+      }
       restoreScheduledRefresh(applicationContext)
     }
 
@@ -183,7 +211,9 @@ class CourseWidgetsModule(
     }
 
     private fun markPendingTimelineRefresh(context: Context) {
-      val widgetCount = RNWidgetUtil.getWidgetIds(context, NEXT_COURSE_WIDGET_NAME).size.coerceAtLeast(1)
+      val widgetCount = TIMELINE_WIDGET_NAMES.sumOf { widgetName ->
+        RNWidgetUtil.getWidgetIds(context, widgetName).size
+      }.coerceAtLeast(1)
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       val current = prefs.getInt(KEY_PENDING_TIMELINE_REFRESHES, 0)
       prefs.edit()
@@ -193,7 +223,7 @@ class CourseWidgetsModule(
     }
 
     private fun consumePendingTimelineRefreshInternal(context: Context, widgetName: String): Boolean {
-      if (widgetName != NEXT_COURSE_WIDGET_NAME) return false
+      if (widgetName !in TIMELINE_WIDGET_NAMES) return false
 
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       val pendingCount = prefs.getInt(KEY_PENDING_TIMELINE_REFRESHES, 0)
@@ -252,6 +282,11 @@ class CourseWidgetsModule(
     private data class WidgetCourseTiming(
       val startMillis: Long,
       val endMillis: Long
+    )
+
+    private val TIMELINE_WIDGET_NAMES = arrayOf(
+      NEXT_COURSE_WIDGET_NAME,
+      SEMESTER_OVERVIEW_WIDGET_NAME
     )
   }
 }

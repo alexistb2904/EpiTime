@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { BellRing, CalendarClock, CheckCircle2, Clock, Send } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Card from "../components/Card";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { registerExpoPushToken, sendMobileTestNotification, isAuthReconnectRequiredError } from "../services/api";
+import { registerExpoPushToken, unregisterExpoPushToken, sendMobileTestNotification, isAuthReconnectRequiredError } from "../services/api";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import {
 	clearLocalCourseNotifications,
 	defaultNotificationSettings,
 	getNotificationSettings,
+	getExistingPushToken,
 	NotificationSettings,
 	requestPushToken,
 	scheduleLocalCourseNotifications,
@@ -23,6 +25,7 @@ import { daysOfWeek } from "../utils/calendar";
 
 export default function NotificationsScreen() {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
 	const { session, handleAuthExpired } = useAuth();
 	const [settings, setSettings] = useState(defaultNotificationSettings);
 	const [message, setMessage] = useState("Les rappels locaux sont planifiés automatiquement.");
@@ -81,6 +84,22 @@ export default function NotificationsScreen() {
 		}
 	};
 
+	const disableRemote = async () => {
+		setLoading(true);
+		try {
+			await saveSettings({ ...settings, enabled: false });
+			if (userId) {
+				const token = await getExistingPushToken().catch(() => null);
+				if (token) await unregisterExpoPushToken(token, userId);
+			}
+			setMessage("Notifications désactivées et abonnement push supprimé pour cet appareil.");
+		} catch (err: any) {
+			setMessage("Notifications locales désactivées, mais la suppression du push distant a échoué : " + (err?.message || "erreur inconnue"));
+		} finally {
+			setLoading(false);
+		}
+	};
+
 	const test = async () => {
 		if (!userId) return setMessage("Profil Microsoft indisponible.");
 		setLoading(true);
@@ -119,7 +138,7 @@ export default function NotificationsScreen() {
 	};
 
 	return (
-		<ScrollView style={[s.root, { backgroundColor: theme.bg }]} contentContainerStyle={s.content}>
+		<ScrollView style={[s.root, { backgroundColor: theme.bg }]} contentContainerStyle={[s.content, { paddingTop: insets.top + 18 }]}>
 			<Text style={[s.eyebrow, { color: theme.accent }]}>Notifications</Text>
 			<Text style={[s.title, { color: theme.text }]}>Rappels de cours</Text>
 
@@ -131,7 +150,7 @@ export default function NotificationsScreen() {
 					<Text style={[s.rowTitle, { color: theme.text }]}>Activer les alertes</Text>
 					<Text style={[s.meta, { color: theme.muted }]}>Notifications de vos cours</Text>
 				</View>
-				<Switch value={settings.enabled} onValueChange={(enabled) => (enabled ? enableRemote() : saveSettings({ ...settings, enabled }))} thumbColor={theme.accent} />
+				<Switch value={settings.enabled} onValueChange={(enabled) => void (enabled ? enableRemote() : disableRemote())} disabled={loading} thumbColor={theme.accent} />
 			</Card>
 
 			<Card>
@@ -261,7 +280,7 @@ export default function NotificationsScreen() {
 }
 const s = StyleSheet.create({
 	root: { flex: 1 },
-	content: { padding: 18, paddingTop: 58, paddingBottom: 108, gap: 12 },
+	content: { padding: 18, paddingBottom: 108, gap: 12 },
 	eyebrow: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	title: { fontSize: 32, fontWeight: "900", letterSpacing: 0, marginBottom: 6 },
 	rowCard: { flexDirection: "row", alignItems: "center", gap: 12 },

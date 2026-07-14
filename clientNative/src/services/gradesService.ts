@@ -1,4 +1,5 @@
 import { cleanHtml, extractSubjectCode, type AurigaExam, type AurigaGrade, type AurigaSyllabus } from "./aurigaTypes";
+import { getSubjectCoefficientOverride, getSubjectCoefficientOverrideKey, type SubjectCoefficientOverrides } from "./gradeCoefficientOverrides";
 import type { ManualGrade } from "./manualGrades";
 
 export type GradeScore = {
@@ -14,6 +15,7 @@ export type DisplayGrade = {
 	subjectName: string;
 	description: string;
 	givenAt?: Date;
+	syncedAt?: number;
 	studentScore?: GradeScore;
 	outOf: GradeScore;
 	coefficient: number;
@@ -36,6 +38,9 @@ export type DisplaySubject = {
 	isValidationOnly?: boolean;
 	hasNonValidated?: boolean;
 	syllabusCoeff?: number;
+	baseSyllabusCoeff?: number;
+	coefficientKey: string;
+	coefficientOverridden?: boolean;
 	hasManualGrades?: boolean;
 };
 
@@ -91,6 +96,7 @@ type SubjectAccumulator = {
 export type BuildGradesOptions = {
 	useWeightedAverages?: boolean;
 	manualGrades?: ManualGrade[];
+	subjectCoefficientOverrides?: SubjectCoefficientOverrides;
 };
 
 export function splitEcueAndExam(fullCode: string, knownExamTypes = new Set(DEFAULT_EXAM_TYPES)) {
@@ -204,16 +210,22 @@ function makeValidationScore(hasNonValidated: boolean): GradeScore {
 	return { value: 0, status: hasNonValidated ? "N.Val." : "Val.", disabled: true };
 }
 
-function buildSubject(acc: SubjectAccumulator, useWeightedAverages: boolean): DisplaySubject {
+function buildSubject(acc: SubjectAccumulator, useWeightedAverages: boolean, subjectCoefficientOverrides: SubjectCoefficientOverrides): DisplaySubject {
 	const average = numericAverage(acc.grades, useWeightedAverages);
 	const validationOnly = average === null;
+	const coefficientReference = { syllabusId: acc.syllabus?.id, subjectId: acc.id };
+	const coefficientOverride = getSubjectCoefficientOverride(coefficientReference, subjectCoefficientOverrides);
+	const coefficientKey = getSubjectCoefficientOverrideKey(coefficientReference) || `subject:${acc.id}`;
 	return {
 		id: acc.id,
 		name: acc.name,
 		ueCode: acc.ueCode,
 		grades: acc.grades,
 		syllabus: acc.syllabus,
-		syllabusCoeff: acc.syllabus?.coeff,
+		syllabusCoeff: coefficientOverride ?? acc.syllabus?.coeff,
+		baseSyllabusCoeff: acc.syllabus?.coeff,
+		coefficientKey,
+		coefficientOverridden: coefficientOverride !== undefined,
 		hasNonValidated: acc.hasNonValidated,
 		hasManualGrades: acc.grades.some((grade) => grade.isManual),
 		isValidationOnly: validationOnly,
@@ -270,6 +282,7 @@ function addManualGradeToMap(manualGrade: ManualGrade, syllabusList: AurigaSylla
 		subjectId: subject.id,
 		subjectName: subject.name,
 		description: manualGrade.description,
+		syncedAt: manualGrade.createdAt,
 		studentScore: { value: manualGrade.grade, outOf: 20 },
 		outOf: { value: 20 },
 		coefficient: manualGrade.coefficient || 1,
@@ -284,6 +297,7 @@ function addManualGradeToMap(manualGrade: ManualGrade, syllabusList: AurigaSylla
 
 export function buildGradesPeriods(grades: AurigaGrade[], syllabusList: AurigaSyllabus[], options: BuildGradesOptions = {}): GradesPeriod[] {
 	const useWeightedAverages = options.useWeightedAverages !== false;
+	const subjectCoefficientOverrides = options.subjectCoefficientOverrides || {};
 	const bySemester = new Map<number, Map<string, SubjectAccumulator>>();
 
 	for (const grade of grades) {
@@ -314,6 +328,7 @@ export function buildGradesPeriods(grades: AurigaGrade[], syllabusList: AurigaSy
 			subjectId: subject.id,
 			subjectName,
 			description: describeExam(exam, examPart),
+			syncedAt: grade.syncedAt,
 			studentScore: score,
 			outOf: { value: 20 },
 			coefficient: gradeCoefficient(grade, exam),
@@ -332,7 +347,7 @@ export function buildGradesPeriods(grades: AurigaGrade[], syllabusList: AurigaSy
 	return Array.from(bySemester.entries())
 		.sort(([a], [b]) => a - b)
 		.map(([semester, subjectsMap]) => {
-			const subjects = Array.from(subjectsMap.values()).map((subject) => buildSubject(subject, useWeightedAverages));
+			const subjects = Array.from(subjectsMap.values()).map((subject) => buildSubject(subject, useWeightedAverages, subjectCoefficientOverrides));
 			const ueMap = new Map<string, DisplaySubject[]>();
 			for (const subject of subjects) {
 				const ueSubjects = ueMap.get(subject.ueCode) || [];

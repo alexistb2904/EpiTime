@@ -8,6 +8,7 @@ import { registerExpoPushToken, isAuthReconnectRequiredError } from "../services
 import { clearRememberedAurigaCredentials, logoutAuriga } from "../services/aurigaAuth";
 import { clearAurigaCache } from "../services/aurigaCache";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
+import { clearSubjectCoefficientOverrides } from "../services/gradeCoefficientOverrides";
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getUseWeightedAverages, setUseWeightedAverages } from "../services/gradePreferences";
 import { getDeletedRealEventsCount, restoreDeletedRealEvents } from "../services/localEvents";
@@ -20,6 +21,7 @@ import {
 } from "../services/liveCourse";
 import {
 	cancelAllScheduledNotifications,
+	clearAurigaGradeNotificationHistory,
 	cancelDebugNotifications,
 	cancelScheduledNotification,
 	defaultNotificationDebugSettings,
@@ -36,6 +38,7 @@ import {
 import { getRequiredAppPermissions, openAppPermissionSettings, requestRequiredAppPermissions, type RequiredPermissionsResult } from "../services/permissions";
 import { readCachedSelectedGroupsSchedule } from "../services/scheduleRepository";
 import { getJSON } from "../services/storage";
+import { clearGradeWidgetSummary, syncGradeWidgetsFromStoredData } from "../services/widgets";
 import { SettingsContent, buildNextDebugTargetDate, formatDebugTargetDate, wrapNumber } from "../components/settings/SettingsComponents";
 
 export default function SettingsScreen() {
@@ -97,7 +100,7 @@ export default function SettingsScreen() {
 			getDeletedRealEventsCount()
 				.then(setDeletedEventsCount)
 				.catch(() => {});
-			getRequiredAppPermissions()
+			getRequiredAppPermissions({ includeExactAlarms: true })
 				.then(setPermissionState)
 				.catch(() => {});
 			if (notificationDebugSettings.enabled) void refreshScheduledNotifications();
@@ -121,6 +124,7 @@ export default function SettingsScreen() {
 		setUseWeightedAveragesState(enabled);
 		try {
 			await setUseWeightedAverages(enabled);
+			await syncGradeWidgetsFromStoredData().catch(() => {});
 		} catch {
 			setUseWeightedAveragesState(!enabled);
 		}
@@ -136,7 +140,14 @@ export default function SettingsScreen() {
 					void (async () => {
 						setAurigaDisconnecting(true);
 						try {
-							await Promise.all([logoutAuriga(), clearRememberedAurigaCredentials(), clearAurigaCache()]);
+							await Promise.all([
+								logoutAuriga(),
+								clearRememberedAurigaCredentials(),
+								clearAurigaCache(),
+								clearSubjectCoefficientOverrides(),
+								clearAurigaGradeNotificationHistory(),
+							]);
+							await clearGradeWidgetSummary().catch(() => {});
 							Alert.alert("Auriga déconnecté", "La session Auriga, les identifiants mémorisés et le cache local ont été supprimés.");
 						} catch {
 							Alert.alert("Erreur", "La déconnexion Auriga n'a pas pu être terminée.");
@@ -281,7 +292,7 @@ export default function SettingsScreen() {
 	const requestMissingPermissions = async () => {
 		setPermissionsLoading(true);
 		try {
-			const result = await requestRequiredAppPermissions();
+			const result = await requestRequiredAppPermissions({ includeExactAlarms: true });
 			setPermissionState(result);
 			if (!result.missing.length) {
 				await refreshNotificationServices();

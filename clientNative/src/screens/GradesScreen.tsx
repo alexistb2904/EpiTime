@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
@@ -19,11 +19,23 @@ import {
 	saveRememberedAurigaCredentials,
 } from "../services/aurigaAuth";
 import { syncAurigaData } from "../services/aurigaClient";
+import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { cancelAutofillContext, commitAutofillContext } from "../services/autofill";
+import {
+	clearSubjectCoefficientOverride,
+	clearSubjectCoefficientOverrides,
+	getSubjectCoefficientOverrides,
+	setSubjectCoefficientOverride,
+	type SubjectCoefficientOverrides,
+	type SubjectCoefficientReference,
+} from "../services/gradeCoefficientOverrides";
 import { getUseWeightedAverages } from "../services/gradePreferences";
 import { addManualGrade, deleteManualGrade, getManualGrades, type ManualGrade } from "../services/manualGrades";
+import { clearAurigaGradeNotificationHistory } from "../services/notifications";
 import type { AurigaGrade, AurigaSyllabus } from "../services/aurigaTypes";
 import { buildGradesPeriods, type DisplayGrade, type DisplaySubject, type DisplayUE, type GradesPeriod } from "../services/gradesService";
+import { exportSemesterSyllabusPdf, getAvailableSyllabusSemesters, type SyllabusExportDetail } from "../services/syllabusExport";
+import { clearGradeWidgetSummary, syncGradeWidgetsFromStoredData } from "../services/widgets";
 import { AuthHeader, ConnectCard, GradesContent, s } from "../components/grades/GradesComponents";
 
 type GradesMode = "notes" | "syllabus";
@@ -90,12 +102,18 @@ export default function GradesScreen() {
 	const [lastSync, setLastSync] = useState<string | null>(null);
 	const [manualGrades, setManualGrades] = useState<ManualGrade[]>([]);
 	const [useWeightedAverages, setUseWeightedAveragesState] = useState(true);
+	const [subjectCoefficientOverrides, setSubjectCoefficientOverrides] = useState<SubjectCoefficientOverrides>({});
+	const [exportingSyllabus, setExportingSyllabus] = useState(false);
+	const [syllabusExportVisible, setSyllabusExportVisible] = useState(false);
+	const [syllabusExportStartSemester, setSyllabusExportStartSemester] = useState(1);
+	const [syllabusExportEndSemester, setSyllabusExportEndSemester] = useState(1);
 	const [selectedSubject, setSelectedSubject] = useState<DisplaySubject | null>(null);
 	const [selectedGrade, setSelectedGrade] = useState<DisplayGrade | null>(null);
 	const [selectedSyllabus, setSelectedSyllabus] = useState<AurigaSyllabus | null>(null);
 	const [aurigaIdentifier, setAurigaIdentifier] = useState("");
 	const [aurigaPassword, setAurigaPassword] = useState("");
 	const [rememberAurigaCredentials, setRememberAurigaCredentials] = useState(false);
+	const syllabusExportSemesters = useMemo(() => getAvailableSyllabusSemesters(syllabusList, selectedSemester), [selectedSemester, syllabusList]);
 
 	const resetAurigaView = useCallback((options: { clearCredentials?: boolean } = {}) => {
 		setConnected(false);
@@ -103,6 +121,7 @@ export default function GradesScreen() {
 		setRawGrades([]);
 		setSyllabusList([]);
 		setPeriods([]);
+		setSubjectCoefficientOverrides({});
 		setSelectedSemester(null);
 		setSelectedSubject(null);
 		setSelectedGrade(null);
@@ -117,27 +136,30 @@ export default function GradesScreen() {
 		}
 	}, []);
 
-	const rebuildPeriods = useCallback((grades: AurigaGrade[], syllabus: AurigaSyllabus[], manual: ManualGrade[], weighted: boolean) => {
-		const built = buildGradesPeriods(grades, syllabus, { manualGrades: manual, useWeightedAverages: weighted });
+	const rebuildPeriods = useCallback((grades: AurigaGrade[], syllabus: AurigaSyllabus[], manual: ManualGrade[], weighted: boolean, coefficientOverrides: SubjectCoefficientOverrides) => {
+		const built = buildGradesPeriods(grades, syllabus, { manualGrades: manual, useWeightedAverages: weighted, subjectCoefficientOverrides: coefficientOverrides });
 		setPeriods(built);
 		setSelectedSemester((current) => (current !== null && built.some((period) => period.semester === current) ? current : latestSemester(built)));
 		return built;
 	}, []);
 
 	const hydrateCache = useCallback(async () => {
-		const [cachedGrades, cachedSyllabus, syncDate, manual, weighted] = await Promise.all([
+		const [cachedGrades, cachedSyllabus, syncDate, manual, weighted, coefficientOverrides] = await Promise.all([
 			getCachedAurigaGrades(),
 			getCachedAurigaSyllabus(),
 			getAurigaLastSync(),
 			getManualGrades(),
 			getUseWeightedAverages(),
+			getSubjectCoefficientOverrides(),
 		]);
 		setRawGrades(cachedGrades);
 		setSyllabusList(cachedSyllabus);
 		setLastSync(syncDate);
 		setManualGrades(manual);
 		setUseWeightedAveragesState(weighted);
-		rebuildPeriods(cachedGrades, cachedSyllabus, manual, weighted);
+		setSubjectCoefficientOverrides(coefficientOverrides);
+		rebuildPeriods(cachedGrades, cachedSyllabus, manual, weighted, coefficientOverrides);
+		await syncGradeWidgetsFromStoredData().catch(() => {});
 	}, [rebuildPeriods]);
 
 	const refreshAuriga = useCallback(
@@ -152,16 +174,17 @@ export default function GradesScreen() {
 			if (source === "auto") setAurigaStatus({ type: "loading", message: "Récupération des informations Auriga..." });
 			try {
 				const data = await syncAurigaData();
-				const manual = await getManualGrades();
-				const weighted = await getUseWeightedAverages();
+				const [manual, weighted, coefficientOverrides] = await Promise.all([getManualGrades(), getUseWeightedAverages(), getSubjectCoefficientOverrides()]);
 				setRawGrades(data.grades);
 				setSyllabusList(data.syllabus);
 				setManualGrades(manual);
 				setUseWeightedAveragesState(weighted);
-				rebuildPeriods(data.grades, data.syllabus, manual, weighted);
+				setSubjectCoefficientOverrides(coefficientOverrides);
+				rebuildPeriods(data.grades, data.syllabus, manual, weighted, coefficientOverrides);
 				setLastSync(await getAurigaLastSync());
 				setConnected(true);
 				setOffline(false);
+				await registerPlanningNotificationBackgroundSync().catch(() => {});
 				if (source === "login") setAurigaStatus({ type: "success", message: "Connexion Auriga réussie. Notes synchronisées." });
 				if (source === "button" || source === "pull") setAurigaStatus({ type: "success", message: "Notes Auriga mises à jour." });
 				if (source === "auto") setAurigaStatus(null);
@@ -247,8 +270,8 @@ export default function GradesScreen() {
 	useFocusEffect(
 		useCallback(() => {
 			let active = true;
-			Promise.all([getManualGrades(), getUseWeightedAverages(), hasAurigaRefreshToken(), getCachedAurigaGrades(), getCachedAurigaSyllabus(), getAurigaLastSync()])
-				.then(([manual, weighted, hasToken, cachedGrades, cachedSyllabus, syncDate]) => {
+			Promise.all([getManualGrades(), getUseWeightedAverages(), getSubjectCoefficientOverrides(), hasAurigaRefreshToken(), getCachedAurigaGrades(), getCachedAurigaSyllabus(), getAurigaLastSync()])
+				.then(([manual, weighted, coefficientOverrides, hasToken, cachedGrades, cachedSyllabus, syncDate]) => {
 					if (!active) return;
 					if (!hasToken && cachedGrades.length === 0 && cachedSyllabus.length === 0 && !syncDate) {
 						resetAurigaView();
@@ -256,7 +279,8 @@ export default function GradesScreen() {
 					}
 					setManualGrades(manual);
 					setUseWeightedAveragesState(weighted);
-					rebuildPeriods(rawGrades, syllabusList, manual, weighted);
+					setSubjectCoefficientOverrides(coefficientOverrides);
+					rebuildPeriods(rawGrades, syllabusList, manual, weighted, coefficientOverrides);
 				})
 				.catch(() => {});
 			return () => {
@@ -346,7 +370,63 @@ export default function GradesScreen() {
 
 	const updateManualGrades = async (nextManual: ManualGrade[]) => {
 		setManualGrades(nextManual);
-		return rebuildPeriods(rawGrades, syllabusList, nextManual, useWeightedAverages);
+		const built = rebuildPeriods(rawGrades, syllabusList, nextManual, useWeightedAverages, subjectCoefficientOverrides);
+		await syncGradeWidgetsFromStoredData().catch(() => {});
+		return built;
+	};
+
+	const updateSubjectCoefficient = async (reference: SubjectCoefficientReference, coefficient?: number) => {
+		const overrides = coefficient === undefined ? await clearSubjectCoefficientOverride(reference) : await setSubjectCoefficientOverride(reference, coefficient);
+		setSubjectCoefficientOverrides(overrides);
+		const built = rebuildPeriods(rawGrades, syllabusList, manualGrades, useWeightedAverages, overrides);
+		setSelectedSubject((current) => (current ? findSubjectInPeriods(built, current.id) || current : current));
+		await syncGradeWidgetsFromStoredData().catch(() => {});
+		return built;
+	};
+
+	const openSyllabusExport = () => {
+		const fallbackSemester = selectedSemester && syllabusExportSemesters.includes(selectedSemester) ? selectedSemester : syllabusExportSemesters[syllabusExportSemesters.length - 1] ?? 1;
+		const nextStartSemester = syllabusExportSemesters.includes(syllabusExportStartSemester) ? syllabusExportStartSemester : fallbackSemester;
+		setSyllabusExportStartSemester(nextStartSemester);
+		setSyllabusExportEndSemester((currentSemester) => (currentSemester >= nextStartSemester && syllabusExportSemesters.includes(currentSemester) ? currentSemester : nextStartSemester));
+		setSyllabusExportVisible(true);
+	};
+
+	const changeSyllabusExportStartSemester = (semester: number) => {
+		setSyllabusExportStartSemester(semester);
+		setSyllabusExportEndSemester((currentSemester) => (currentSemester >= semester ? currentSemester : semester));
+	};
+
+	const exportSyllabus = async (detail: SyllabusExportDetail) => {
+		setExportingSyllabus(true);
+		try {
+			const result = await exportSemesterSyllabusPdf({
+				syllabus: syllabusList,
+				overrides: subjectCoefficientOverrides,
+				selectedSemester,
+				startSemester: syllabusExportStartSemester,
+				endSemester: syllabusExportEndSemester,
+				detail,
+			});
+			setSyllabusExportVisible(false);
+			if (!result.saved || !result.uri) {
+				Alert.alert("Téléchargement annulé", "Aucun fichier n’a été enregistré.");
+				return;
+			}
+			Alert.alert("PDF téléchargé", result.fileName, [
+				{ text: "OK", style: "cancel" },
+				{
+					text: "Ouvrir",
+					onPress: () => {
+						void Linking.openURL(result.uri!).catch(() => Alert.alert("Impossible d’ouvrir le PDF", "Aucune application compatible n’est disponible sur cet appareil."));
+					},
+				},
+			]);
+		} catch (error) {
+			Alert.alert("Export impossible", error instanceof Error ? error.message : "Le syllabus n’a pas pu être exporté.");
+		} finally {
+			setExportingSyllabus(false);
+		}
 	};
 
 	const disconnectAuriga = () => {
@@ -355,10 +435,18 @@ export default function GradesScreen() {
 			{
 				text: "Déconnecter",
 				style: "destructive",
-				onPress: () =>
-					void Promise.all([logoutAuriga(), clearRememberedAurigaCredentials(), clearAurigaCache()]).then(() => {
+				onPress: () => {
+					void clearGradeWidgetSummary().catch(() => {});
+					void Promise.all([
+							logoutAuriga(),
+							clearRememberedAurigaCredentials(),
+							clearAurigaCache(),
+							clearSubjectCoefficientOverrides(),
+							clearAurigaGradeNotificationHistory(),
+						]).then(() => {
 						resetAurigaView({ clearCredentials: true });
-					}),
+						});
+				},
 			},
 		]);
 	};
@@ -405,6 +493,11 @@ export default function GradesScreen() {
 			contentPaddingBottom={contentPaddingBottom}
 			deleteManualGrade={deleteManualGrade}
 			disconnectAuriga={disconnectAuriga}
+			exportEndSemester={syllabusExportEndSemester}
+			exportModalVisible={syllabusExportVisible}
+			exportStartSemester={syllabusExportStartSemester}
+			exportSemesters={syllabusExportSemesters}
+			exportingSyllabus={exportingSyllabus}
 			filteredSyllabus={filteredSyllabus}
 			findSubjectInPeriods={findSubjectInPeriods}
 			groupedSyllabus={groupedSyllabus}
@@ -414,6 +507,12 @@ export default function GradesScreen() {
 			mode={mode}
 			noteUes={noteUes}
 			offline={offline}
+			onExportSyllabus={exportSyllabus}
+			onCloseSyllabusExport={() => !exportingSyllabus && setSyllabusExportVisible(false)}
+			onChangeSyllabusExportEndSemester={(semester: number) => setSyllabusExportEndSemester(Math.max(semester, syllabusExportStartSemester))}
+			onChangeSyllabusExportStartSemester={changeSyllabusExportStartSemester}
+			onOpenSyllabusExport={openSyllabusExport}
+			onUpdateSubjectCoefficient={updateSubjectCoefficient}
 			periods={periods}
 			refreshAuriga={refreshAuriga}
 			refreshing={refreshing}
@@ -427,6 +526,7 @@ export default function GradesScreen() {
 			setAurigaPassword={setAurigaPassword}
 			setRememberAurigaCredentials={setRememberAurigaCredentials}
 			status={aurigaStatus}
+			subjectCoefficientOverrides={subjectCoefficientOverrides}
 			setMode={setMode}
 			setSearch={setSearch}
 			setSelectedGrade={setSelectedGrade}

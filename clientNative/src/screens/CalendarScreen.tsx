@@ -281,7 +281,10 @@ export default function CalendarScreen() {
 
 	const filteredGroups = useMemo(() => {
 		const term = groupSearch.trim().toLowerCase();
-		return groups.filter((group) => !term || group.name.toLowerCase().includes(term)).slice(0, 160);
+		return groups
+			.filter((group) => !term || group.name.toLowerCase().includes(term))
+			.sort((first, second) => first.name.localeCompare(second.name, "fr", { sensitivity: "base", numeric: true }))
+			.slice(0, 160);
 	}, [groupSearch, groups]);
 
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
@@ -363,8 +366,7 @@ export default function CalendarScreen() {
 		loadCalendar(context, next, viewMode);
 	};
 
-	const toggleGroup = async (id: string | number) => {
-		const ids = selectedGroups.includes(id) ? selectedGroups.filter((value) => value !== id) : [...selectedGroups, id];
+	const applyGroups = async (ids: (string | number)[]) => {
 		setSelectedGroups(ids);
 		await setJSON("selectedGroups", ids);
 		refreshCourseWidgetsForGroups(ids).catch(() => {});
@@ -580,7 +582,7 @@ export default function CalendarScreen() {
 			showGroups={showGroups}
 			showRooms={showRooms}
 			swipeGesture={swipeGesture}
-			toggleGroup={toggleGroup}
+			applyGroups={applyGroups}
 			viewMode={viewMode}
 			visibleEvents={visibleEvents}
 			openEventSyllabus={openEventSyllabus}

@@ -1,6 +1,7 @@
 import React from "react";
 import { Image as RNImage, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ExternalLink, Image as ImageIcon, X } from "lucide-react-native";
 import { useTheme } from "../context/ThemeContext";
 import type { CourseNoteAttachment } from "../services/courseNotes";
@@ -14,11 +15,12 @@ type ImagePreviewModalProps = {
 
 export default function ImagePreviewModal({ visible, attachment, onClose, onOpenInGallery }: ImagePreviewModalProps) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
 	if (!attachment) return null;
 
 	return (
 		<Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-			<View style={s.overlay}>
+			<View style={[s.overlay, { paddingTop: Math.max(insets.top, 18), paddingBottom: Math.max(insets.bottom, 18) }]}>
 				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
 				<Animated.View entering={FadeInDown.duration(240)} style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.cardShadow }]}>
 					<View style={[s.header, { borderBottomColor: theme.border }]}>

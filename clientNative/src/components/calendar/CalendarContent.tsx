@@ -75,7 +75,7 @@ export function CalendarContent({
 	showGroups,
 	showRooms,
 	swipeGesture,
-	toggleGroup,
+	applyGroups,
 	viewMode,
 	visibleEvents,
 }: any) {
@@ -286,7 +286,18 @@ export function CalendarContent({
 					)}
 				</ScrollView>
 
-				<GroupModal visible={showGroups} groups={filteredGroups} selected={selectedGroups} search={groupSearch} selectedLabels={selectedLabels} onSearch={setGroupSearch} onToggle={toggleGroup} onClose={() => setShowGroups(false)} />
+				<GroupModal
+					visible={showGroups}
+					groups={filteredGroups}
+					selected={selectedGroups}
+					search={groupSearch}
+					onSearch={setGroupSearch}
+					onApply={applyGroups}
+					onClose={() => {
+						setShowGroups(false);
+						setGroupSearch("");
+					}}
+				/>
 				<DatePickerModal visible={showDatePicker} currentDate={currentDate} pickerMonth={pickerMonth} onChangeMonth={setPickerMonth} onSelectDate={applyDate} onToday={() => applyDate(new Date())} onClose={() => setShowDatePicker(false)} />
 				<EventDetailsModal
 					event={selectedEvent}

@@ -265,7 +265,7 @@ async function prepareNoteForSave(event: ZeusEvent, note: CourseNote, options: {
 				noteId: note.id,
 				startsAt: event.startDate,
 			},
-			sound: "default",
+			sound: true,
 		},
 		trigger: {
 			type: Notifications.SchedulableTriggerInputTypes.DATE,

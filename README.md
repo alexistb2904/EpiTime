@@ -128,7 +128,7 @@ Pour les notifications web, le front s’inscrit auprès du service de push via 
 
 ## Statistiques d’utilisation
 
-EpiTime utilise [Rybbit](https://rybbit.com/) pour collecter des statistiques d’utilisation de manière anonyme. Cela permet de suivre le nombre d’utilisateurs uniques, les fonctionnalités les plus utilisées, etc. Ces données aident à orienter les développements futurs et à améliorer l’expérience utilisateur. [Rybbit](https://rybbit.com/) est auto-hébergé, et les données collectées sont strictement utilisées pour l’analyse de l’utilisation de l’application, sans collecte d’informations personnelles identifiables. Toutes les données sont anonymisées pour garantir la confidentialité des utilisateurs. Les utilisateurs ont la possibilité de désactiver le suivi des statistiques dans les paramètres de l’application s’ils le souhaitent. En cas de doutes sur la collecte de données, n’hésitez pas à me contacter (alexistb2904@gmail.com ou alexis.thierry-bellefond@epita.fr)
+EpiTime utilise [Rybbit](https://rybbit.com/) pour une mesure d’audience activée uniquement après le consentement de l’utilisateur. L’instance est auto-hébergée sur le même VPS OVHcloud qu’EpiTime. Elle reçoit des données techniques limitées (agent utilisateur, pages consultées et position géographique très approximative), mais EpiTime ne lui transmet ni nom, ni adresse e-mail, ni identifiant de compte, ni jeton d’authentification. Ces statistiques servent uniquement à améliorer l’application et ne servent ni à la publicité ciblée ni au suivi entre sites. Le consentement peut être retiré dans les paramètres de l’application web. En cas de doute sur la collecte de données, contactez alexistb2904@gmail.com.
 
 ## Précision
 

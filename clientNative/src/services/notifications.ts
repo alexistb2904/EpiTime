@@ -9,14 +9,19 @@ import { EventChange, RoomChange } from "./eventsCache";
 import { getJSON, setJSON } from "./storage";
 
 export const COURSES_CHANNEL_ID = "courses";
+export const GRADES_CHANNEL_ID = "grades";
+const COURSES_SILENT_CHANNEL_ID = "courses-silent";
+const GRADES_SILENT_CHANNEL_ID = "grades-silent";
 const NOTIFICATION_SETTINGS_KEY = "notificationSettings";
 const NOTIFICATION_DEBUG_SETTINGS_KEY = "notificationDebugSettings";
 const SCHEDULED_COURSE_NOTIFICATION_IDS_KEY = "scheduledCourseNotificationIds";
 const SCHEDULED_DEBUG_NOTIFICATION_IDS_KEY = "scheduledDebugNotificationIds";
 const NOTIFIED_EVENT_CHANGES_KEY = "notifiedEventChanges";
+const NOTIFIED_AURIGA_GRADE_CHANGES_KEY = "notifiedAurigaGradeChanges";
 const EVENT_CHANGE_HISTORY_KEY = "eventChangeHistory";
 const COURSE_NOTIFICATION_WINDOW_DAYS = 14;
 const MAX_EVENT_CHANGE_HISTORY_ITEMS = 100;
+const MAX_NOTIFIED_AURIGA_GRADE_CHANGES = 240;
 
 const LiveCourse = NativeModules.EpiTimeLiveCourse as
 	| {
@@ -54,6 +59,16 @@ export type EventChangeHistoryItem = EventChange & {
 	notifiedAt: string;
 };
 
+export type AurigaGradeNotificationChange = {
+	key: string;
+	kind: "new" | "updated";
+	name: string;
+	code?: string;
+	semester?: number;
+	grade: number;
+	alphaMark?: string;
+};
+
 type ScheduleLocalCourseNotificationOptions = {
 	requestPermission?: boolean;
 	windowDays?: number;
@@ -76,20 +91,48 @@ export const defaultNotificationDebugSettings: NotificationDebugSettings = {
 };
 
 Notifications.setNotificationHandler({
-	handleNotification: async () => ({
-		shouldShowBanner: true,
-		shouldShowList: true,
-		shouldPlaySound: true,
-		shouldSetBadge: false,
-	}),
+	handleNotification: async (notification) => {
+		const data = notification.request.content.data as { notificationType?: unknown } | undefined;
+		const notificationType = normalizeNotificationType(data?.notificationType);
+		return {
+			shouldShowBanner: notificationType !== "sound",
+			shouldShowList: true,
+			shouldPlaySound: notificationType !== "banner",
+			shouldSetBadge: false,
+		};
+	},
 });
 
 export async function ensureAndroidChannel() {
 	if (Platform.OS !== "android") return;
-	await Notifications.setNotificationChannelAsync(COURSES_CHANNEL_ID, {
-		name: "Cours",
-		importance: Notifications.AndroidImportance.HIGH,
-	});
+	await Promise.all([
+		Notifications.setNotificationChannelAsync(COURSES_CHANNEL_ID, {
+			name: "Cours avec son",
+			importance: Notifications.AndroidImportance.HIGH,
+		}),
+		Notifications.setNotificationChannelAsync(COURSES_SILENT_CHANNEL_ID, {
+			name: "Cours silencieux",
+			importance: Notifications.AndroidImportance.HIGH,
+			sound: null,
+			vibrationPattern: [],
+		}),
+	]);
+}
+
+export async function ensureAndroidGradeChannel() {
+	if (Platform.OS !== "android") return;
+	await Promise.all([
+		Notifications.setNotificationChannelAsync(GRADES_CHANNEL_ID, {
+			name: "Notes Auriga avec son",
+			importance: Notifications.AndroidImportance.HIGH,
+		}),
+		Notifications.setNotificationChannelAsync(GRADES_SILENT_CHANNEL_ID, {
+			name: "Notes Auriga silencieuses",
+			importance: Notifications.AndroidImportance.HIGH,
+			sound: null,
+			vibrationPattern: [],
+		}),
+	]);
 }
 
 export async function getNotificationPermissionStatus() {
@@ -117,8 +160,19 @@ export async function requestPushToken() {
 	const granted = await requestNotificationPermission();
 	if (!granted) return null;
 	await ensureAndroidChannel();
+	await ensureAndroidGradeChannel();
 	const projectId = publicConfig.expoProjectId || Constants.expoConfig?.extra?.eas?.projectId;
 	if (!projectId) throw new Error("Expo projectId manquant");
+	return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+}
+
+/** Returns the device token without prompting, so logout can remove its subscription. */
+export async function getExistingPushToken() {
+	if (Platform.OS === "web" || !Device.isDevice) return null;
+	const permission = await Notifications.getPermissionsAsync();
+	if (permission.status !== "granted") return null;
+	const projectId = publicConfig.expoProjectId || Constants.expoConfig?.extra?.eas?.projectId;
+	if (!projectId) return null;
 	return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 }
 
@@ -171,7 +225,11 @@ export async function scheduleLocalCourseNotifications(
 
 	const now = Date.now();
 	const maxScheduledAt = now + (options.windowDays ?? COURSE_NOTIFICATION_WINDOW_DAYS) * 24 * 60 * 60_000;
-	const sound = notificationType === "banner" ? undefined : "default";
+	// Boolean sound values always map to the system notification sound. Passing
+	// the string "default" is interpreted as a custom filename by recent Expo
+	// native modules and produces a false "sound not found" error.
+	const sound = notificationType === "banner" ? false : true;
+	const channelId = courseChannelId(notificationType);
 	const scheduledIds: string[] = [];
 
 	const upcomingEvents = [...events]
@@ -196,13 +254,13 @@ export async function scheduleLocalCourseNotifications(
 					content: {
 						title: "Cours bientôt",
 						body: `${title} commence dans ${minutesBefore} min${room ? ` en ${room}` : ""}`,
-						data: { type: "course-reminder", eventId, startsAt: ev.startDate },
+						data: { type: "course-reminder", eventId, startsAt: ev.startDate, notificationType },
 						sound,
 					},
 					trigger: {
 						type: Notifications.SchedulableTriggerInputTypes.DATE,
 						date: reminderDate,
-						...(Platform.OS === "android" ? { channelId: COURSES_CHANNEL_ID } : {}),
+						...(Platform.OS === "android" ? { channelId } : {}),
 					},
 				});
 				scheduledIds.push(notificationId);
@@ -220,13 +278,13 @@ export async function scheduleLocalCourseNotifications(
 					content: {
 						title: "Cours maintenant",
 						body: `${title} commence maintenant${room ? ` en ${room}` : ""}`,
-						data: { type: "course-start", eventId, startsAt: ev.startDate },
+						data: { type: "course-start", eventId, startsAt: ev.startDate, notificationType },
 						sound,
 					},
 					trigger: {
 						type: Notifications.SchedulableTriggerInputTypes.DATE,
 						date: startDate,
-						...(Platform.OS === "android" ? { channelId: COURSES_CHANNEL_ID } : {}),
+						...(Platform.OS === "android" ? { channelId } : {}),
 					},
 				});
 				scheduledIds.push(startNotificationId);
@@ -257,20 +315,21 @@ export async function notifyEventChanges(changes: EventChange[], notificationTyp
 	const freshChanges = changes.filter((change) => !notifiedSet.has(change.key)).slice(0, 6);
 	if (!freshChanges.length) return 0;
 
-	const sound = notificationType === "banner" ? undefined : "default";
+	const sound = notificationType === "banner" ? false : true;
+	const channelId = courseChannelId(notificationType);
 	for (const change of freshChanges) {
 		const body = formatChangeNotificationBody(change);
 		await Notifications.scheduleNotificationAsync({
 			content: {
 				title: formatChangeNotificationTitle(change),
 				body,
-				data: { type: "course-change", startsAt: change.startDate, changeKey: change.key, kind: change.kind, openPanel: "event-changes" },
+				data: { type: "course-change", startsAt: change.startDate, changeKey: change.key, kind: change.kind, openPanel: "event-changes", notificationType },
 				sound,
 			},
 			trigger: {
 				type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
 				seconds: 1,
-				...(Platform.OS === "android" ? { channelId: COURSES_CHANNEL_ID } : {}),
+				...(Platform.OS === "android" ? { channelId } : {}),
 			},
 		});
 		notifiedSet.add(change.key);
@@ -278,6 +337,65 @@ export async function notifyEventChanges(changes: EventChange[], notificationTyp
 
 	await setJSON<string[]>(NOTIFIED_EVENT_CHANGES_KEY, Array.from(notifiedSet).slice(-180));
 	return freshChanges.length;
+}
+
+/**
+ * Signals Auriga grade changes discovered by a real background-task run.
+ * Keys are retained locally so a task retry cannot re-alert the same result.
+ */
+export async function notifyAurigaGradeChanges(changes: AurigaGradeNotificationChange[], notificationType: NotificationSettings["notificationType"] = "both") {
+	if (!changes.length || Platform.OS === "web") return 0;
+
+	const granted = (await Notifications.getPermissionsAsync()).status === "granted";
+	if (!granted) return 0;
+	await ensureAndroidGradeChannel();
+
+	const notified = await getJSON<string[]>(NOTIFIED_AURIGA_GRADE_CHANGES_KEY, []);
+	const notifiedSet = new Set(notified.filter((key): key is string => typeof key === "string" && key.length > 0));
+	const freshChanges = Array.from(new Map(changes.filter((change) => change?.key && !notifiedSet.has(change.key)).map((change) => [change.key, change])).values());
+	if (!freshChanges.length) return 0;
+
+	const firstChange = freshChanges[0];
+	const multipleChanges = freshChanges.length > 1;
+	const channelId = gradeChannelId(notificationType);
+	await Notifications.scheduleNotificationAsync({
+		content: {
+			title: multipleChanges
+				? `${freshChanges.length} notes Auriga mises à jour`
+				: firstChange.kind === "new"
+					? "Nouvelle note Auriga"
+					: "Note Auriga modifiée",
+			body: multipleChanges ? "Ouvre l’onglet Notes pour voir les changements." : formatAurigaGradeNotificationBody(firstChange),
+			data: {
+				type: "auriga-grade",
+				openTab: "notes",
+				changeKey: firstChange.key,
+				changeCount: freshChanges.length,
+				notificationType,
+			},
+			sound: notificationType === "banner" ? false : true,
+		},
+		trigger: {
+			type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+			seconds: 1,
+			...(Platform.OS === "android" ? { channelId } : {}),
+		},
+	});
+
+	freshChanges.forEach((change) => notifiedSet.add(change.key));
+	await setJSON<string[]>(NOTIFIED_AURIGA_GRADE_CHANGES_KEY, Array.from(notifiedSet).slice(-MAX_NOTIFIED_AURIGA_GRADE_CHANGES));
+	return freshChanges.length;
+}
+
+export async function clearAurigaGradeNotificationHistory() {
+	await setJSON<string[]>(NOTIFIED_AURIGA_GRADE_CHANGES_KEY, []);
+	if (Platform.OS === "web") return;
+	const scheduled = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
+	await Promise.all(
+		scheduled
+			.filter((notification) => (notification.content.data as { type?: unknown } | undefined)?.type === "auriga-grade")
+			.map((notification) => Notifications.cancelScheduledNotificationAsync(notification.identifier).catch(() => undefined))
+	);
 }
 
 export async function getEventChangeHistory() {
@@ -365,7 +483,7 @@ export async function scheduleDebugNotificationAt(targetDate: Date) {
 		content: {
 			title: "Debug EpiTime",
 			body: `Notification programmée à ${targetDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}.`,
-			sound: "default",
+			sound: true,
 			data: { type: "debug-notification", scheduledAt: targetMillis },
 		},
 		trigger: {
@@ -403,7 +521,7 @@ export async function sendLocalTestNotification() {
 		content: {
 			title: "Notification de test",
 			body: "Les rappels locaux EpiTime sont actifs.",
-			sound: "default",
+			sound: true,
 			data: { type: "local-test", timestamp: Date.now() },
 		},
 		trigger: {
@@ -415,6 +533,18 @@ export async function sendLocalTestNotification() {
 	return true;
 }
 
+function normalizeNotificationType(value: unknown): NotificationSettings["notificationType"] {
+	return value === "banner" || value === "sound" || value === "both" ? value : "both";
+}
+
+function courseChannelId(notificationType: NotificationSettings["notificationType"]) {
+	return notificationType === "banner" ? COURSES_SILENT_CHANNEL_ID : COURSES_CHANNEL_ID;
+}
+
+function gradeChannelId(notificationType: NotificationSettings["notificationType"]) {
+	return notificationType === "banner" ? GRADES_SILENT_CHANNEL_ID : GRADES_CHANNEL_ID;
+}
+
 function normalizeNotificationSettings(settings: Partial<NotificationSettings>): NotificationSettings {
 	return {
 		enabled: settings.enabled ?? defaultNotificationSettings.enabled,
@@ -422,7 +552,7 @@ function normalizeNotificationSettings(settings: Partial<NotificationSettings>):
 		selectedDays: Array.isArray(settings.selectedDays)
 			? settings.selectedDays.map((day) => clampInteger(day, 0, 6, 0)).filter((day, index, days) => days.indexOf(day) === index)
 			: defaultNotificationSettings.selectedDays,
-		notificationType: settings.notificationType === "banner" || settings.notificationType === "sound" || settings.notificationType === "both" ? settings.notificationType : "both",
+		notificationType: normalizeNotificationType(settings.notificationType),
 		changeDetectionEnabled: settings.changeDetectionEnabled ?? defaultNotificationSettings.changeDetectionEnabled,
 		changeDetectionWindowDays: clampInteger(settings.changeDetectionWindowDays, 1, 14, defaultNotificationSettings.changeDetectionWindowDays),
 	};
@@ -455,6 +585,17 @@ function formatChangeNotificationTitle(change: EventChange) {
 	if (change.kind === "cancelled") return "Cours annulé";
 	if (change.kind === "reactivated") return "Cours réactivé";
 	return "Cours modifié";
+}
+
+function formatAurigaGradeNotificationBody(change: AurigaGradeNotificationChange) {
+	const subject = change.name.trim() || change.code?.trim() || "Une matière";
+	const grade = change.alphaMark === "VA" ? "Validé" : change.alphaMark === "NV" ? "Non validé" : `${formatAurigaGradeValue(change.grade)} / 20`;
+	return `${subject} · ${grade}`;
+}
+
+function formatAurigaGradeValue(value: number) {
+	if (!Number.isFinite(value)) return "Note disponible";
+	return String(Math.round(value * 100) / 100).replace(".", ",");
 }
 
 function clampInteger(value: unknown, min: number, max: number, fallback: number) {

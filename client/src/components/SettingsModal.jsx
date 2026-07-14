@@ -89,17 +89,17 @@ const SettingsModal = ({ show, onClose }) => {
 						<h3 className="settings-section-title">🔒 Confidentialité & Données</h3>
 						<div className="privacy-box">
 							<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.8rem", marginBottom: "0.8rem" }}>
-								<strong>Analytics anonymes</strong>
+								<strong>Mesure d'audience auto-hébergée</strong>
 								<button type="button" className="btn-primary settings-btn" onClick={handleToggleAnalytics} style={{ margin: 0 }}>
 									{analyticsEnabled ? "Activé" : "Désactivé"}
 								</button>
 							</div>
 							<p className="settings-text">
-								<strong>Analytics d'usage anonymes (si vous acceptez les cookies)</strong>
+								<strong>Mesure d'usage limitée (après votre accord)</strong>
 								<br />
 								<strong>Aucune identification utilisateur envoyée</strong>
 								<br />
-								<strong>Aucune donnée personnelle (email, nom, identifiant) transmise aux analytics</strong>
+								<strong>Aucun nom, e-mail, identifiant de compte ou jeton transmis à Rybbit</strong>
 								<br />
 								<strong>Authentification via Microsoft (EPITA)</strong>
 								<br />
@@ -109,6 +109,9 @@ const SettingsModal = ({ show, onClose }) => {
 								Vos préférences (groupes sélectionnés, thème, notifications, consentement analytics) sont stockées uniquement dans votre navigateur via
 								localStorage.
 							</p>
+							<a href="/legal" className="btn-primary settings-btn" style={{ display: "inline-flex", marginTop: "0.8rem" }}>
+								Lire la politique de confidentialité et les mentions légales
+							</a>
 						</div>
 					</div>
 

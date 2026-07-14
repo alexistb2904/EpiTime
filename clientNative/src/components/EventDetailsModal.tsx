@@ -1,6 +1,7 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AlarmClockOff, BookOpen, CalendarDays, ExternalLink, Filter, MapPin, RotateCcw, Trash2, Users, X } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../context/ThemeContext";
 import { isEventCancelled, isEventIgnored, isManualEvent } from "../services/localEvents";
 import type { AurigaSyllabus } from "../services/aurigaTypes";
@@ -23,6 +24,7 @@ type EventDetailsModalProps = {
 
 export default function EventDetailsModal({ event, onClose, onApplyContext, onDelete, onIgnore, onReactivate, onNotesChanged, linkedSyllabus, onOpenSyllabus }: EventDetailsModalProps) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
 	if (!event) return null;
 
 	const color = getCourseColor(event);
@@ -35,7 +37,7 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 	return (
 		<Modal visible animationType="slide" presentationStyle="pageSheet">
 			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
-				<View style={[s.eventHero, { backgroundColor: visualColor }]}>
+				<View style={[s.eventHero, { backgroundColor: visualColor, paddingTop: Math.max(insets.top + 20, 60) }]}>
 					<View style={s.eventHeroTop}>
 						<View style={s.eventHeroBadge}>
 							<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{cancelled ? "Annulé" : ignored ? "Ignoré" : typeName || "Cours"}</Text>
@@ -53,7 +55,7 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 					</View>
 				</View>
 
-				<ScrollView contentContainerStyle={s.eventModalScroll}>
+				<ScrollView contentContainerStyle={[s.eventModalScroll, { paddingBottom: insets.bottom + 36 }]}>
 					{cancelled ? (
 						<View style={[s.cancelledNotice, { backgroundColor: theme.surfaceSoft, borderColor: theme.muted }]}>
 							<X color={theme.muted} size={18} />

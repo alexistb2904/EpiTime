@@ -3,9 +3,9 @@
 		"name": "EpiTime",
 		"slug": "epitime",
 		"scheme": "epitime",
-		"version": "1.1.11",
+		"version": "1.1.12",
 		"orientation": "portrait",
-		"icon": "./assets/epitime_app.png",
+		"icon": "./assets/app_logo.png",
 		"userInterfaceStyle": "automatic",
 		"ios": {
 			"bundleIdentifier": "fr.alexistb2904.epitime",
@@ -16,14 +16,37 @@
 		},
 		"android": {
 			"package": "fr.alexistb2904.epitime",
+			"icon": "./assets/app_logo.png",
 			"googleServicesFile": "./google-services.json",
 			"adaptiveIcon": {
 				"foregroundImage": "./assets/epitime_app_adaptive.png",
-				"backgroundColor": "#023c69"
+				"backgroundColor": "#FFFFFF"
 			},
 			"permissions": ["POST_NOTIFICATIONS", "POST_PROMOTED_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM"]
 		},
-		"plugins": ["expo-secure-store", "expo-notifications"],
+		"plugins": [
+			"expo-secure-store",
+			[
+				"expo-notifications",
+				{
+					"color": "#023C69",
+					"defaultChannel": "courses"
+				}
+			],
+			[
+				"expo-splash-screen",
+				{
+					"image": "./assets/logo.png",
+					"imageWidth": 140,
+					"resizeMode": "contain",
+					"backgroundColor": "#FFFFFF",
+					"dark": {
+						"image": "./assets/logo.png",
+						"backgroundColor": "#FFFFFF"
+					}
+				}
+			]
+		],
 		"extra": {
 			"eas": {
 				"projectId": "19303643-730f-48a3-9cc5-811f9be90e77"

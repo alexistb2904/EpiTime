@@ -264,6 +264,7 @@ const Login = () => {
 				<footer className="login-footer">
 					<p className="footer-disclaimer">
 						Projet open-source étudiant indépendant. Non affilié à Zeus, IONIS ou EPITA.{" "}
+						<a href="/legal">Confidentialité & mentions légales</a>{" · "}
 						<a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">
 							Voir sur GitHub
 						</a>

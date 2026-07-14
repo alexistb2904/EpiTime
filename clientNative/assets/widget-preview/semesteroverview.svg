@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="440" viewBox="0 0 960 440">
+  <title>EpiTime widget preview</title>
+  <g font-family="Roboto, Arial, sans-serif">
+  <rect width="960" height="440" rx="72" fill="#FFFFFF"/>
+  <text x="32" y="64" fill="#6E7A8A" font-size="28" font-weight="700" text-anchor="start">Semestre 6</text>
+  <text x="32" y="108" fill="#1A1C20" font-size="44" font-weight="700" text-anchor="start">Aperçu semestre</text>
+  <rect x="564" y="32" width="220" height="128" rx="36" fill="#F2F4F8"/>
+  <text x="584" y="110" fill="#1A1C20" font-size="48" font-weight="700" text-anchor="start">14,25</text>
+  <text x="712" y="106" fill="#6E7A8A" font-size="24" font-weight="700" text-anchor="start">/20</text>
+  
+  <rect x="800" y="32" width="128" height="128" rx="64" fill="#F2F4F8" stroke="#E2E8F0" stroke-width="4"/>
+  <g transform="translate(828 60) scale(3)" fill="none" stroke="#5B5FEF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+    <path d="M3 3v5h5"/>
+    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+    <path d="M16 16h5v5"/>
+  </g>
+  <text x="36" y="208" fill="#6E7A8A" font-size="28" font-weight="700" text-anchor="start">PROCHAINS COURS</text>
+  
+  <rect x="32" y="220" width="896" height="96" rx="28" fill="#F2F4F8"/>
+  <rect x="36" y="236" width="8" height="64" rx="8" fill="#5B5FEF"/>
+  <text x="60" y="270" fill="#5B5FEF" font-size="32" font-weight="700" text-anchor="start">10:30</text>
+  <text x="204" y="258" fill="#1A1C20" font-size="36" font-weight="700" text-anchor="start">Réseaux</text>
+  <text x="204" y="288" fill="#6E7A8A" font-size="28" font-weight="400" text-anchor="start">mar. 15 sept. · A 201</text>
+  
+  
+  <rect x="36" y="340" width="8" height="64" rx="8" fill="#E2E8F0"/>
+  <text x="60" y="374" fill="#6E7A8A" font-size="32" font-weight="700" text-anchor="start">14:00</text>
+  <text x="204" y="362" fill="#1A1C20" font-size="36" font-weight="700" text-anchor="start">Projet</text>
+  <text x="204" y="392" fill="#6E7A8A" font-size="28" font-weight="400" text-anchor="start">mer. 16 sept. · Lab 3</text>
+</g>
+</svg>

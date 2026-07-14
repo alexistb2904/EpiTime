@@ -15,20 +15,48 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import fr.alexistb2904.epitime.MainActivity
 import fr.alexistb2904.epitime.R
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
 class LiveCourseNotificationModule(
   private val reactContext: ReactApplicationContext
-) : ReactContextBaseJavaModule(reactContext) {
+) : ReactContextBaseJavaModule(reactContext), LifecycleEventListener {
+
+  init {
+    reactContext.addLifecycleEventListener(this)
+  }
 
   override fun getName(): String = "EpiTimeLiveCourse"
+
+  /**
+   * Android does not restore exact alarms after a permission round-trip by
+   * itself. Reconcile persisted requests whenever the host returns from the
+   * special-access screen, including when the permission was revoked.
+   */
+  override fun onHostResume() {
+    restoreScheduledAlarms(reactContext.applicationContext)
+  }
+
+  override fun onHostPause() = Unit
+
+  override fun onHostDestroy() = Unit
+
+  override fun invalidate() {
+    reactContext.removeLifecycleEventListener(this)
+    super.invalidate()
+  }
 
   @ReactMethod
   fun canScheduleExactCourseProgress(promise: Promise) {
@@ -54,10 +82,15 @@ class LiveCourseNotificationModule(
 
       val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
         data = Uri.parse("package:${context.packageName}")
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK
       }
 
-      context.startActivity(intent)
+      val activity = reactContext.getCurrentActivity()
+      if (activity != null) {
+        activity.startActivity(intent)
+      } else {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+      }
       promise.resolve(false)
     } catch (error: Exception) {
       promise.reject("LIVE_COURSE_EXACT_PERMISSION_REQUEST_FAILED", error)
@@ -83,7 +116,6 @@ class LiveCourseNotificationModule(
       }
 
       val requestCode = courseStartRequestCode(eventId, startAt)
-      val alarmManager = context.getSystemService(AlarmManager::class.java)
       val pendingIntent = createCourseStartPendingIntent(
         context = context,
         title = title,
@@ -98,55 +130,24 @@ class LiveCourseNotificationModule(
         return
       }
 
-      val canScheduleExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
-      if (canScheduleExact) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-        } else {
-          alarmManager.setExact(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-        }
-      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        Log.w(TAG, "Exact alarm permission missing; course start notification may start late")
-        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-      } else {
-        alarmManager.set(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
+      if (!scheduleAlarm(context, startAt, pendingIntent, "course start notification")) {
+        promise.resolve(false)
+        return
       }
 
-      saveCourseStartRequestCode(context, requestCode)
-      Log.d(TAG, "Scheduled course start notification at $startAt")
-      promise.resolve(true)
-    } catch (error: SecurityException) {
-      try {
-        val context = reactContext.applicationContext
-        val startAt = startMillis.toLong()
-        val requestCode = courseStartRequestCode(eventId, startAt)
-        val alarmManager = context.getSystemService(AlarmManager::class.java)
-        val pendingIntent = createCourseStartPendingIntent(
-          context = context,
+      saveCourseStartSchedule(
+        context = context,
+        schedule = CourseStartSchedule(
           title = title,
           room = room,
           eventId = eventId,
           startMillis = startAt,
           playSound = playSound,
-          requestCode = requestCode,
-          flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        ) ?: run {
-          promise.resolve(false)
-          return
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-        } else {
-          alarmManager.set(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-        }
-
-        saveCourseStartRequestCode(context, requestCode)
-        Log.d(TAG, "Scheduled inexact course start notification at $startAt")
-        promise.resolve(true)
-      } catch (fallbackError: Exception) {
-        promise.reject("COURSE_START_SCHEDULE_FAILED", fallbackError)
-      }
+          requestCode = requestCode
+        )
+      )
+      Log.d(TAG, "Scheduled course start notification at $startAt")
+      promise.resolve(true)
     } catch (error: Exception) {
       promise.reject("COURSE_START_SCHEDULE_FAILED", error)
     }
@@ -203,6 +204,7 @@ class LiveCourseNotificationModule(
         endMillis = endsAt
       )
 
+      clearScheduledCourseProgressIfMatches(context, startAt, endsAt)
       saveSnapshot(context, title, description, startAt, endsAt)
       manager.notify(NOTIFICATION_ID, notification)
       scheduleNextProgressTick(context, startAt, endsAt)
@@ -246,7 +248,6 @@ class LiveCourseNotificationModule(
         return
       }
 
-      val alarmManager = context.getSystemService(AlarmManager::class.java)
       val pendingIntent = createStartPendingIntent(
         context = context,
         title = title,
@@ -259,51 +260,14 @@ class LiveCourseNotificationModule(
         return
       }
 
-      val canScheduleExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
-
-      if (canScheduleExact) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-        } else {
-          alarmManager.setExact(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-        }
-      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        Log.w(TAG, "Exact alarm permission missing; live course may start late")
-        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-      } else {
-        alarmManager.set(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
+      if (!scheduleAlarm(context, startAt, pendingIntent, "live course progress")) {
+        promise.resolve(false)
+        return
       }
 
+      saveScheduledCourseProgress(context, title, room, startAt, endsAt)
       Log.d(TAG, "Scheduled live course at $startAt")
       promise.resolve(true)
-    } catch (error: SecurityException) {
-      try {
-        val context = reactContext.applicationContext
-        val alarmManager = context.getSystemService(AlarmManager::class.java)
-        val startAt = startMillis.toLong()
-        val pendingIntent = createStartPendingIntent(
-          context = context,
-          title = title,
-          room = room,
-          startMillis = startAt,
-          endMillis = endMillis.toLong(),
-          flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        ) ?: run {
-          promise.resolve(false)
-          return
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-        } else {
-          alarmManager.set(AlarmManager.RTC_WAKEUP, startAt, pendingIntent)
-        }
-
-        Log.d(TAG, "Scheduled inexact live course at $startAt")
-        promise.resolve(true)
-      } catch (fallbackError: Exception) {
-        promise.reject("LIVE_COURSE_SCHEDULE_FAILED", fallbackError)
-      }
     } catch (error: Exception) {
       promise.reject("LIVE_COURSE_SCHEDULE_FAILED", error)
     }
@@ -350,6 +314,11 @@ class LiveCourseNotificationModule(
     private const val KEY_END_MILLIS = "end_millis"
     private const val KEY_EXPIRES_AT = "expires_at"
     private const val KEY_COURSE_START_REQUEST_CODES = "course_start_request_codes"
+    private const val KEY_COURSE_START_SCHEDULES = "course_start_schedules"
+    private const val KEY_SCHEDULED_COURSE_TITLE = "scheduled_course_title"
+    private const val KEY_SCHEDULED_COURSE_ROOM = "scheduled_course_room"
+    private const val KEY_SCHEDULED_COURSE_START_MILLIS = "scheduled_course_start_millis"
+    private const val KEY_SCHEDULED_COURSE_END_MILLIS = "scheduled_course_end_millis"
     private const val MINUTE_MILLIS = 60_000L
 
     internal const val ACTION_RESTORE_LIVE_COURSE = "fr.alexistb2904.epitime.live.RESTORE_LIVE_COURSE"
@@ -369,6 +338,53 @@ class LiveCourseNotificationModule(
     private const val REQUEST_CODE_TICK = 4203
     private const val COURSE_START_NOTIFICATION_ID_BASE = 5000
     private const val COURSE_START_NOTIFICATION_ID_RANGE = 100_000
+
+    /** Reconcile alarms cleared by reboot or an exact-alarm access change. */
+    internal fun restoreScheduledAlarms(context: Context): Boolean {
+      val applicationContext = context.applicationContext
+      val restoredProgress = restoreScheduledCourseProgress(applicationContext)
+      val restoredCourseStarts = restoreScheduledCourseStartNotifications(applicationContext)
+      val restoredSnapshot = restoreFromSnapshot(applicationContext)
+      return restoredProgress || restoredCourseStarts || restoredSnapshot
+    }
+
+    private fun restoreScheduledCourseProgress(context: Context): Boolean {
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      val title = prefs.getString(KEY_SCHEDULED_COURSE_TITLE, null).orEmpty()
+      val room = prefs.getString(KEY_SCHEDULED_COURSE_ROOM, null).orEmpty()
+      val startMillis = prefs.getLong(KEY_SCHEDULED_COURSE_START_MILLIS, 0L)
+      val endMillis = prefs.getLong(KEY_SCHEDULED_COURSE_END_MILLIS, 0L)
+      val now = System.currentTimeMillis()
+
+      if (startMillis <= 0L || endMillis <= startMillis || endMillis <= now) {
+        if (startMillis != 0L || endMillis != 0L) clearScheduledCourseProgress(context)
+        return false
+      }
+
+      if (startMillis <= now) {
+        clearScheduledCourseProgress(context)
+        return showFromReceiver(
+          context = context,
+          title = title,
+          description = courseProgressDescription(room, endMillis),
+          startMillis = startMillis,
+          endMillis = endMillis
+        )
+      }
+
+      return scheduleCourseProgressAlarm(context, title, room, startMillis, endMillis)
+    }
+
+    private fun restoreScheduledCourseStartNotifications(context: Context): Boolean {
+      val now = System.currentTimeMillis()
+      val schedules = readCourseStartSchedules(context)
+        .filter { it.startMillis > now }
+
+      writeCourseStartSchedules(context, schedules)
+      return schedules.fold(false) { restoredAny, schedule ->
+        scheduleCourseStartAlarm(context, schedule) || restoredAny
+      }
+    }
 
     internal fun restoreFromSnapshot(context: Context): Boolean {
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -433,6 +449,7 @@ class LiveCourseNotificationModule(
         endMillis = endMillis
       )
 
+      clearScheduledCourseProgressIfMatches(context, startMillis, endMillis)
       saveSnapshot(context, title, description, startMillis, endMillis)
       manager.notify(NOTIFICATION_ID, notification)
       scheduleNextProgressTick(context, startMillis, endMillis)
@@ -459,7 +476,7 @@ class LiveCourseNotificationModule(
       )
       val notificationId = COURSE_START_NOTIFICATION_ID_BASE + Math.floorMod(requestCode, COURSE_START_NOTIFICATION_ID_RANGE)
       manager.notify(notificationId, notification)
-      removeCourseStartRequestCode(context, requestCode)
+      removeCourseStartSchedule(context, requestCode)
       return true
     }
 
@@ -471,11 +488,14 @@ class LiveCourseNotificationModule(
         startMillis = 0L,
         endMillis = 0L,
         flags = PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-      ) ?: return
+      )
 
-      val alarmManager = context.getSystemService(AlarmManager::class.java)
-      alarmManager.cancel(pendingIntent)
-      pendingIntent.cancel()
+      if (pendingIntent != null) {
+        val alarmManager = context.getSystemService(AlarmManager::class.java)
+        alarmManager.cancel(pendingIntent)
+        pendingIntent.cancel()
+      }
+      clearScheduledCourseProgress(context)
       Log.d(TAG, "Canceled scheduled live course")
     }
 
@@ -492,7 +512,10 @@ class LiveCourseNotificationModule(
 
     internal fun cancelScheduledCourseStartNotificationsInternal(context: Context) {
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-      val requestCodes = prefs.getStringSet(KEY_COURSE_START_REQUEST_CODES, emptySet()).orEmpty()
+      val requestCodes = (
+        prefs.getStringSet(KEY_COURSE_START_REQUEST_CODES, emptySet()).orEmpty() +
+          readCourseStartSchedules(context).map { it.requestCode.toString() }
+        ).toSet()
       val alarmManager = context.getSystemService(AlarmManager::class.java)
 
       requestCodes
@@ -513,9 +536,217 @@ class LiveCourseNotificationModule(
           pendingIntent.cancel()
         }
 
-      prefs.edit().remove(KEY_COURSE_START_REQUEST_CODES).apply()
+      prefs.edit()
+        .remove(KEY_COURSE_START_REQUEST_CODES)
+        .remove(KEY_COURSE_START_SCHEDULES)
+        .apply()
       Log.d(TAG, "Canceled scheduled course start notifications")
     }
+
+    private fun scheduleCourseProgressAlarm(
+      context: Context,
+      title: String,
+      room: String,
+      startMillis: Long,
+      endMillis: Long
+    ): Boolean {
+      if (startMillis <= System.currentTimeMillis() || endMillis <= startMillis) return false
+      val pendingIntent = createStartPendingIntent(
+        context = context,
+        title = title,
+        room = room,
+        startMillis = startMillis,
+        endMillis = endMillis,
+        flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      ) ?: return false
+
+      return scheduleAlarm(context, startMillis, pendingIntent, "live course progress")
+    }
+
+    private fun scheduleCourseStartAlarm(context: Context, schedule: CourseStartSchedule): Boolean {
+      if (schedule.startMillis <= System.currentTimeMillis()) return false
+      val pendingIntent = createCourseStartPendingIntent(
+        context = context,
+        title = schedule.title,
+        room = schedule.room,
+        eventId = schedule.eventId,
+        startMillis = schedule.startMillis,
+        playSound = schedule.playSound,
+        requestCode = schedule.requestCode,
+        flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+      ) ?: return false
+
+      return scheduleAlarm(context, schedule.startMillis, pendingIntent, "course start notification")
+    }
+
+    /**
+     * Prefer exact delivery when special access is granted, but always retain a
+     * battery-friendly inexact fallback. This keeps reminders functional on
+     * Android 14+ where exact alarms are denied by default for new installs.
+     */
+    private fun scheduleAlarm(context: Context, triggerAt: Long, pendingIntent: PendingIntent, label: String): Boolean {
+      if (triggerAt <= System.currentTimeMillis()) return false
+      val alarmManager = context.getSystemService(AlarmManager::class.java)
+      val canScheduleExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+
+      return try {
+        if (canScheduleExact) {
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+          } else {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+          }
+        } else {
+          Log.i(TAG, "Exact alarm access missing; using an inexact fallback for $label")
+          scheduleInexactAlarm(alarmManager, triggerAt, pendingIntent)
+        }
+        true
+      } catch (error: SecurityException) {
+        Log.w(TAG, "Exact alarm rejected for $label; using an inexact fallback", error)
+        runCatching {
+          scheduleInexactAlarm(alarmManager, triggerAt, pendingIntent)
+          true
+        }.getOrElse { fallbackError ->
+          Log.e(TAG, "Unable to schedule fallback alarm for $label", fallbackError)
+          false
+        }
+      } catch (error: Exception) {
+        Log.e(TAG, "Unable to schedule alarm for $label", error)
+        false
+      }
+    }
+
+    private fun scheduleInexactAlarm(alarmManager: AlarmManager, triggerAt: Long, pendingIntent: PendingIntent) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+      } else {
+        alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
+      }
+    }
+
+    private fun saveScheduledCourseProgress(
+      context: Context,
+      title: String,
+      room: String,
+      startMillis: Long,
+      endMillis: Long
+    ) {
+      context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(KEY_SCHEDULED_COURSE_TITLE, title)
+        .putString(KEY_SCHEDULED_COURSE_ROOM, room)
+        .putLong(KEY_SCHEDULED_COURSE_START_MILLIS, startMillis)
+        .putLong(KEY_SCHEDULED_COURSE_END_MILLIS, endMillis)
+        .apply()
+    }
+
+    private fun clearScheduledCourseProgress(context: Context) {
+      context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .remove(KEY_SCHEDULED_COURSE_TITLE)
+        .remove(KEY_SCHEDULED_COURSE_ROOM)
+        .remove(KEY_SCHEDULED_COURSE_START_MILLIS)
+        .remove(KEY_SCHEDULED_COURSE_END_MILLIS)
+        .apply()
+    }
+
+    private fun clearScheduledCourseProgressIfMatches(context: Context, startMillis: Long, endMillis: Long) {
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      if (
+        prefs.getLong(KEY_SCHEDULED_COURSE_START_MILLIS, 0L) == startMillis &&
+          prefs.getLong(KEY_SCHEDULED_COURSE_END_MILLIS, 0L) == endMillis
+      ) {
+        clearScheduledCourseProgress(context)
+      }
+    }
+
+    private fun courseProgressDescription(room: String, endMillis: Long): String {
+      val resolvedRoom = room.trim().ifBlank { "Lieu à confirmer" }
+      val endTime = SimpleDateFormat("HH:mm", Locale.FRANCE).format(Date(endMillis))
+      return "$resolvedRoom · fin à $endTime"
+    }
+
+    private fun saveCourseStartSchedule(context: Context, schedule: CourseStartSchedule) {
+      val schedules = readCourseStartSchedules(context)
+        .filter { it.requestCode != schedule.requestCode && it.startMillis > System.currentTimeMillis() }
+        .plus(schedule)
+      writeCourseStartSchedules(context, schedules)
+    }
+
+    private fun removeCourseStartSchedule(context: Context, requestCode: Int) {
+      val schedules = readCourseStartSchedules(context).filter { it.requestCode != requestCode }
+      writeCourseStartSchedules(context, schedules)
+    }
+
+    private fun readCourseStartSchedules(context: Context): List<CourseStartSchedule> {
+      val rawSchedules = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getString(KEY_COURSE_START_SCHEDULES, null)
+        ?: return emptyList()
+
+      return runCatching {
+        val array = JSONArray(rawSchedules)
+        buildList {
+          for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val eventId = item.optString("eventId").trim()
+            val startMillis = item.optLong("startMillis", 0L)
+            val requestCode = item.optInt("requestCode", 0)
+            if (eventId.isBlank() || startMillis <= 0L) continue
+            add(
+              CourseStartSchedule(
+                title = item.optString("title"),
+                room = item.optString("room"),
+                eventId = eventId,
+                startMillis = startMillis,
+                playSound = item.optBoolean("playSound", true),
+                requestCode = requestCode
+              )
+            )
+          }
+        }
+      }.getOrElse { error ->
+        Log.w(TAG, "Ignoring unreadable persisted course-start schedules", error)
+        emptyList()
+      }
+    }
+
+    private fun writeCourseStartSchedules(context: Context, schedules: List<CourseStartSchedule>) {
+      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+      if (schedules.isEmpty()) {
+        prefs.edit()
+          .remove(KEY_COURSE_START_SCHEDULES)
+          .remove(KEY_COURSE_START_REQUEST_CODES)
+          .apply()
+        return
+      }
+
+      val payload = JSONArray()
+      schedules.forEach { schedule ->
+        payload.put(
+          JSONObject()
+            .put("title", schedule.title)
+            .put("room", schedule.room)
+            .put("eventId", schedule.eventId)
+            .put("startMillis", schedule.startMillis)
+            .put("playSound", schedule.playSound)
+            .put("requestCode", schedule.requestCode)
+        )
+      }
+
+      prefs.edit()
+        .putString(KEY_COURSE_START_SCHEDULES, payload.toString())
+        .putStringSet(KEY_COURSE_START_REQUEST_CODES, schedules.map { it.requestCode.toString() }.toSet())
+        .apply()
+    }
+
+    private data class CourseStartSchedule(
+      val title: String,
+      val room: String,
+      val eventId: String,
+      val startMillis: Long,
+      val playSound: Boolean,
+      val requestCode: Int
+    )
 
     private fun scheduleNextProgressTick(context: Context, startMillis: Long, endMillis: Long): Boolean {
       val now = System.currentTimeMillis()
@@ -530,30 +761,7 @@ class LiveCourseNotificationModule(
         context = context,
         flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
       ) ?: return false
-      val alarmManager = context.getSystemService(AlarmManager::class.java)
-
-      try {
-        val canScheduleExact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
-        if (canScheduleExact) {
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-          } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-          }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        } else {
-          alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        }
-      } catch (error: SecurityException) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-          alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        } else {
-          alarmManager.set(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
-        }
-      }
-
-      return true
+      return scheduleAlarm(context, triggerAt, pendingIntent, "live course progress tick")
     }
 
     private fun createStartPendingIntent(
@@ -835,20 +1043,6 @@ class LiveCourseNotificationModule(
 
     private fun courseStartRequestCode(eventId: String, startMillis: Long): Int {
       return "course-start-$eventId-$startMillis".hashCode()
-    }
-
-    private fun saveCourseStartRequestCode(context: Context, requestCode: Int) {
-      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-      val requestCodes = prefs.getStringSet(KEY_COURSE_START_REQUEST_CODES, emptySet()).orEmpty().toMutableSet()
-      requestCodes.add(requestCode.toString())
-      prefs.edit().putStringSet(KEY_COURSE_START_REQUEST_CODES, requestCodes).apply()
-    }
-
-    private fun removeCourseStartRequestCode(context: Context, requestCode: Int) {
-      val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-      val requestCodes = prefs.getStringSet(KEY_COURSE_START_REQUEST_CODES, emptySet()).orEmpty().toMutableSet()
-      requestCodes.remove(requestCode.toString())
-      prefs.edit().putStringSet(KEY_COURSE_START_REQUEST_CODES, requestCodes).apply()
     }
 
     private fun clearSnapshot(context: Context) {

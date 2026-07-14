@@ -125,7 +125,21 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
 	);
 }
 
-export default function SyllabusDetailModal({ syllabus, visible, onClose }: { syllabus: AurigaSyllabus | null; visible: boolean; onClose: () => void }) {
+export default function SyllabusDetailModal({
+	syllabus,
+	visible,
+	onClose,
+	coefficient,
+	coefficientOverridden,
+	onEditCoefficient,
+}: {
+	syllabus: AurigaSyllabus | null;
+	visible: boolean;
+	onClose: () => void;
+	coefficient?: number;
+	coefficientOverridden?: boolean;
+	onEditCoefficient?: () => void;
+}) {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const [simulatorOpen, setSimulatorOpen] = useState(false);
@@ -137,6 +151,7 @@ export default function SyllabusDetailModal({ syllabus, visible, onClose }: { sy
 	const exams = syllabus?.exams || [];
 	const activities = syllabus?.activities || [];
 	const minTarget = typeof syllabus?.minScore === "number" ? syllabus.minScore : 10;
+	const displayedCoefficient = coefficient ?? syllabus?.coeff ?? 1;
 	const activitySeconds = activities.reduce((total, activity) => total + (typeof activity.duration === "number" ? activity.duration : 0), 0);
 	const simulatorState = useMemo(() => computeSimulatorState(exams, scores), [exams, scores]);
 
@@ -179,7 +194,12 @@ export default function SyllabusDetailModal({ syllabus, visible, onClose }: { sy
 							<Metric icon={<Clock3 color={theme.accent} size={18} />} label="Encadré" value={formatSecondsAsHours(syllabus?.duration)} />
 							<Metric icon={<BriefcaseBusiness color={theme.accent} size={18} />} label="Travail" value={formatSecondsAsHours(syllabus?.estimatedStudentWorkload)} />
 							<Metric icon={<Target color={theme.accent} size={18} />} label="Seuil" value={syllabus?.minScore ? `${syllabus.minScore}/20` : "10/20"} />
-							<Metric icon={<ClipboardList color={theme.accent} size={18} />} label="Coeff" value={syllabus?.coeff ? String(syllabus.coeff) : "1"} />
+							<Metric
+								icon={<ClipboardList color={theme.accent} size={18} />}
+								label={coefficientOverridden ? "Coeff · modifié" : onEditCoefficient ? "Coeff · modifier" : "Coeff"}
+								value={String(displayedCoefficient)}
+								onPress={onEditCoefficient}
+							/>
 						</View>
 						<View style={s.quickFacts}>
 							<Fact icon={<Languages color={theme.accent} size={15} />} label={languageLabel(syllabus?.mediaLanguages)} />
@@ -461,13 +481,25 @@ function MarkdownText({ text }: { text: string }) {
 	);
 }
 
-function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function Metric({ icon, label, value, onPress }: { icon: React.ReactNode; label: string; value: string; onPress?: () => void }) {
 	const { theme } = useTheme();
-	return (
-		<View style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+	const content = (
+		<>
 			{icon}
 			<Text style={[s.metricValue, { color: theme.text }]}>{value}</Text>
 			<Text style={[s.metricLabel, { color: theme.muted }]}>{label}</Text>
+		</>
+	);
+	if (onPress) {
+		return (
+			<Pressable accessibilityRole="button" accessibilityLabel="Modifier le coefficient de la matière" style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={onPress}>
+				{content}
+			</Pressable>
+		);
+	}
+	return (
+		<View style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+			{content}
 		</View>
 	);
 }
