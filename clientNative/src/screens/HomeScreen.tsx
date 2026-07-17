@@ -7,6 +7,7 @@ import { getCachedAurigaGrades, getCachedAurigaSyllabus } from "../services/auri
 import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getUseWeightedAverages } from "../services/gradePreferences";
 import { getSubjectCoefficientOverrides } from "../services/gradeCoefficientOverrides";
+import { getGradeOverrides } from "../services/gradeOverrides";
 import { buildGradesPeriods } from "../services/gradesService";
 import { addManualEvent, isEventCancelled, isEventIgnored } from "../services/localEvents";
 import { getManualGrades } from "../services/manualGrades";
@@ -147,14 +148,20 @@ export default function HomeScreen() {
 
 	const loadAurigaAverage = useCallback(async () => {
 		try {
-			const [grades, syllabus, manual, weighted, subjectCoefficientOverrides] = await Promise.all([
+			const [grades, syllabus, manual, weighted, subjectCoefficientOverrides, gradeOverrides] = await Promise.all([
 				getCachedAurigaGrades(),
 				getCachedAurigaSyllabus(),
 				getManualGrades(),
 				getUseWeightedAverages(),
 				getSubjectCoefficientOverrides(),
+				getGradeOverrides(),
 			]);
-			const periods = buildGradesPeriods(grades, syllabus, { manualGrades: manual, useWeightedAverages: weighted, subjectCoefficientOverrides });
+			const periods = buildGradesPeriods(grades, syllabus, {
+				manualGrades: manual,
+				useWeightedAverages: weighted,
+				subjectCoefficientOverrides,
+				gradeOverrides,
+			});
 			const latest = periods.reduce((candidate, period) => (!candidate || period.semester > candidate.semester ? period : candidate), periods[0] || null);
 			setAurigaAverage(formatAverage(latest?.overallAverage));
 		} catch {

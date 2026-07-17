@@ -29,6 +29,7 @@ import {
 	type SubjectCoefficientOverrides,
 	type SubjectCoefficientReference,
 } from "../services/gradeCoefficientOverrides";
+import { clearGradeOverrides, getGradeOverrides, setGradeOverride, type GradeOverrides } from "../services/gradeOverrides";
 import { getUseWeightedAverages } from "../services/gradePreferences";
 import { addManualGrade, deleteManualGrade, getManualGrades, type ManualGrade } from "../services/manualGrades";
 import { clearAurigaGradeNotificationHistory } from "../services/notifications";
@@ -103,6 +104,7 @@ export default function GradesScreen() {
 	const [manualGrades, setManualGrades] = useState<ManualGrade[]>([]);
 	const [useWeightedAverages, setUseWeightedAveragesState] = useState(true);
 	const [subjectCoefficientOverrides, setSubjectCoefficientOverrides] = useState<SubjectCoefficientOverrides>({});
+	const [gradeOverrides, setGradeOverrides] = useState<GradeOverrides>({});
 	const [exportingSyllabus, setExportingSyllabus] = useState(false);
 	const [syllabusExportVisible, setSyllabusExportVisible] = useState(false);
 	const [syllabusExportStartSemester, setSyllabusExportStartSemester] = useState(1);
@@ -122,6 +124,7 @@ export default function GradesScreen() {
 		setSyllabusList([]);
 		setPeriods([]);
 		setSubjectCoefficientOverrides({});
+		setGradeOverrides({});
 		setSelectedSemester(null);
 		setSelectedSubject(null);
 		setSelectedGrade(null);
@@ -136,21 +139,22 @@ export default function GradesScreen() {
 		}
 	}, []);
 
-	const rebuildPeriods = useCallback((grades: AurigaGrade[], syllabus: AurigaSyllabus[], manual: ManualGrade[], weighted: boolean, coefficientOverrides: SubjectCoefficientOverrides) => {
-		const built = buildGradesPeriods(grades, syllabus, { manualGrades: manual, useWeightedAverages: weighted, subjectCoefficientOverrides: coefficientOverrides });
+	const rebuildPeriods = useCallback((grades: AurigaGrade[], syllabus: AurigaSyllabus[], manual: ManualGrade[], weighted: boolean, coefficientOverrides: SubjectCoefficientOverrides, overrides: GradeOverrides) => {
+		const built = buildGradesPeriods(grades, syllabus, { manualGrades: manual, useWeightedAverages: weighted, subjectCoefficientOverrides: coefficientOverrides, gradeOverrides: overrides });
 		setPeriods(built);
 		setSelectedSemester((current) => (current !== null && built.some((period) => period.semester === current) ? current : latestSemester(built)));
 		return built;
 	}, []);
 
 	const hydrateCache = useCallback(async () => {
-		const [cachedGrades, cachedSyllabus, syncDate, manual, weighted, coefficientOverrides] = await Promise.all([
+		const [cachedGrades, cachedSyllabus, syncDate, manual, weighted, coefficientOverrides, overrides] = await Promise.all([
 			getCachedAurigaGrades(),
 			getCachedAurigaSyllabus(),
 			getAurigaLastSync(),
 			getManualGrades(),
 			getUseWeightedAverages(),
 			getSubjectCoefficientOverrides(),
+			getGradeOverrides(),
 		]);
 		setRawGrades(cachedGrades);
 		setSyllabusList(cachedSyllabus);
@@ -158,7 +162,8 @@ export default function GradesScreen() {
 		setManualGrades(manual);
 		setUseWeightedAveragesState(weighted);
 		setSubjectCoefficientOverrides(coefficientOverrides);
-		rebuildPeriods(cachedGrades, cachedSyllabus, manual, weighted, coefficientOverrides);
+		setGradeOverrides(overrides);
+		rebuildPeriods(cachedGrades, cachedSyllabus, manual, weighted, coefficientOverrides, overrides);
 		await syncGradeWidgetsFromStoredData().catch(() => {});
 	}, [rebuildPeriods]);
 
@@ -174,13 +179,14 @@ export default function GradesScreen() {
 			if (source === "auto") setAurigaStatus({ type: "loading", message: "Récupération des informations Auriga..." });
 			try {
 				const data = await syncAurigaData();
-				const [manual, weighted, coefficientOverrides] = await Promise.all([getManualGrades(), getUseWeightedAverages(), getSubjectCoefficientOverrides()]);
+				const [manual, weighted, coefficientOverrides, overrides] = await Promise.all([getManualGrades(), getUseWeightedAverages(), getSubjectCoefficientOverrides(), getGradeOverrides()]);
 				setRawGrades(data.grades);
 				setSyllabusList(data.syllabus);
 				setManualGrades(manual);
 				setUseWeightedAveragesState(weighted);
 				setSubjectCoefficientOverrides(coefficientOverrides);
-				rebuildPeriods(data.grades, data.syllabus, manual, weighted, coefficientOverrides);
+				setGradeOverrides(overrides);
+				rebuildPeriods(data.grades, data.syllabus, manual, weighted, coefficientOverrides, overrides);
 				setLastSync(await getAurigaLastSync());
 				setConnected(true);
 				setOffline(false);
@@ -270,8 +276,8 @@ export default function GradesScreen() {
 	useFocusEffect(
 		useCallback(() => {
 			let active = true;
-			Promise.all([getManualGrades(), getUseWeightedAverages(), getSubjectCoefficientOverrides(), hasAurigaRefreshToken(), getCachedAurigaGrades(), getCachedAurigaSyllabus(), getAurigaLastSync()])
-				.then(([manual, weighted, coefficientOverrides, hasToken, cachedGrades, cachedSyllabus, syncDate]) => {
+			Promise.all([getManualGrades(), getUseWeightedAverages(), getSubjectCoefficientOverrides(), getGradeOverrides(), hasAurigaRefreshToken(), getCachedAurigaGrades(), getCachedAurigaSyllabus(), getAurigaLastSync()])
+				.then(([manual, weighted, coefficientOverrides, overrides, hasToken, cachedGrades, cachedSyllabus, syncDate]) => {
 					if (!active) return;
 					if (!hasToken && cachedGrades.length === 0 && cachedSyllabus.length === 0 && !syncDate) {
 						resetAurigaView();
@@ -280,7 +286,8 @@ export default function GradesScreen() {
 					setManualGrades(manual);
 					setUseWeightedAveragesState(weighted);
 					setSubjectCoefficientOverrides(coefficientOverrides);
-					rebuildPeriods(rawGrades, syllabusList, manual, weighted, coefficientOverrides);
+					setGradeOverrides(overrides);
+					rebuildPeriods(rawGrades, syllabusList, manual, weighted, coefficientOverrides, overrides);
 				})
 				.catch(() => {});
 			return () => {
@@ -370,7 +377,7 @@ export default function GradesScreen() {
 
 	const updateManualGrades = async (nextManual: ManualGrade[]) => {
 		setManualGrades(nextManual);
-		const built = rebuildPeriods(rawGrades, syllabusList, nextManual, useWeightedAverages, subjectCoefficientOverrides);
+		const built = rebuildPeriods(rawGrades, syllabusList, nextManual, useWeightedAverages, subjectCoefficientOverrides, gradeOverrides);
 		await syncGradeWidgetsFromStoredData().catch(() => {});
 		return built;
 	};
@@ -378,10 +385,19 @@ export default function GradesScreen() {
 	const updateSubjectCoefficient = async (reference: SubjectCoefficientReference, coefficient?: number) => {
 		const overrides = coefficient === undefined ? await clearSubjectCoefficientOverride(reference) : await setSubjectCoefficientOverride(reference, coefficient);
 		setSubjectCoefficientOverrides(overrides);
-		const built = rebuildPeriods(rawGrades, syllabusList, manualGrades, useWeightedAverages, overrides);
+		const built = rebuildPeriods(rawGrades, syllabusList, manualGrades, useWeightedAverages, overrides, gradeOverrides);
 		setSelectedSubject((current) => (current ? findSubjectInPeriods(built, current.id) || current : current));
 		await syncGradeWidgetsFromStoredData().catch(() => {});
 		return built;
+	};
+
+	const updateGradeOverride = async (key: string, patch: { coefficient?: number; examId?: number | null }) => {
+		const overrides = await setGradeOverride(key, patch);
+		setGradeOverrides(overrides);
+		const built = rebuildPeriods(rawGrades, syllabusList, manualGrades, useWeightedAverages, subjectCoefficientOverrides, overrides);
+		setSelectedGrade((current) => current ? flattenSubjects(built.find((period) => period.semester === selectedSemester) || built[0] || null).flatMap(({ subject }) => subject.grades).find((grade) => grade.overrideKey === current.overrideKey) || current : current);
+		setSelectedSubject((current) => (current ? findSubjectInPeriods(built, current.id) || current : current));
+		await syncGradeWidgetsFromStoredData().catch(() => {});
 	};
 
 	const openSyllabusExport = () => {
@@ -442,6 +458,7 @@ export default function GradesScreen() {
 							clearRememberedAurigaCredentials(),
 							clearAurigaCache(),
 							clearSubjectCoefficientOverrides(),
+							clearGradeOverrides(),
 							clearAurigaGradeNotificationHistory(),
 						]).then(() => {
 						resetAurigaView({ clearCredentials: true });
@@ -513,6 +530,7 @@ export default function GradesScreen() {
 			onChangeSyllabusExportStartSemester={changeSyllabusExportStartSemester}
 			onOpenSyllabusExport={openSyllabusExport}
 			onUpdateSubjectCoefficient={updateSubjectCoefficient}
+			onUpdateGradeOverride={updateGradeOverride}
 			periods={periods}
 			refreshAuriga={refreshAuriga}
 			refreshing={refreshing}

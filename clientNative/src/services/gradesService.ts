@@ -1,5 +1,6 @@
 import { cleanHtml, extractSubjectCode, type AurigaExam, type AurigaGrade, type AurigaSyllabus } from "./aurigaTypes";
 import { getSubjectCoefficientOverride, getSubjectCoefficientOverrideKey, type SubjectCoefficientOverrides } from "./gradeCoefficientOverrides";
+import type { GradeOverrides } from "./gradeOverrides";
 import type { ManualGrade } from "./manualGrades";
 
 export type GradeScore = {
@@ -25,6 +26,11 @@ export type DisplayGrade = {
 	isManual?: boolean;
 	manualId?: string;
 	examId?: number;
+	examType?: string;
+	examIndex?: number;
+	syllabusId?: number;
+	overrideKey?: string;
+	coefficientOverridden?: boolean;
 };
 
 export type DisplaySubject = {
@@ -97,10 +103,15 @@ export type BuildGradesOptions = {
 	useWeightedAverages?: boolean;
 	manualGrades?: ManualGrade[];
 	subjectCoefficientOverrides?: SubjectCoefficientOverrides;
+	gradeOverrides?: GradeOverrides;
 };
 
 export function splitEcueAndExam(fullCode: string, knownExamTypes = new Set(DEFAULT_EXAM_TYPES)) {
 	const parts = fullCode.split("_");
+	const compactMatch = fullCode.match(/^(.*)_(EXA|EXF|EXP|EXB|EXR|EX|EXAM|TPNOTE|TP|CC|CB|CT|CONT|DS|DM|QCM|ORAL|RAT)_?(\d+)?$/i);
+	if (compactMatch?.[1]) {
+		return { ecueCode: compactMatch[1], examPart: [compactMatch[2].toUpperCase(), compactMatch[3]].filter(Boolean).join("_") };
+	}
 
 	if (parts.length >= 3 && /^\d+$/.test(parts[parts.length - 1]) && knownExamTypes.has(parts[parts.length - 2])) {
 		return {
@@ -126,14 +137,30 @@ function findSyllabusForGrade(gradeFullCode: string, syllabusList: AurigaSyllabu
 	});
 }
 
+function examFamily(value?: string) {
+	const normalized = String(value || "")
+		.toUpperCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/[^A-Z0-9]+/g, " ");
+	if (/\bTP\b|TRAVAUX? PRATIQUES?/.test(normalized)) return "TP";
+	if (/\bEX[A-Z]*\b|\bEXAMEN\b|\bECRIT\b|PAPIER/.test(normalized)) return "EX";
+	return normalized.trim();
+}
+
+/** Returns an exam only when the raw Auriga code points to one unambiguously. */
 function findExam(syllabus: AurigaSyllabus | undefined, examPart: string): AurigaExam | undefined {
 	if (!syllabus || !examPart) return undefined;
 	const [type, indexRaw] = examPart.split("_");
-	const typeMatches = syllabus.exams.filter((exam) => exam.type === type);
+	const family = examFamily(type);
+	const typeMatches = syllabus.exams.filter((exam) => exam.type === type || examFamily(exam.type) === family || examFamily(exam.typeName) === family);
 	if (!typeMatches.length) return undefined;
 	const index = Number(indexRaw);
-	if (Number.isFinite(index)) return typeMatches[index - 1] || typeMatches.find((exam) => exam.index === index);
-	return typeMatches[0];
+	if (Number.isFinite(index)) {
+		const indexed = typeMatches.filter((exam) => exam.index === index);
+		return indexed.length === 1 ? indexed[0] : undefined;
+	}
+	return typeMatches.length === 1 ? typeMatches[0] : undefined;
 }
 
 function escapeRegExp(value: string) {
@@ -298,6 +325,7 @@ function addManualGradeToMap(manualGrade: ManualGrade, syllabusList: AurigaSylla
 export function buildGradesPeriods(grades: AurigaGrade[], syllabusList: AurigaSyllabus[], options: BuildGradesOptions = {}): GradesPeriod[] {
 	const useWeightedAverages = options.useWeightedAverages !== false;
 	const subjectCoefficientOverrides = options.subjectCoefficientOverrides || {};
+	const gradeOverrides = options.gradeOverrides || {};
 	const bySemester = new Map<number, Map<string, SubjectAccumulator>>();
 
 	for (const grade of grades) {
@@ -320,9 +348,12 @@ export function buildGradesPeriods(grades: AurigaGrade[], syllabusList: AurigaSy
 				grades: [],
 				hasNonValidated: false,
 			} satisfies SubjectAccumulator);
-		const exam = findExam(matchingSyllabus, examPart);
 		const score = scoreForGrade(grade);
 		const rawCode = gradeFullCode;
+		const overrideKey = `raw:${rawCode}:${subject.grades.length}`;
+		const override = gradeOverrides[overrideKey];
+		const autoExam = findExam(matchingSyllabus, examPart);
+		const exam = override?.examId === undefined ? autoExam : override.examId === null ? undefined : matchingSyllabus?.exams.find((item) => item.id === override.examId);
 		const displayGrade: DisplayGrade = {
 			id: `${rawCode}-${subject.grades.length}`,
 			subjectId: subject.id,
@@ -331,10 +362,16 @@ export function buildGradesPeriods(grades: AurigaGrade[], syllabusList: AurigaSy
 			syncedAt: grade.syncedAt,
 			studentScore: score,
 			outOf: { value: 20 },
-			coefficient: gradeCoefficient(grade, exam),
+			coefficient: override?.coefficient ?? (override?.examId === null ? 1 : override?.examId !== undefined ? gradeCoefficient({ ...grade, coefficient: undefined }, exam) : gradeCoefficient(grade, exam)),
 			alphaMark: grade.alphaMark,
 			rawCode,
 			isSAE: /(^|_)SAE(_|$)/i.test(rawCode),
+			examId: exam?.id,
+			examType: exam?.typeName || exam?.type,
+			examIndex: exam?.index,
+			syllabusId: matchingSyllabus?.id,
+			overrideKey,
+			coefficientOverridden: override?.coefficient !== undefined,
 		};
 		if (grade.alphaMark === "NV") subject.hasNonValidated = true;
 		subject.grades.push(displayGrade);

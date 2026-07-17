@@ -81,6 +81,7 @@ export function GradesContent({
 	onChangeSyllabusExportStartSemester,
 	onOpenSyllabusExport,
 	onUpdateSubjectCoefficient,
+	onUpdateGradeOverride,
 	periods,
 	refreshAuriga,
 	refreshing,
@@ -114,6 +115,7 @@ export function GradesContent({
 		value: number;
 		overridden: boolean;
 	} | null>(null);
+	const [gradeCoefficientEditor, setGradeCoefficientEditor] = useState<DisplayGrade | null>(null);
 	const syllabusCoefficient = (syllabus: AurigaSyllabus) => getSubjectCoefficientOverride({ syllabusId: syllabus.id }, subjectCoefficientOverrides as SubjectCoefficientOverrides) ?? syllabus.coeff ?? 1;
 	const openSubjectCoefficientEditor = (subject: DisplaySubject) => {
 		setCoefficientEditor({
@@ -327,7 +329,13 @@ export function GradesContent({
 			/>
 			<GradeDetailModal
 				grade={selectedGrade}
+				syllabus={selectedSubject?.syllabus}
 				onClose={() => setSelectedGrade(null)}
+				onEditCoefficient={(grade: DisplayGrade) => setGradeCoefficientEditor(grade)}
+				onAssociateExam={async (grade: DisplayGrade, examId: number | null) => {
+					if (!grade.overrideKey) return;
+					await onUpdateGradeOverride(grade.overrideKey, { examId });
+				}}
 				onDeleteManual={async (id) => {
 					const built = await updateManualGrades(await deleteManualGrade(id));
 					if (selectedSubject) setSelectedSubject(findSubjectInPeriods(built, selectedSubject.id) || selectedSubject);
@@ -359,6 +367,17 @@ export function GradesContent({
 							}
 						: undefined
 				}
+			/>
+			<CoefficientEditorModal
+				visible={Boolean(gradeCoefficientEditor)}
+				title={gradeCoefficientEditor?.description || "Note"}
+				value={gradeCoefficientEditor?.coefficient || 1}
+				overridden={Boolean(gradeCoefficientEditor?.coefficientOverridden)}
+				onClose={() => setGradeCoefficientEditor(null)}
+				onSave={async (value) => {
+					if (!gradeCoefficientEditor?.overrideKey) return;
+					await onUpdateGradeOverride(gradeCoefficientEditor.overrideKey, { coefficient: value });
+				}}
 			/>
 			<SyllabusExportModal
 				visible={exportModalVisible}
@@ -742,9 +761,24 @@ export function SubjectDetailModal({
 	);
 }
 
-export function GradeDetailModal({ grade, onClose, onDeleteManual }: { grade: DisplayGrade | null; onClose: () => void; onDeleteManual: (id: string) => Promise<void> }) {
+export function GradeDetailModal({
+	grade,
+	syllabus,
+	onClose,
+	onDeleteManual,
+	onEditCoefficient,
+	onAssociateExam,
+}: {
+	grade: DisplayGrade | null;
+	syllabus?: AurigaSyllabus;
+	onClose: () => void;
+	onDeleteManual: (id: string) => Promise<void>;
+	onEditCoefficient: (grade: DisplayGrade) => void;
+	onAssociateExam: (grade: DisplayGrade, examId: number | null) => Promise<void>;
+}) {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
+	const [pickerVisible, setPickerVisible] = useState(false);
 	return (
 		<Modal visible={Boolean(grade)} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
 			<View style={[s.panelRoot, { backgroundColor: theme.bg, paddingTop: insets.top + 12 }]}>
@@ -754,7 +788,16 @@ export function GradeDetailModal({ grade, onClose, onDeleteManual }: { grade: Di
 						<Text style={[s.heroAverage, { color: grade?.isManual ? theme.warn : theme.text }]}>{scoreLabel(grade?.studentScore)}</Text>
 						<Text style={[s.heroMeta, { color: theme.muted }]}>{grade?.subjectName}</Text>
 					</View>
-					<InfoLine label="Coefficient" value={grade ? String(grade.coefficient) : "-"} />
+					<Pressable style={[s.infoLine, { backgroundColor: theme.surface, borderColor: theme.accent }]} disabled={!grade || grade.isManual} onPress={() => grade && onEditCoefficient(grade)}>
+						<Text style={[s.infoLabel, { color: theme.muted }]}>Coefficient</Text>
+						<Text style={[s.infoValue, { color: theme.accent }]}>{grade ? `${grade.coefficient} · Modifier` : "-"}</Text>
+					</Pressable>
+					{grade && !grade.isManual && syllabus?.exams?.length ? (
+						<Pressable style={[s.infoLine, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={() => setPickerVisible(true)}>
+							<Text style={[s.infoLabel, { color: theme.muted }]}>Note du syllabus</Text>
+							<Text style={[s.infoValue, { color: theme.accent }]}>{grade.examType ? `${grade.examType}${grade.examIndex ? ` ${grade.examIndex}` : ""} · Modifier` : "Associer · Modifier"}</Text>
+						</Pressable>
+					) : null}
 					<InfoLine label="Code brut" value={grade?.rawCode || "-"} />
 					{grade?.isManual && grade.manualId ? (
 						<Pressable
@@ -776,6 +819,43 @@ export function GradeDetailModal({ grade, onClose, onDeleteManual }: { grade: Di
 							<Text style={[s.deleteButtonText, { color: theme.danger }]}>Supprimer la note manuelle</Text>
 						</Pressable>
 					) : null}
+				</View>
+				<GradeExamPickerModal
+					visible={pickerVisible}
+					exams={syllabus?.exams || []}
+					selectedExamId={grade?.examId}
+					onClose={() => setPickerVisible(false)}
+					onSelect={async (examId) => {
+						if (grade) await onAssociateExam(grade, examId);
+						setPickerVisible(false);
+					}}
+				/>
+			</View>
+		</Modal>
+	);
+}
+
+function GradeExamPickerModal({ visible, exams, selectedExamId, onClose, onSelect }: { visible: boolean; exams: AurigaSyllabus["exams"]; selectedExamId?: number; onClose: () => void; onSelect: (examId: number | null) => Promise<void> }) {
+	const { theme } = useTheme();
+	return (
+		<Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+			<View style={s.choiceBackdrop}>
+				<Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+				<View style={[s.choiceSheet, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+					<Text style={[s.choiceTitle, { color: theme.text }]}>Associer à une note du syllabus</Text>
+					<Text style={[s.choiceHint, { color: theme.muted }]}>Choisis la pondération correspondante. Sans lien, le coefficient reste 1.</Text>
+					<ScrollView style={s.choiceList} contentContainerStyle={s.choiceListContent}>
+						<Pressable style={[s.choiceRow, { borderColor: theme.border, backgroundColor: !selectedExamId ? theme.accentSoft : theme.bg }]} onPress={() => void onSelect(null)}>
+							<Text style={[s.choiceText, { color: theme.text }]}>Aucune note du syllabus</Text>
+							<Text style={[s.choiceWeight, { color: theme.accent }]}>coeff 1</Text>
+						</Pressable>
+						{exams.map((exam) => (
+							<Pressable key={exam.id} style={[s.choiceRow, { borderColor: theme.border, backgroundColor: exam.id === selectedExamId ? theme.accentSoft : theme.bg }]} onPress={() => void onSelect(exam.id)}>
+								<Text style={[s.choiceText, { color: theme.text }]}>{exam.typeName || exam.type}{exam.index ? ` ${exam.index}` : ""}</Text>
+								<Text style={[s.choiceWeight, { color: theme.accent }]}>coeff {exam.weighting ? exam.weighting / 100 : 1}</Text>
+							</Pressable>
+						))}
+					</ScrollView>
 				</View>
 			</View>
 		</Modal>
@@ -896,6 +976,15 @@ export const s = StyleSheet.create({
 	empty: { borderWidth: 1, borderRadius: 18, padding: 16, alignItems: "center" },
 	emptyText: { fontSize: 14, fontWeight: "800" },
 	panelRoot: { flex: 1 },
+	choiceBackdrop: { flex: 1, justifyContent: "center", padding: 22, backgroundColor: "rgba(8, 25, 42, 0.58)" },
+	choiceSheet: { maxHeight: "76%", borderWidth: 1, borderRadius: 22, padding: 16, gap: 8 },
+	choiceTitle: { fontSize: 18, fontWeight: "900" },
+	choiceHint: { fontSize: 12, lineHeight: 17, fontWeight: "700" },
+	choiceList: { marginTop: 4 },
+	choiceListContent: { gap: 8 },
+	choiceRow: { minHeight: 56, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+	choiceText: { flex: 1, fontSize: 14, fontWeight: "900" },
+	choiceWeight: { fontSize: 12, fontWeight: "900" },
 	panelHeader: { paddingHorizontal: 18, paddingBottom: 12, borderBottomWidth: 1, flexDirection: "row", alignItems: "center", gap: 12 },
 	panelTitle: { marginTop: 3, fontSize: 20, fontWeight: "900", lineHeight: 25 },
 	panelContent: { padding: 18, gap: 14 },
