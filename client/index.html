@@ -5,9 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-    <title>EpiTime - Emploi du Temps</title>
-    <meta name="description" content="Ton emploi du temps du groupe IONIS, enfin bien fait ✨">
+    <title>EpiTime - emploi du temps EPITA, PWA et Android</title>
+    <meta name="description" content="EpiTime aide les étudiants EPITA à consulter leur emploi du temps, leurs salles et leurs cours sur le web, en PWA et sur Android.">
     <meta name="author" content="EpiTime">
+    <meta name="application-name" content="EpiTime">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <link rel="canonical" href="https://epitime.epita.it/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="fr_FR">
+    <meta property="og:site_name" content="EpiTime">
+    <meta property="og:title" content="EpiTime - emploi du temps EPITA, PWA et Android">
+    <meta property="og:description" content="Une application indépendante pour consulter facilement son emploi du temps EPITA, ses salles et ses cours.">
+    <meta property="og:url" content="https://epitime.epita.it/">
+    <meta property="og:image" content="https://epitime.epita.it/icons/webapp.png">
+    <meta property="og:image:alt" content="Aperçu de l'application web EpiTime">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="EpiTime - emploi du temps EPITA, PWA et Android">
+    <meta name="twitter:description" content="Consulte ton emploi du temps EPITA, tes salles et tes cours sur web, PWA ou Android.">
+    <meta name="twitter:image" content="https://epitime.epita.it/icons/webapp.png">
 
     <meta name="theme-color" content="#5b5fef">
     <meta name="mobile-web-app-capable" content="yes">
@@ -23,6 +39,28 @@
 
     <meta name="msapplication-TileColor" content="#5b5fef">
     <meta name="msapplication-TileImage" content="/icons/logo.png">
+
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "EpiTime",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Web, Android",
+            "url": "https://epitime.epita.it/",
+            "description": "Application indépendante pour les étudiants EPITA : emploi du temps, cours et salles sur web, PWA et Android.",
+            "audience": {
+                "@type": "Audience",
+                "audienceType": "Étudiants EPITA"
+            },
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "EUR"
+            },
+            "sameAs": "https://github.com/alexistb2904/EpiTime"
+        }
+    </script>
 
     <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
     <style>
@@ -42,6 +80,15 @@
 
 <body>
     <div id="root"></div>
+    <noscript>
+        <main>
+            <h1>EpiTime, l'emploi du temps pour les étudiants EPITA</h1>
+            <p>Consultez vos cours, salles et votre planning EPITA sur le web, en PWA ou sur Android.</p>
+            <p>EpiTime est un projet étudiant indépendant, non affilié à EPITA, IONIS ou Zeus.</p>
+            <p>Si vous voyez ce message, c'est que votre navigateur ne supporte pas JavaScript ou que JavaScript est désactivé. Veuillez activer JavaScript pour utiliser EpiTime.
+            </p>
+        </main>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
 </body>
 

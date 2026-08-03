@@ -14,7 +14,7 @@ export default defineConfig({
 			manifest: {
 				name: "EpiTime - Emploi du Temps",
 				short_name: "EpiTime",
-				description: "Ton emploi du temps EPITA, enfin bien fait ✨",
+				description: "Emploi du temps, salles et cours pour les étudiants EPITA sur web, PWA et Android.",
 				theme_color: "#5b5fef",
 				background_color: "#f2f4f8",
 				display: "standalone",

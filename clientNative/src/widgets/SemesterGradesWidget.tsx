@@ -17,7 +17,7 @@ export function SemesterGradesWidget({ payload, theme: themeName = "light" }: Se
 	const summary = payload?.gradeSummary;
 	const latestGrades = summary?.latestGrades || [];
 	const semesterLabel = summary?.semesterLabel || "Semestre en cours";
-	const average = summary?.average || "—";
+	const average = summary?.average || "-";
 
 	return (
 		<FlexWidget
@@ -46,12 +46,19 @@ export function SemesterGradesWidget({ payload, theme: themeName = "light" }: Se
 					{latestGrades.length ? (
 						<FlexWidget style={{ flex: 1, width: "match_parent", marginTop: 2 }}>
 							<ListWidget style={{ height: "match_parent", width: "match_parent", backgroundColor: theme.transparent }}>
-								{latestGrades.map((grade, index) => <GradeRow key={`${grade.subject}-${grade.label || "note"}-${grade.score}-${index}`} grade={grade} theme={theme} />)}
+								{latestGrades.map((grade, index) => (
+									<GradeRow key={`${grade.subject}-${grade.label || "note"}-${grade.score}-${index}`} grade={grade} theme={theme} />
+								))}
 							</ListWidget>
 						</FlexWidget>
 					) : (
 						<FlexWidget style={{ flex: 1, justifyContent: "center", paddingLeft: 2 }}>
-							<TextWidget text="Synchronise Notes pour afficher tes résultats" maxLines={2} truncate="END" style={{ color: theme.textMuted, fontSize: 8, fontWeight: "700" }} />
+							<TextWidget
+								text="Synchronise Notes pour afficher tes résultats"
+								maxLines={2}
+								truncate="END"
+								style={{ color: theme.textMuted, fontSize: 8, fontWeight: "700" }}
+							/>
 						</FlexWidget>
 					)}
 				</FlexWidget>

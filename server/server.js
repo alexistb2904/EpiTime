@@ -60,7 +60,7 @@ const getFallbackCourseType = (id) => {
 
 let pushEnabled = false;
 if (vapidPublicKey && vapidPrivateKey) {
-	webpush.setVapidDetails("mailto:alexistb2904@gmail.com", vapidPublicKey, vapidPrivateKey);
+	webpush.setVapidDetails("mailto:contact@alexistb.com", vapidPublicKey, vapidPrivateKey);
 	pushEnabled = true;
 }
 
@@ -86,7 +86,8 @@ const normalizeIdArray = (value) => {
 const normalizeNotificationSettings = (settings = {}) => {
 	const minutesBefore = Number(settings.minutesBefore ?? settings.minuesBefore);
 	const selectedDays = Array.isArray(settings.selectedDays) ? settings.selectedDays.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6) : [];
-	const notificationType = settings.notificationType === "banner" || settings.notificationType === "sound" || settings.notificationType === "both" ? settings.notificationType : "both";
+	const notificationType =
+		settings.notificationType === "banner" || settings.notificationType === "sound" || settings.notificationType === "both" ? settings.notificationType : "both";
 
 	return {
 		minutesBefore: Number.isFinite(minutesBefore) && minutesBefore > 0 ? Math.min(minutesBefore, 24 * 60) : 15,
@@ -1203,7 +1204,8 @@ const notificationWorker = async () => {
 			}
 
 			const minutesBefore = settings.minutesBefore || 15;
-			const notificationType = settings.notificationType === "banner" || settings.notificationType === "sound" || settings.notificationType === "both" ? settings.notificationType : "both";
+			const notificationType =
+				settings.notificationType === "banner" || settings.notificationType === "sound" || settings.notificationType === "both" ? settings.notificationType : "both";
 
 			for (const event of events) {
 				const eventStart = new Date(event.startDate || event.start);

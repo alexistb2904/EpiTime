@@ -8,7 +8,6 @@ Zeus (https://zeus.ionis-it.com/) est pratique mais… pas franchement beau ni p
 <img width="1920" height="1440" alt="706shots_so" src="https://github.com/user-attachments/assets/e143b555-98d4-4688-9a6a-8f49661b6e76" />
 <img width="1920" height="1440" alt="328shots_so" src="https://github.com/user-attachments/assets/ff841497-1700-4dd9-8d7c-c5f7dc7a3063" />
 
-
 ## Installer en local
 
 1. Cloner le repo.
@@ -128,7 +127,7 @@ Pour les notifications web, le front s’inscrit auprès du service de push via 
 
 ## Statistiques d’utilisation
 
-EpiTime utilise [Rybbit](https://rybbit.com/) pour une mesure d’audience activée uniquement après le consentement de l’utilisateur. L’instance est auto-hébergée sur le même VPS OVHcloud qu’EpiTime. Elle reçoit des données techniques limitées (agent utilisateur, pages consultées et position géographique très approximative), mais EpiTime ne lui transmet ni nom, ni adresse e-mail, ni identifiant de compte, ni jeton d’authentification. Ces statistiques servent uniquement à améliorer l’application et ne servent ni à la publicité ciblée ni au suivi entre sites. Le consentement peut être retiré dans les paramètres de l’application web. En cas de doute sur la collecte de données, contactez alexistb2904@gmail.com.
+EpiTime utilise [Rybbit](https://rybbit.com/) pour une mesure d’audience activée uniquement après le consentement de l’utilisateur. L’instance est auto-hébergée sur le même VPS OVHcloud qu’EpiTime. Elle reçoit des données techniques limitées (agent utilisateur, pages consultées et position géographique très approximative), mais EpiTime ne lui transmet ni nom, ni adresse e-mail, ni identifiant de compte, ni jeton d’authentification. Ces statistiques servent uniquement à améliorer l’application et ne servent ni à la publicité ciblée ni au suivi entre sites. Le consentement peut être retiré dans les paramètres de l’application web. En cas de doute sur la collecte de données, contactez contact@alexistb.com.
 
 ## Précision
 

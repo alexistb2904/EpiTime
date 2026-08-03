@@ -112,10 +112,6 @@ export async function getStoredCourseWidgetPayload() {
 	return getJSON<CourseWidgetPayload | null>(COURSE_WIDGET_PAYLOAD_KEY, null);
 }
 
-/**
- * Re-renders the semester widgets from a display-only snapshot. The caller owns
- * Auriga calculation and formatting; this layer only persists and displays it.
- */
 export async function updateGradeWidgetSummary(gradeSummary?: WidgetGradeSummary | null) {
 	if (Platform.OS !== "android" && Platform.OS !== "ios") return;
 	const stored = await getStoredCourseWidgetPayload();
@@ -189,13 +185,13 @@ function currentGradeWidgetPeriod(periods: GradesPeriod[]) {
 
 function formatWidgetAverage(score: GradesPeriod["overallAverage"]) {
 	if (score.status) return score.status;
-	if (!score.outOf || !Number.isFinite(score.value)) return "—";
+	if (!score.outOf || !Number.isFinite(score.value)) return "-";
 	return score.value.toFixed(2).replace(".", ",");
 }
 
 function toWidgetGrade(grade: DisplayGrade): WidgetGrade {
 	const score = grade.studentScore;
-	const value = score?.status || (score?.outOf && Number.isFinite(score.value) ? `${formatWidgetScore(score.value)}/20` : "—");
+	const value = score?.status || (score?.outOf && Number.isFinite(score.value) ? `${formatWidgetScore(score.value)}/20` : "-");
 	return {
 		subject: grade.subjectName,
 		label: grade.description || "Évaluation",

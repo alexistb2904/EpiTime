@@ -22,7 +22,7 @@ const Sidebar = ({
 	const handleAndroidDownload = () => {
 		trackEvent("android_download_clicked", {
 			area: "sidebar",
-			destination: androidAppDownloadUrl,
+			channel: "github_releases",
 		});
 		window.open(androidAppDownloadUrl, "_blank", "noopener,noreferrer");
 	};
@@ -50,10 +50,7 @@ const Sidebar = ({
 			<div className="sidebar-section">
 				<div className="sidebar-section-head">
 					<h3 className="sidebar-title">Groupe sélectionnés</h3>
-					<button
-						className="btn-icon sidebar-add-btn"
-						onClick={() => setShowGroupModal(true)}
-						title="Modifier la sélection">
+					<button className="btn-icon sidebar-add-btn" onClick={() => setShowGroupModal(true)} title="Modifier la sélection">
 						<Plus size={16} strokeWidth={2.6} />
 					</button>
 				</div>

@@ -2,6 +2,25 @@ import React, { useState, useContext, createContext } from "react";
 import { trackEvent } from "../utils/analyticsTracker";
 
 const AuthContext = createContext();
+const LOGIN_ANALYTICS_FLOW_KEY = "epitime_login_analytics_flow";
+
+const saveLoginAnalyticsFlow = (flow) => {
+	try {
+		sessionStorage.setItem(LOGIN_ANALYTICS_FLOW_KEY, flow);
+	} catch {
+		//
+	}
+};
+
+const consumeLoginAnalyticsFlow = () => {
+	try {
+		const flow = sessionStorage.getItem(LOGIN_ANALYTICS_FLOW_KEY);
+		sessionStorage.removeItem(LOGIN_ANALYTICS_FLOW_KEY);
+		return flow ? { flow } : null;
+	} catch {
+		return null;
+	}
+};
 
 const isMobile = () => {
 	return (
@@ -100,7 +119,7 @@ export const AuthProvider = ({ children }) => {
 		}
 	}, []);
 
-	const exchangeToken = async (msResponse) => {
+	const exchangeToken = async (msResponse, analyticsContext = null) => {
 		try {
 			const res = await fetch("/api/auth", {
 				method: "POST",
@@ -125,6 +144,8 @@ export const AuthProvider = ({ children }) => {
 				setUser(msResponse.account);
 				localStorage.setItem("zeus_token", data.token);
 				localStorage.setItem("zeus_user", JSON.stringify(msResponse.account));
+				const completedContext = analyticsContext || consumeLoginAnalyticsFlow();
+				if (completedContext) trackEvent("login_completed", completedContext);
 			}
 		} catch (err) {
 			if (!navigator.onLine) {
@@ -155,7 +176,7 @@ export const AuthProvider = ({ children }) => {
 			});
 
 			if (shouldUseRedirectAuth()) {
-				trackEvent("login_redirect_triggered", { reason: "mobile_or_pwa" });
+				saveLoginAnalyticsFlow("redirect");
 				await msalInstance.current.loginRedirect({
 					scopes: AUTH_SCOPES,
 					prompt: "select_account",
@@ -166,14 +187,14 @@ export const AuthProvider = ({ children }) => {
 					scopes: AUTH_SCOPES,
 					prompt: "select_account",
 				});
-				await exchangeToken(resp);
-				trackEvent("login_popup_success");
+				await exchangeToken(resp, { flow: "popup" });
 				setLoading(false);
 			}
 		} catch (err) {
 			if (isPopupIssue(err)) {
 				trackEvent("login_popup_issue_fallback_redirect");
 				try {
+					saveLoginAnalyticsFlow("redirect_after_popup_issue");
 					await msalInstance.current.loginRedirect({
 						scopes: AUTH_SCOPES,
 						prompt: "select_account",

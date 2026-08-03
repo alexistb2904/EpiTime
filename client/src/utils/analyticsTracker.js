@@ -1,6 +1,6 @@
 import { analyticsConsentValues, getAnalyticsConsent } from "./analyticsConsent";
 
-const BLOCKED_PROP_KEYS = ["email", "mail", "user", "username", "id", "token", "auth", "phone", "name"];
+const BLOCKED_PROP_KEYS = new Set(["email", "mail", "user", "username", "userid", "id", "token", "auth", "authentication", "phone", "name", "account", "accountid"]);
 
 const isTrackingAllowed = () => {
 	if (typeof window === "undefined") return false;
@@ -38,7 +38,8 @@ const sanitizeProperties = (properties = {}) => {
 
 		const key = String(rawKey).trim().toLowerCase();
 		if (!key) return;
-		if (BLOCKED_PROP_KEYS.some((blocked) => key.includes(blocked))) return;
+		const compactKey = key.replace(/[_-]/g, "");
+		if (BLOCKED_PROP_KEYS.has(compactKey)) return;
 
 		const value = sanitizeValue(rawValue);
 		if (value === undefined || value === "") return;

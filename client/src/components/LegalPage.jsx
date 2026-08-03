@@ -20,7 +20,11 @@ export default function LegalPage() {
 			enableAnalyticsTracking();
 			await loadAnalyticsScript();
 		} else {
-			disableAnalyticsTracking();
+			const mustReload = disableAnalyticsTracking();
+			if (mustReload) {
+				window.location.reload();
+				return;
+			}
 		}
 		setAnalyticsEnabled(enabled);
 	}, []);
@@ -70,7 +74,7 @@ export default function LegalPage() {
 						</p>
 						<p>
 							Le responsable du traitement des données propres à EpiTime est <strong>Alexis Thierry-Bellefond</strong>. Pour toute question :{" "}
-							<a href="mailto:alexistb2904@gmail.com">alexistb2904@gmail.com</a>.
+							<a href="mailto:contact@alexistb.com">contact@alexistb.com</a>.
 						</p>
 					</div>
 					<div className="legal-table-wrap">
@@ -103,16 +107,16 @@ export default function LegalPage() {
 									<td>Préférences locales : thème, groupes, réglages de notifications, événements, notes, photos et fichiers ajoutés par l'utilisateur</td>
 									<td>Personnaliser l'application et assurer le fonctionnement hors ligne, des widgets et rappels.</td>
 									<td>
-										Exécution du service demandé. Les notes, photos et fichiers restent sur l'appareil ils ne sont pas envoyés au serveur EpiTime.
-										Conservation jusqu'à leur suppression, la déconnexion ou la désinstallation selon la donnée.
+										Exécution du service demandé. Les notes, photos et fichiers restent sur l'appareil ils ne sont pas envoyés au serveur EpiTime. Conservation
+										jusqu'à leur suppression, la déconnexion ou la désinstallation selon la donnée.
 									</td>
 								</tr>
 								<tr>
 									<td>Jeton de notification web ou Expo, identifiant de compte, groupes et réglages (si les notifications sont activées)</td>
 									<td>Envoyer les rappels et notifications demandés.</td>
 									<td>
-										Consentement et action de l'utilisateur. La souscription est retirée à la désactivation ou à la déconnexion l'enregistrement serveur
-										associé est alors supprimé.
+										Consentement et action de l'utilisateur. La souscription est retirée à la désactivation ou à la déconnexion l'enregistrement serveur associé
+										est alors supprimé.
 									</td>
 								</tr>
 							</tbody>
@@ -134,7 +138,9 @@ export default function LegalPage() {
 						<p>
 							Sur le site web, EpiTime charge Rybbit uniquement après votre accord. Rybbit est auto-hébergé sur le même VPS OVHcloud qu'EpiTime : il ne constitue donc
 							pas un destinataire externe. Il mesure l'audience à partir de données techniques limitées, dont l'agent utilisateur, les pages consultées et une
-							position géographique très approximative. EpiTime n'y envoie ni nom, ni adresse e-mail, ni identifiant de compte, ni jeton d'authentification.
+							position géographique très approximative. Après accord, un identifiant aléatoire propre à ce navigateur est conservé localement afin de distinguer ses
+							visites sans utiliser de compte ou d'empreinte de l'appareil. EpiTime n'y envoie ni nom, ni adresse e-mail, ni identifiant de compte, ni jeton
+							d'authentification.
 						</p>
 						<p>
 							La mesure sert uniquement à améliorer l'application et le site. Elle ne sert ni à la publicité ciblée ni au suivi entre sites. Le refus n'empêche pas
@@ -165,8 +171,8 @@ export default function LegalPage() {
 					<div className="legal-copy">
 						<p>
 							Vous pouvez demander l'accès, la rectification, l'effacement, la limitation, l'opposition ou la portabilité de vos données lorsque ces droits
-							s'appliquent. Écrivez à <a href="mailto:alexistb2904@gmail.com?subject=EpiTime%20-%20exercice%20de%20mes%20droits">alexistb2904@gmail.com</a> en
-							précisant votre demande et le compte concerné.
+							s'appliquent. Écrivez à <a href="mailto:contact@alexistb.com?subject=EpiTime%20-%20exercice%20de%20mes%20droits">contact@alexistb.com</a> en précisant
+							votre demande et le compte concerné.
 						</p>
 						<p>
 							Vous pouvez aussi supprimer les données locales depuis les réglages de l'appareil, vous déconnecter, désactiver les notifications ou retirer votre
@@ -191,7 +197,7 @@ export default function LegalPage() {
 							<p>
 								Alexis Thierry-Bellefond
 								<br />
-								<a href="mailto:alexistb2904@gmail.com">alexistb2904@gmail.com</a>
+								<a href="mailto:contact@alexistb.com">contact@alexistb.com</a>
 								<br />
 								Projet personnel, non professionnel et indépendant.
 							</p>
@@ -199,8 +205,8 @@ export default function LegalPage() {
 						<div>
 							<h3>Hébergement</h3>
 							<p>
-								L'application, son API et Rybbit sont hébergés sur le même VPS OVHcloud. Coolify est utilisé sur ce serveur uniquement comme outil de déploiement
-								il n'est pas un hébergeur ou un destinataire distinct.
+								L'application, son API et Rybbit sont hébergés sur le même VPS OVHcloud. Coolify est utilisé sur ce serveur uniquement comme outil de déploiement il
+								n'est pas un hébergeur ou un destinataire distinct.
 								<br />
 								<strong>OVH SAS</strong>, SAS au capital de 50 000 000 €, RCS Lille Métropole 424 761 419 00045
 								<br />2 rue Kellermann, 59100 Roubaix, France

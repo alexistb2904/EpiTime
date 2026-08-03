@@ -14,7 +14,7 @@ const Login = () => {
 	const { users, enabledAnalytics, loading: uniqueUsersLoading } = useUniqueUsers();
 	const [selectedPreview, setSelectedPreview] = useState(null);
 
-	const formattedUsers = typeof users === "number" ? new Intl.NumberFormat("fr-FR").format(users) : "—";
+	const formattedUsers = typeof users === "number" ? new Intl.NumberFormat("fr-FR").format(users) : "-";
 	const showUserKpi = enabledAnalytics && !uniqueUsersLoading && typeof users === "number" && users > 10;
 
 	const handleThemeToggle = () => {
@@ -26,16 +26,13 @@ const Login = () => {
 	};
 
 	const handleLoginClick = () => {
-		trackEvent("login_button_clicked", {
-			provider: "microsoft",
-		});
 		login();
 	};
 
 	const handleAndroidDownload = () => {
 		trackEvent("android_download_clicked", {
 			area: "login",
-			destination: androidAppDownloadUrl,
+			channel: "github_releases",
 		});
 		window.open(androidAppDownloadUrl, "_blank", "noopener,noreferrer");
 	};
@@ -263,14 +260,14 @@ const Login = () => {
 
 				<footer className="login-footer">
 					<p className="footer-disclaimer">
-						Projet open-source étudiant indépendant. Non affilié à Zeus, IONIS ou EPITA.{" "}
-						<a href="/legal">Confidentialité & mentions légales</a>{" · "}
+						Projet open-source étudiant indépendant. Non affilié à Zeus, IONIS ou EPITA. <a href="/legal">Confidentialité & mentions légales</a>
+						{" · "}
 						<a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">
 							Voir sur GitHub
 						</a>
 					</p>
 					<p className="footer-contact">
-						Contact : <a href="mailto:alexistb2904@gmail.com">alexistb2904@gmail.com</a> ou alexistb2904 sur Discord
+						Contact : <a href="mailto:contact@alexistb.com">contact@alexistb.com</a> ou alexistb2904 sur Discord
 					</p>
 				</footer>
 			</div>

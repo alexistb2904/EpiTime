@@ -33,6 +33,22 @@ function AppContent() {
 	}, [isOnline]);
 
 	React.useEffect(() => {
+		const canonical = document.querySelector('link[rel="canonical"]');
+		const robots = document.querySelector('meta[name="robots"]');
+
+		if (isLegalPage) {
+			document.title = "Politique de confidentialité et mentions légales | EpiTime";
+			canonical?.setAttribute("href", `${window.location.origin}/legal`);
+			robots?.setAttribute("content", "noindex, follow");
+			return;
+		}
+
+		document.title = "EpiTime - emploi du temps EPITA, PWA et Android";
+		canonical?.setAttribute("href", `${window.location.origin}/`);
+		robots?.setAttribute("content", "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1");
+	}, [isLegalPage]);
+
+	React.useEffect(() => {
 		if (getAnalyticsConsent() === analyticsConsentValues.accepted) {
 			enableAnalyticsTracking();
 			loadAnalyticsScript();
@@ -55,8 +71,9 @@ function AppContent() {
 
 	const handleDeclineAnalytics = React.useCallback(() => {
 		setAnalyticsConsent(analyticsConsentValues.declined);
-		disableAnalyticsTracking();
+		const mustReload = disableAnalyticsTracking();
 		setShowCookieBanner(false);
+		if (mustReload) window.location.reload();
 	}, []);
 
 	if (isLegalPage) {

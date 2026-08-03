@@ -12,7 +12,7 @@ import {
 const SettingsModal = ({ show, onClose }) => {
 	const [analyticsEnabled, setAnalyticsEnabled] = React.useState(() => getAnalyticsConsent() === analyticsConsentValues.accepted);
 	const { users, enabledAnalytics, loading: uniqueUsersLoading, error: uniqueUsersError, refresh } = useUniqueUsers({ enabled: show });
-	const formattedUsers = typeof users === "number" ? new Intl.NumberFormat("fr-FR").format(users) : "—";
+	const formattedUsers = typeof users === "number" ? new Intl.NumberFormat("fr-FR").format(users) : "-";
 
 	React.useEffect(() => {
 		if (!show) return;
@@ -22,8 +22,9 @@ const SettingsModal = ({ show, onClose }) => {
 	const handleToggleAnalytics = async () => {
 		if (analyticsEnabled) {
 			setAnalyticsConsent(analyticsConsentValues.declined);
-			disableAnalyticsTracking();
+			const mustReload = disableAnalyticsTracking();
 			setAnalyticsEnabled(false);
+			if (mustReload) window.location.reload();
 			return;
 		}
 
@@ -97,7 +98,7 @@ const SettingsModal = ({ show, onClose }) => {
 							<p className="settings-text">
 								<strong>Mesure d'usage limitée (après votre accord)</strong>
 								<br />
-								<strong>Aucune identification utilisateur envoyée</strong>
+								<strong>Un identifiant aléatoire local par navigateur, après accord</strong>
 								<br />
 								<strong>Aucun nom, e-mail, identifiant de compte ou jeton transmis à Rybbit</strong>
 								<br />
