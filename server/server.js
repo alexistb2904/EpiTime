@@ -558,7 +558,7 @@ async function proxyAnalyticsOverview(siteId, routePath, res) {
 		const endDate = now.toISOString().slice(0, 10);
 		const startDate = "2020-01-01";
 
-		const url = `${RYBBIT_API_BASE.replace(/\/$/, "")}/overview/${encodeURIComponent(siteId)}?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&time_zone=${encodeURIComponent(RYBBIT_TIME_ZONE)}`;
+		const url = `${RYBBIT_API_BASE.replace(/\/$/, "")}/sites/${encodeURIComponent(siteId)}/overview?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&time_zone=${encodeURIComponent(RYBBIT_TIME_ZONE)}`;
 
 		const upstream = await fetch(url, {
 			headers: {
