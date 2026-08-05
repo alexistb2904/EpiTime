@@ -10,6 +10,7 @@ services:
             NODE_ENV: ${NODE_ENV:-production}
             PORT: 3001
             ZEUS_BASE: ${ZEUS_BASE:-https://zeus.ionis-it.com}
+            ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001,http://127.0.0.1:3001,http://192.168.1.62:3001,https://epitime.epita.it,https://epitime.alexis.qzz.io,https://epitime.alexistb.com}
             VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
             VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
             EXPO_PUSH_API_URL: ${EXPO_PUSH_API_URL:-https://exp.host/--/api/v2/push/send}
