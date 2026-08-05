@@ -36,7 +36,7 @@ COPY server/package*.json ./
 
 RUN npm install --production
 
-COPY server/server.js .
+COPY server/ ./
 
 COPY --from=client-builder /client/dist ./public
 
