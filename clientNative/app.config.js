@@ -39,19 +39,14 @@ module.exports = ({ config }) => {
 	const expoProjectId = read("EXPO_PUBLIC_EXPO_PROJECT_ID", extra.eas?.projectId);
 	const googleServicesFile = read("GOOGLE_SERVICES_JSON", config.android?.googleServicesFile);
 	const apiBase = read("EXPO_PUBLIC_API_BASE", extra.apiBase);
-	const isReleaseBuild =
-		process.env.NODE_ENV === "production" ||
-		["preview", "production"].includes(process.env.EAS_BUILD_PROFILE);
+	const rybbitAnalyticsHost = read("EXPO_PUBLIC_RYBBIT_API_BASE", read("RYBBIT_API_BASE", extra.rybbitAnalyticsHost));
+	const rybbitSiteId = read("EXPO_PUBLIC_RYBBIT_SITE_ID", read("RYBBIT_PHONE_SITE_ID", extra.rybbitSiteId));
+	const isReleaseBuild = process.env.NODE_ENV === "production" || ["preview", "production"].includes(process.env.EAS_BUILD_PROFILE);
 	if (isReleaseBuild && apiBase && !/^https:\/\//i.test(apiBase)) {
 		throw new Error("EXPO_PUBLIC_API_BASE must use HTTPS for preview and production Android builds.");
 	}
 	const appGroupIdentifier = "group.fr.alexistb2904.epitime";
-	const blockedAndroidPermissions = [
-		...new Set([
-			...(config.android?.blockedPermissions || []),
-			"android.permission.SYSTEM_ALERT_WINDOW",
-		]),
-	];
+	const blockedAndroidPermissions = [...new Set([...(config.android?.blockedPermissions || []), "android.permission.SYSTEM_ALERT_WINDOW"])];
 	const androidWidgetConfig = {
 		widgets: [
 			{
@@ -139,6 +134,8 @@ module.exports = ({ config }) => {
 		extra: {
 			...extra,
 			apiBase,
+			rybbitAnalyticsHost,
+			rybbitSiteId,
 			microsoftClientId: read("EXPO_PUBLIC_MICROSOFT_CLIENT_ID", extra.microsoftClientId),
 			microsoftTenant: read("EXPO_PUBLIC_MICROSOFT_TENANT", extra.microsoftTenant),
 			microsoftRedirectUri: read("EXPO_PUBLIC_MICROSOFT_REDIRECT_URI", extra.microsoftRedirectUri),

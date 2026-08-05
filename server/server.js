@@ -20,6 +20,8 @@ const PORT = process.env.PORT || 3001;
 const ZEUS_BASE = process.env.ZEUS_BASE || "https://zeus.ionis-it.com";
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || "";
 const RYBBIT_API_BASE = process.env.RYBBIT_API_BASE || "";
+const RYBBIT_SITE_NUMBER = process.env.RYBBIT_SITE_NUMBER || "";
+const RYBBIT_PHONE_NUMBER = process.env.RYBBIT_PHONE_NUMBER || "";
 const RYBBIT_SITE_ID = process.env.RYBBIT_SITE_ID || "";
 const RYBBIT_PHONE_SITE_ID = process.env.RYBBIT_PHONE_SITE_ID || "";
 const RYBBIT_API_KEY = process.env.RYBBIT_API_KEY || "";
@@ -586,9 +588,9 @@ async function proxyAnalyticsOverview(siteId, routePath, res) {
 	}
 }
 
-app.get("/api/analytics/overview", async (_req, res) => proxyAnalyticsOverview(RYBBIT_SITE_ID, "/api/analytics/overview", res));
+app.get("/api/analytics/overview", async (_req, res) => proxyAnalyticsOverview(RYBBIT_SITE_NUMBER, "/api/analytics/overview", res));
 
-app.get("/api/analytics/phone/overview", async (_req, res) => proxyAnalyticsOverview(RYBBIT_PHONE_SITE_ID, "/api/analytics/phone/overview", res));
+app.get("/api/analytics/phone/overview", async (_req, res) => proxyAnalyticsOverview(RYBBIT_PHONE_NUMBER, "/api/analytics/phone/overview", res));
 
 async function forwardAnalyticsEvent(event, properties) {
 	const isPhoneEvent = properties?.platform === "android" || properties?.platform === "ios";
@@ -610,12 +612,12 @@ async function forwardAnalyticsEvent(event, properties) {
 	}
 }
 
-app.post("/api/analytics/event", analyticsEventRateLimit, (req, res) => {
+/* app.post("/api/analytics/event", analyticsEventRateLimit, (req, res) => {
 	const result = validateAnalyticsPayload(req.body);
 	if (!result.ok) return res.status(400).json({ ok: false, error: result.error });
 	void forwardAnalyticsEvent(result.event, result.properties);
 	return res.status(202).json({ ok: true, accepted: true });
-});
+}); */
 
 app.post("/api/auth", async (req, res) => {
 	try {

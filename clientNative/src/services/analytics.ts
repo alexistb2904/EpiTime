@@ -1,30 +1,22 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import rybbit from "@rybbit/react-native";
 import Constants from "expo-constants";
 import { AppState, Platform } from "react-native";
 import { publicConfig } from "./config";
 import { isNetworkOnline, subscribeNetworkState } from "./networkStatus";
-import {
-	ANALYTICS_QUEUE_TTL_MS,
-	MAX_ANALYTICS_QUEUE_SIZE,
-	canTrackAnalytics,
-	pruneAnalyticsQueue,
-	sanitizeAnalyticsEventName,
-	sanitizeAnalyticsProperties,
-	type AnalyticsProperties,
-	type QueuedAnalyticsEvent,
-} from "./analyticsUtils";
+import { canTrackAnalytics, sanitizeAnalyticsEventName, sanitizeAnalyticsProperties, type AnalyticsProperties } from "./analyticsUtils";
 
 export type { AnalyticsProperties } from "./analyticsUtils";
 
 const CONSENT_KEY = "epitime_analytics_consent_native";
-const QUEUE_KEY = "epitime_analytics_queue_native";
-const REQUEST_TIMEOUT_MS = 2500;
-const API_BASE = (publicConfig.apiBase || "").replace(/\/$/, "");
+const RYBBIT_API_BASE = (publicConfig.rybbitAnalyticsHost || "").replace(/\/$/, "");
+const RYBBIT_SITE_ID = publicConfig.rybbitSiteId || "";
 const DEBUG = process.env.EXPO_PUBLIC_ANALYTICS_DEBUG === "true";
 
 let networkUnsubscribe: (() => void) | null = null;
-let flushPromise: Promise<void> | null = null;
 let lastNetworkStatus: "online" | "offline" | null = null;
+let initializationPromise: Promise<boolean> | null = null;
+let initialized = false;
 
 const getMetadata = () => ({
 	platform: Platform.OS === "ios" ? "ios" : "android",
@@ -33,67 +25,37 @@ const getMetadata = () => ({
 	environment: typeof __DEV__ === "boolean" && __DEV__ ? "development" : "production",
 });
 
-async function readQueue() {
-	try {
-		const raw = await AsyncStorage.getItem(QUEUE_KEY);
-		if (!raw) return [];
-		const parsed = JSON.parse(raw) as QueuedAnalyticsEvent[];
-		return Array.isArray(parsed) ? pruneAnalyticsQueue(parsed) : [];
-	} catch {
-		return [];
+async function initializeRybbit() {
+	if (initialized) return true;
+	if (!RYBBIT_API_BASE || !RYBBIT_SITE_ID) {
+		if (DEBUG) console.warn("[analytics] Rybbit native config is incomplete");
+		return false;
 	}
-}
+	if (initializationPromise) return initializationPromise;
 
-async function writeQueue(queue: QueuedAnalyticsEvent[]) {
-	try {
-		await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(pruneAnalyticsQueue(queue)));
-	} catch {
-		// Analytics storage is best effort.
-	}
-}
-
-async function sendToBackend(item: QueuedAnalyticsEvent) {
-	if (!API_BASE) throw new Error("Analytics API base is not configured");
-	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-	try {
-		const response = await fetch(`${API_BASE}/api/analytics/event`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json", Accept: "application/json" },
-			body: JSON.stringify({ event: item.event, properties: item.properties }),
-			signal: controller.signal,
+	initializationPromise = rybbit
+		.init({
+			analyticsHost: RYBBIT_API_BASE,
+			siteId: RYBBIT_SITE_ID,
+			appIdentifier: Constants.expoConfig?.android?.package || Constants.expoConfig?.ios?.bundleIdentifier || "fr.alexistb2904.epitime",
+			appVersion: Constants.nativeAppVersion || Constants.expoConfig?.version || "unknown",
+			storage: AsyncStorage,
+			autoTrackAppLifecycle: false,
+			debug: DEBUG,
+		})
+		.then(() => {
+			initialized = true;
+			return true;
+		})
+		.catch((error) => {
+			if (DEBUG) console.warn("[analytics] Rybbit initialization failed", error);
+			return false;
+		})
+		.finally(() => {
+			initializationPromise = null;
 		});
-		if (!response.ok) throw new Error(`Analytics HTTP ${response.status}`);
-	} finally {
-		clearTimeout(timeout);
-	}
-}
 
-async function enqueue(item: QueuedAnalyticsEvent) {
-	const queue = await readQueue();
-	await writeQueue([...queue, item].slice(-MAX_ANALYTICS_QUEUE_SIZE));
-}
-
-async function flushPendingEvents() {
-	if (flushPromise) return flushPromise;
-	flushPromise = (async () => {
-		if (!(await getAnalyticsConsent())) return;
-		const queue = await readQueue();
-		if (!queue.length) return;
-		const remaining: QueuedAnalyticsEvent[] = [];
-		for (let index = 0; index < queue.length; index++) {
-			try {
-				await sendToBackend(queue[index]);
-			} catch {
-				remaining.push(...queue.slice(index));
-				break;
-			}
-		}
-		await writeQueue(remaining);
-	})().finally(() => {
-		flushPromise = null;
-	});
-	return flushPromise;
+	return initializationPromise;
 }
 
 function subscribeToNetwork() {
@@ -104,7 +66,7 @@ function subscribeToNetwork() {
 			lastNetworkStatus = status;
 			void trackEvent("network_status_changed", { status });
 		}
-		if (status === "online") void flushPendingEvents();
+		if (status === "online" && initialized) void rybbit.flush();
 	});
 }
 
@@ -116,17 +78,19 @@ export async function getAnalyticsConsent() {
 	}
 }
 
-export async function setAnalyticsConsent(accepted: boolean) {
+export async function setAnalyticsConsent(accepted: boolean, userId?: string) {
 	try {
 		await AsyncStorage.setItem(CONSENT_KEY, accepted ? "accepted" : "declined");
 		if (!accepted) {
 			networkUnsubscribe?.();
 			networkUnsubscribe = null;
-			await AsyncStorage.removeItem(QUEUE_KEY);
+			if (initialized) await rybbit.clearUserId();
+			initialized = false;
 			return;
 		}
 		subscribeToNetwork();
-		await flushPendingEvents();
+		await initializeRybbit();
+		if (userId) await identifyAnalyticsUser(userId);
 	} catch {
 		// Consent changes must never interrupt the user flow.
 	}
@@ -135,24 +99,31 @@ export async function setAnalyticsConsent(accepted: boolean) {
 export async function initializeAnalytics() {
 	if (!(await getAnalyticsConsent())) return;
 	subscribeToNetwork();
-	await flushPendingEvents();
+	await initializeRybbit();
 }
 
 export async function trackEvent(eventName: string, properties: AnalyticsProperties = {}) {
 	if (!(await getAnalyticsConsent())) return;
 	const safeEventName = sanitizeAnalyticsEventName(eventName);
 	if (!safeEventName) return;
-	const item: QueuedAnalyticsEvent = {
-		event: safeEventName,
-		properties: { ...sanitizeAnalyticsProperties(safeEventName, properties), ...getMetadata() },
-		expiresAt: Date.now() + ANALYTICS_QUEUE_TTL_MS,
-	};
-	if (DEBUG) console.log(`[analytics] ${safeEventName}`);
+	if (!(await initializeRybbit())) return;
 	try {
-		await sendToBackend(item);
-	} catch {
-		await enqueue(item);
+		await rybbit.event(safeEventName, { ...sanitizeAnalyticsProperties(safeEventName, properties), ...getMetadata() });
+	} catch (error) {
+		if (DEBUG) console.warn(`[analytics] ${safeEventName} failed`, error);
 	}
+}
+
+export async function identifyAnalyticsUser(userId: string) {
+	if (!(await getAnalyticsConsent())) return;
+	const normalizedUserId = userId.trim();
+	if (!normalizedUserId || !(await initializeRybbit()) || rybbit.getUserId() === normalizedUserId) return;
+	await rybbit.identify(normalizedUserId);
+}
+
+export async function clearAnalyticsUser() {
+	if (!initialized) return;
+	await rybbit.clearUserId();
 }
 
 export function startAnalyticsLifecycleTracking() {

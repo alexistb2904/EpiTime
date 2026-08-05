@@ -25,7 +25,7 @@ import CalendarScreen from "./src/screens/CalendarScreen";
 import GradesScreen from "./src/screens/GradesScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
-import { initializeAnalytics, startAnalyticsLifecycleTracking, trackEvent } from "./src/services/analytics";
+import { clearAnalyticsUser, identifyAnalyticsUser, initializeAnalytics, startAnalyticsLifecycleTracking, trackEvent } from "./src/services/analytics";
 
 type RootTabParamList = {
 	Accueil: undefined;
@@ -88,6 +88,21 @@ function Root() {
 	const [onboardingReady, setOnboardingReady] = useState(false);
 	const handledNotificationResponseId = useRef<string | null>(null);
 	const aurigaAutoRefreshTriggeredRef = useRef(false);
+	const analyticsUserId = (session?.account as { id?: string } | null | undefined)?.id?.trim() || "";
+	const identifiedAnalyticsUserRef = useRef<string | null>(null);
+
+	useEffect(() => {
+		if (loading) return;
+		if (analyticsUserId) {
+			identifiedAnalyticsUserRef.current = analyticsUserId;
+			void identifyAnalyticsUser(analyticsUserId);
+			return;
+		}
+		if (identifiedAnalyticsUserRef.current) {
+			identifiedAnalyticsUserRef.current = null;
+			void clearAnalyticsUser();
+		}
+	}, [analyticsUserId, loading]);
 
 	useEffect(() => {
 		aurigaAutoRefreshTriggeredRef.current = false;

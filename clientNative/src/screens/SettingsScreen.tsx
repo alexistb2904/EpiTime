@@ -142,7 +142,7 @@ export default function SettingsScreen() {
 
 	const toggleAnalytics = async (enabled: boolean) => {
 		setAnalyticsEnabled(enabled);
-		await setAnalyticsConsent(enabled);
+		await setAnalyticsConsent(enabled, account?.id);
 		if (enabled) await trackEvent("analytics_consent_accepted", { source: "settings" });
 	};
 

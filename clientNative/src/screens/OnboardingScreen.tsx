@@ -120,7 +120,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 
 	const chooseAnalyticsConsent = async (accepted: boolean) => {
 		setConsentSaving(true);
-		await setAnalyticsConsent(accepted);
+		await setAnalyticsConsent(accepted, account?.id);
 		if (accepted) await trackEvent("analytics_consent_accepted", { source: "onboarding" });
 		setConsentSaving(false);
 		setStep("groups");

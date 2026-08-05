@@ -18,6 +18,8 @@ services:
             WEB_PUSH_STORE: /app/data/web-push-subscriptions.json
             MOBILE_PUSH_STORE: /app/data/mobile-push-subscriptions.json
             RYBBIT_API_BASE: ${RYBBIT_API_BASE:-}
+            RYBBIT_SITE_NUMBER: ${RYBBIT_SITE_NUMBER:-}
+            RYBBIT_PHONE_NUMBER: ${RYBBIT_PHONE_NUMBER:-}
             RYBBIT_SITE_ID: ${RYBBIT_SITE_ID:-}
             RYBBIT_PHONE_SITE_ID: ${RYBBIT_PHONE_SITE_ID:-}
             RYBBIT_API_KEY: ${RYBBIT_API_KEY:-}
