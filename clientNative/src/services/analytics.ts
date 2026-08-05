@@ -114,6 +114,17 @@ export async function trackEvent(eventName: string, properties: AnalyticsPropert
 	}
 }
 
+export async function trackScreen(name: string) {
+	if (!(await getAnalyticsConsent())) return;
+	const screen = name.trim();
+	if (!screen || !(await initializeRybbit())) return;
+	try {
+		await rybbit.screen(screen, undefined, { pathname: `/${screen}` });
+	} catch (error) {
+		if (DEBUG) console.warn(`[analytics] screen ${screen} failed`, error);
+	}
+}
+
 export async function identifyAnalyticsUser(userId: string) {
 	if (!(await getAnalyticsConsent())) return;
 	const normalizedUserId = userId.trim();

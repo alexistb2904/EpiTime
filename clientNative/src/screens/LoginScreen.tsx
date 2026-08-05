@@ -4,7 +4,7 @@ import Animated, { Easing, FadeInDown, FadeInUp, useAnimatedStyle, useSharedValu
 import { BellRing, BookOpenCheck, CalendarDays, DoorOpen, LogIn, ShieldCheck } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { trackEvent } from "../services/analytics";
+import { trackEvent, trackScreen } from "../services/analytics";
 
 const features = [
 	{ icon: CalendarDays, title: "Agenda", text: "Cours, intervenants et salles." },
@@ -22,7 +22,7 @@ export default function LoginScreen() {
 	const pulse = useSharedValue(1);
 
 	useEffect(() => {
-		void trackEvent("screen_viewed", { screen: "login" });
+		void trackScreen("login");
 		drift.value = withRepeat(withTiming(1, { duration: 9000, easing: Easing.inOut(Easing.quad) }), -1, true);
 		pulse.value = withRepeat(
 			withSequence(withTiming(1.08, { duration: 1800, easing: Easing.inOut(Easing.quad) }), withTiming(1, { duration: 1800, easing: Easing.inOut(Easing.quad) })),

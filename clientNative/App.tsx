@@ -25,7 +25,7 @@ import CalendarScreen from "./src/screens/CalendarScreen";
 import GradesScreen from "./src/screens/GradesScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
-import { clearAnalyticsUser, identifyAnalyticsUser, initializeAnalytics, startAnalyticsLifecycleTracking, trackEvent } from "./src/services/analytics";
+import { clearAnalyticsUser, identifyAnalyticsUser, initializeAnalytics, startAnalyticsLifecycleTracking, trackEvent, trackScreen } from "./src/services/analytics";
 
 type RootTabParamList = {
 	Accueil: undefined;
@@ -64,7 +64,7 @@ function trackCurrentScreen() {
 	const screen = screenNames[navigationRef.getCurrentRoute()?.name || ""];
 	if (!screen || screen === lastTrackedScreen) return;
 	lastTrackedScreen = screen;
-	void trackEvent("screen_viewed", { screen });
+	void trackScreen(screen);
 }
 
 const linking: LinkingOptions<RootTabParamList> = {

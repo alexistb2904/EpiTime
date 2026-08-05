@@ -13,7 +13,7 @@ import { requestRequiredAppPermissions } from "../services/permissions";
 import { syncSchedule } from "../services/scheduleRepository";
 import { getJSON, setJSON } from "../services/storage";
 import { syncCourseWidgets } from "../services/widgets";
-import { setAnalyticsConsent, trackEvent } from "../services/analytics";
+import { setAnalyticsConsent, trackEvent, trackScreen } from "../services/analytics";
 import { Group, ZeusEvent } from "../types";
 import { startOfDay } from "../utils/calendar";
 
@@ -47,7 +47,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 		if (!trackedSteps.current.has("started")) {
 			trackedSteps.current.add("started");
 			void trackEvent("onboarding_started", { total_steps: 3 });
-			void trackEvent("screen_viewed", { screen: "onboarding" });
+			void trackScreen("onboarding");
 		}
 		const stepIndex = step === "intro" ? 1 : step === "analytics" ? 2 : 3;
 		if (trackedSteps.current.has(step)) return;
