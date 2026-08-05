@@ -29,6 +29,7 @@ import { type ScheduledNotificationItem } from "../../services/notifications";
 
 export function SettingsContent({
 	account,
+	analyticsEnabled,
 	aurigaDisconnecting,
 	checkForUpdates,
 	checking,
@@ -65,6 +66,7 @@ export function SettingsContent({
 	showDebugProgress,
 	clearDebugNotifications,
 	toggleGradeWeighting,
+	toggleAnalytics,
 	toggleLiveCourseProgress,
 	updateAvailable,
 	updateDebugSettings,
@@ -149,6 +151,25 @@ export function SettingsContent({
 				<Switch
 					value={materialYouEnabled}
 					onValueChange={(enabled) => void setMaterialYouEnabled(enabled)}
+					thumbColor={theme.accent}
+					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
+				/>
+			</Card>
+
+			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>CONFIDENTIALITÉ</Text>
+			<Card style={s.settingRow} variant="default" glow={false}>
+				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
+					<ShieldCheck color={theme.accent} size={20} />
+				</View>
+				<View style={s.settingBody}>
+					<Text style={[s.settingTitle, { color: theme.text }]}>Mesure d’audience anonyme</Text>
+					<Text style={[s.meta, { color: theme.muted }]}>
+						Analytics auto-hébergés, sans nom, e-mail ni identifiant de compte. Tu peux désactiver ce choix à tout moment.
+					</Text>
+				</View>
+				<Switch
+					value={analyticsEnabled}
+					onValueChange={(enabled) => void toggleAnalytics(enabled)}
 					thumbColor={theme.accent}
 					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
 				/>
@@ -441,10 +462,17 @@ export function CreditsModal({ visible, onClose }: { visible: boolean; onClose: 
 						<Text style={[s.meta, { color: theme.muted }]}>
 							La politique décrit les données locales, les connexions Microsoft, Zeus et Auriga, les notifications et vos droits.
 						</Text>
+						<Text style={[s.meta, { color: theme.muted }]}>La mesure d’audience mobile est désactivée par défaut et se contrôle dans la section Confidentialité.</Text>
 						<Pressable
 							onPress={() => void Linking.openURL("https://epitime.epita.it/legal")}
 							style={({ pressed }) => [s.legalLink, { backgroundColor: pressed ? theme.accentSoft : theme.surfaceSoft, borderColor: theme.border }]}>
 							<Text style={[s.legalLinkText, { color: theme.accent }]}>Lire le document complet</Text>
+							<ChevronRight color={theme.accent} size={18} />
+						</Pressable>
+						<Pressable
+							onPress={() => void Linking.openURL("https://epitime.epita.it/legal#terms")}
+							style={({ pressed }) => [s.legalLink, { backgroundColor: pressed ? theme.accentSoft : theme.surfaceSoft, borderColor: theme.border }]}>
+							<Text style={[s.legalLinkText, { color: theme.accent }]}>Lire les CGU</Text>
 							<ChevronRight color={theme.accent} size={18} />
 						</Pressable>
 					</Card>

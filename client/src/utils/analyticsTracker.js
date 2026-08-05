@@ -1,6 +1,53 @@
 import { analyticsConsentValues, getAnalyticsConsent } from "./analyticsConsent";
 
-const BLOCKED_PROP_KEYS = new Set(["email", "mail", "user", "username", "userid", "id", "token", "auth", "authentication", "phone", "name", "account", "accountid"]);
+const BLOCKED_PROP_KEYS = new Set([
+	"email",
+	"mail",
+	"user",
+	"username",
+	"userid",
+	"id",
+	"token",
+	"accesstoken",
+	"refreshtoken",
+	"authorization",
+	"auth",
+	"authentication",
+	"phone",
+	"name",
+	"firstname",
+	"lastname",
+	"account",
+	"accountid",
+	"teacher",
+	"teachername",
+	"room",
+	"roomname",
+	"group",
+	"groupname",
+	"course",
+	"coursename",
+	"title",
+	"url",
+	"message",
+	"errormessage",
+	"filename",
+]);
+
+const CONTROLLED_VALUES = {
+	calendar_loaded: { source: ["api", "cache"], result: ["success"], view_mode: ["week", "list", "day"], context_type: ["group", "teacher", "room"] },
+	group_selection_saved: { result: ["success", "empty"] },
+	calendar_view_changed: { view_mode: ["week", "list", "day"] },
+	calendar_context_changed: { context_type: ["group", "teacher", "room"], source: ["event_details", "calendar_header", "room_search"] },
+	notification_permission_result: { result: ["granted", "denied", "default", "unsupported"], source: ["notification_settings"] },
+	notification_subscription_result: { result: ["success", "failure"], source: ["notification_settings"] },
+	pwa_install_result: { result: ["accepted", "dismissed", "installed", "manual_instructions", "unavailable"], method: ["prompt", "ios", "unknown"] },
+	room_map_opened: { source: ["event_details", "room_search"] },
+	online_course_link_opened: { source: ["event_details"], link_type: ["course"] },
+	event_details_load_failed: { result: ["failure"], source: ["event_details"], phase: ["reservation_details"] },
+	preview_opened: { preview_type: ["android", "web", "pwa"] },
+	bug_report_opened: { source: ["settings"] },
+};
 
 const isTrackingAllowed = () => {
 	if (typeof window === "undefined") return false;
@@ -30,8 +77,9 @@ const sanitizeValue = (value) => {
 	return undefined;
 };
 
-const sanitizeProperties = (properties = {}) => {
+const sanitizeProperties = (eventName, properties = {}) => {
 	const output = {};
+	const valuePolicies = CONTROLLED_VALUES[eventName] || {};
 
 	Object.entries(properties).forEach(([rawKey, rawValue]) => {
 		if (!rawKey) return;
@@ -40,6 +88,8 @@ const sanitizeProperties = (properties = {}) => {
 		if (!key) return;
 		const compactKey = key.replace(/[_-]/g, "");
 		if (BLOCKED_PROP_KEYS.has(compactKey)) return;
+		const allowedValues = valuePolicies[key];
+		if (allowedValues && !allowedValues.includes(rawValue)) return;
 
 		const value = sanitizeValue(rawValue);
 		if (value === undefined || value === "") return;
@@ -59,7 +109,7 @@ export const trackEvent = (eventName, properties = {}) => {
 	if (!safeName) return;
 
 	try {
-		const safeProps = sanitizeProperties(properties);
+		const safeProps = sanitizeProperties(safeName, properties);
 		window.rybbit.event(safeName, safeProps);
 	} catch {
 		// rien

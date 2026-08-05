@@ -8,6 +8,7 @@ import type { AurigaSyllabus } from "../services/aurigaTypes";
 import { ZeusEvent } from "../types";
 import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba, openUrl } from "../utils/calendar";
 import { getRoomMapUrl } from "../utils/rooms";
+import { trackEvent } from "../services/analytics";
 import CourseNotesSection from "./CourseNotesSection";
 
 type EventDetailsModalProps = {
@@ -22,7 +23,17 @@ type EventDetailsModalProps = {
 	onOpenSyllabus?: (syllabus: AurigaSyllabus) => void;
 };
 
-export default function EventDetailsModal({ event, onClose, onApplyContext, onDelete, onIgnore, onReactivate, onNotesChanged, linkedSyllabus, onOpenSyllabus }: EventDetailsModalProps) {
+export default function EventDetailsModal({
+	event,
+	onClose,
+	onApplyContext,
+	onDelete,
+	onIgnore,
+	onReactivate,
+	onNotesChanged,
+	linkedSyllabus,
+	onOpenSyllabus,
+}: EventDetailsModalProps) {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
 	if (!event) return null;
@@ -118,7 +129,12 @@ export default function EventDetailsModal({ event, onClose, onApplyContext, onDe
 											<Text style={[s.eventItemName, { color: theme.text }]} numberOfLines={1}>
 												{roomName}
 											</Text>
-											<Pressable style={s.eventItemAction} onPress={() => openUrl(getRoomMapUrl(roomName))}>
+											<Pressable
+												style={s.eventItemAction}
+												onPress={() => {
+													void trackEvent("map_opened", { source: "event_details", service: "epita_maps" });
+													openUrl(getRoomMapUrl(roomName));
+												}}>
 												<ExternalLink color={theme.muted} size={18} />
 											</Pressable>
 											<Pressable style={[s.eventItemBtn, { backgroundColor: theme.bg }]} onPress={() => onApplyContext("room", roomId, roomName)}>

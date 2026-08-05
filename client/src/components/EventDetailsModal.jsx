@@ -1,5 +1,6 @@
 import React from "react";
 import { AlertTriangle, CalendarDays, Clock3, Laptop, Link2, Timer, X } from "lucide-react";
+import { trackEvent } from "../utils/analyticsTracker";
 
 const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 	if (!event) return null;
@@ -131,7 +132,11 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 								<Clock3 size={14} aria-hidden="true" />
 								Horaire
 							</div>
-							<div className="detail-value">{isSameDay ? `${formatTime(event.startObj)} - ${formatTime(event.endObj)}` : `${formatShortDateTime(event.startObj)} - ${formatShortDateTime(event.endObj)}`}</div>
+							<div className="detail-value">
+								{isSameDay
+									? `${formatTime(event.startObj)} - ${formatTime(event.endObj)}`
+									: `${formatShortDateTime(event.startObj)} - ${formatShortDateTime(event.endObj)}`}
+							</div>
 						</div>
 						<div className="event-detail-stat-card">
 							<div className="detail-label">
@@ -144,12 +149,14 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 
 					{event.teachers && event.teachers.length > 0 && (
 						<div className="event-detail-section">
-							<span className="detail-label">
-								Intervenants
-							</span>
+							<span className="detail-label">Intervenants</span>
 							<div className="event-detail-chip-row">
 								{event.teachers.map((t) => (
-									<button type="button" className="detail-chip" key={t.id || getTeacherName(t)} onClick={() => onContextSwitch("teacher", t.id, getTeacherName(t))}>
+									<button
+										type="button"
+										className="detail-chip"
+										key={t.id || getTeacherName(t)}
+										onClick={() => onContextSwitch("teacher", t.id, getTeacherName(t))}>
 										<span className="detail-chip-emoji" aria-hidden="true">
 											🎓
 										</span>
@@ -162,9 +169,7 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 
 					{event.rooms && event.rooms.length > 0 && (
 						<div className="event-detail-section">
-							<span className="detail-label">
-								Salles
-							</span>
+							<span className="detail-label">Salles</span>
 							<div className="event-detail-chip-row">
 								{event.rooms.map((r) => {
 									const roomId = r.id || r.room?.id;
@@ -182,7 +187,10 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 												className="detail-map-icon-btn"
 												title="Voir sur la carte"
 												aria-label={`Voir ${roomName} sur la carte`}
-												onClick={() => window.open(getRoomMapUrl(roomName), "_blank", "noopener,noreferrer")}>
+												onClick={() => {
+													trackEvent("room_map_opened", { source: "event_details" });
+													window.open(getRoomMapUrl(roomName), "_blank", "noopener,noreferrer");
+												}}>
 												<span aria-hidden="true">🗺️</span>
 											</button>
 										</span>
@@ -194,9 +202,7 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 
 					{event.groups && event.groups.length > 0 && (
 						<div className="event-detail-section">
-							<span className="detail-label">
-								Groupes
-							</span>
+							<span className="detail-label">Groupes</span>
 							<div className="event-detail-chip-row">
 								{event.groups.map((g) => (
 									<button type="button" className="detail-chip" key={g.id || g.name} onClick={() => onContextSwitch("group", g.id, g.name)}>
@@ -216,7 +222,12 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 								<Link2 size={14} aria-hidden="true" />
 								Lien
 							</span>
-							<a className="event-detail-link" href={event.url} target="_blank" rel="noopener noreferrer">
+							<a
+								className="event-detail-link"
+								href={event.url}
+								onClick={() => trackEvent("online_course_link_opened", { source: "event_details", link_type: "course" })}
+								target="_blank"
+								rel="noopener noreferrer">
 								{event.url}
 							</a>
 						</div>

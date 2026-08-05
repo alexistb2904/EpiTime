@@ -25,6 +25,7 @@ import CalendarScreen from "./src/screens/CalendarScreen";
 import GradesScreen from "./src/screens/GradesScreen";
 import NotificationsScreen from "./src/screens/NotificationsScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
+import { initializeAnalytics, startAnalyticsLifecycleTracking, trackEvent } from "./src/services/analytics";
 
 type RootTabParamList = {
 	Accueil: undefined;
@@ -50,6 +51,21 @@ type RootTabParamList = {
 };
 
 const navigationRef = createNavigationContainerRef<RootTabParamList>();
+const screenNames: Record<string, string> = {
+	Accueil: "home",
+	Agenda: "calendar",
+	Notes: "grades",
+	Notifications: "notifications",
+	Réglages: "settings",
+};
+let lastTrackedScreen: string | null = null;
+
+function trackCurrentScreen() {
+	const screen = screenNames[navigationRef.getCurrentRoute()?.name || ""];
+	if (!screen || screen === lastTrackedScreen) return;
+	lastTrackedScreen = screen;
+	void trackEvent("screen_viewed", { screen });
+}
 
 const linking: LinkingOptions<RootTabParamList> = {
 	prefixes: ["epitime://"],
@@ -146,8 +162,11 @@ function Root() {
 			if (!response) return;
 			const notificationId = response.notification.request.identifier;
 			if (handledNotificationResponseId.current === notificationId) return;
-			const data = response.notification.request.content.data as { type?: unknown; startsAt?: unknown; changeKey?: unknown; openPanel?: unknown; openTab?: unknown } | undefined;
+			const data = response.notification.request.content.data as
+				| { type?: unknown; startsAt?: unknown; changeKey?: unknown; openPanel?: unknown; openTab?: unknown }
+				| undefined;
 			if (data?.type === "auriga-grade" || data?.openTab === "notes") {
+				void trackEvent("notification_opened");
 				handledNotificationResponseId.current = notificationId;
 				if (navigationRef.isReady()) {
 					navigationRef.navigate("Notes", { mode: "notes" });
@@ -159,6 +178,7 @@ function Root() {
 				return;
 			}
 			if (data?.type !== "course-change" && data?.openPanel !== "event-changes") return;
+			void trackEvent("notification_opened");
 			handledNotificationResponseId.current = notificationId;
 			const params = {
 				openChangesPanel: true,
@@ -192,6 +212,8 @@ function Root() {
 	return (
 		<NavigationContainer
 			ref={navigationRef}
+			onReady={trackCurrentScreen}
+			onStateChange={trackCurrentScreen}
 			linking={linking}
 			theme={{
 				dark: resolvedMode === "dark",
@@ -235,6 +257,12 @@ function Root() {
 	);
 }
 export default function App() {
+	useEffect(() => {
+		void initializeAnalytics();
+		void trackEvent("app_opened", { launch_type: "unknown" });
+		return startAnalyticsLifecycleTracking();
+	}, []);
+
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			<SafeAreaProvider>

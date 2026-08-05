@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { androidAppDownloadUrl } from "../utils/downloadLinks";
+import { trackEvent } from "../utils/analyticsTracker";
 
 export const usePWA = () => {
 	const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -59,6 +60,7 @@ export const usePWA = () => {
 		}
 
 		const handleAppInstalled = () => {
+			trackEvent("pwa_install_result", { result: "installed", method: "prompt" });
 			setIsInstalled(true);
 			setShowInstallBanner(false);
 			setDeferredPrompt(null);
@@ -130,11 +132,13 @@ export const usePWA = () => {
 		console.log("🚀 Installation cliquée");
 
 		if (installMethod === "ios") {
+			trackEvent("pwa_install_result", { result: "manual_instructions", method: "ios" });
 			window.alert("Sur iPhone : appuie sur Partager, puis 'Sur l'écran d'accueil'.");
 			return;
 		}
 
 		if (!deferredPrompt) {
+			trackEvent("pwa_install_result", { result: "unavailable", method: installMethod || "unknown" });
 			console.error("❌ Pas de prompt d'installation disponible");
 			return;
 		}
@@ -142,6 +146,7 @@ export const usePWA = () => {
 		deferredPrompt.prompt();
 
 		const { outcome } = await deferredPrompt.userChoice;
+		trackEvent("pwa_install_result", { result: outcome === "accepted" ? "accepted" : "dismissed", method: "prompt" });
 		console.log(`✅ Installation PWA: ${outcome}`);
 
 		setShowInstallBanner(false);

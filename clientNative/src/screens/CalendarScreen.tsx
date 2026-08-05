@@ -38,6 +38,7 @@ import { Group, ZeusEvent } from "../types";
 import { eventOverlapsDay, getCourseColor, getRoomName, getWeekRange, startOfDay } from "../utils/calendar";
 import { CalendarContent } from "../components/calendar/CalendarContent";
 import { CalendarRouteParams, ScheduleContext, ViewMode, dayKey, getCourseProgress, getTargetEventKey, minute, rangeFor } from "../components/calendar/calendarModel";
+import { trackEvent } from "../services/analytics";
 
 export default function CalendarScreen() {
 	const { handleAuthExpired } = useAuth();
@@ -83,6 +84,7 @@ export default function CalendarScreen() {
 
 	const loadCalendar = useCallback(
 		async (nextContext = context, nextDate = currentDate, nextView = viewMode) => {
+			const startedAt = Date.now();
 			setLoading(true);
 			setError("");
 			const { start, end } = rangeFor(nextDate, nextView);
@@ -102,6 +104,14 @@ export default function CalendarScreen() {
 				});
 
 				setEvents(result.visibleEvents);
+				void trackEvent("calendar_loaded", {
+					source: result.source === "cache" ? "cache" : "api",
+					view_mode: nextView,
+					event_count: result.visibleEvents.length,
+					cancelled_count: result.visibleEvents.filter(isEventCancelled).length,
+					load_ms: Date.now() - startedAt,
+				});
+				if (result.source === "cache") void trackEvent("offline_cache_used", { resource: "calendar", result: "success" });
 				if (result.source === "network" && (result.changed || !result.exactCacheHit)) {
 					if (result.changes.length) {
 						setEventChanges(result.changes);
@@ -132,6 +142,8 @@ export default function CalendarScreen() {
 				await rescheduleCourseNoteReminders(cached.visibleEvents);
 				await refreshNoteSummaries();
 				setUsingCache(true);
+				void trackEvent("calendar_load_failed", { error_kind: "unknown", load_ms: Date.now() - startedAt });
+				void trackEvent("offline_cache_used", { resource: "calendar", result: "success" });
 				setError("");
 			} finally {
 				setLoading(false);
@@ -347,6 +359,7 @@ export default function CalendarScreen() {
 		setFocusedDay(next);
 		setPickerMonth(next);
 		setShowDatePicker(false);
+		void trackEvent("calendar_date_changed", { direction: "picker" });
 		loadCalendar(context, next, viewMode);
 	};
 
@@ -355,6 +368,7 @@ export default function CalendarScreen() {
 		setViewMode(mode);
 		setCurrentDate(nextDate);
 		await setJSON("viewMode", mode);
+		void trackEvent("calendar_view_changed", { view_mode: mode });
 		loadCalendar(context, nextDate, mode);
 	};
 
@@ -363,6 +377,7 @@ export default function CalendarScreen() {
 		next.setDate(next.getDate() + (viewMode === "day" ? delta : delta * 7));
 		setCurrentDate(next);
 		if (viewMode !== "day") setFocusedDay(startOfDay(next));
+		void trackEvent("calendar_date_changed", { direction: delta > 0 ? "next" : "previous" });
 		loadCalendar(context, next, viewMode);
 	};
 
@@ -380,6 +395,7 @@ export default function CalendarScreen() {
 	const applyContext = (type: "single-group" | "teacher" | "room", id?: string | number, label = "Filtre") => {
 		if (!id) return;
 		const nextContext = { type, ids: [id], label };
+		void trackEvent("calendar_context_changed", { context_type: type === "single-group" ? "group" : type });
 		setContext(nextContext);
 		setSelectedEvent(null);
 		loadCalendar(nextContext);
@@ -393,6 +409,11 @@ export default function CalendarScreen() {
 
 	const openDetails = async (event: ZeusEvent) => {
 		setSelectedEvent(event);
+		void trackEvent("event_details_opened", {
+			has_room: Boolean(event.rooms?.length),
+			has_teacher: Boolean(event.teachers?.length),
+			is_cancelled: isEventCancelled(event),
+		});
 		if (!event.idReservation || isManualEvent(event) || isEventCancelled(event)) return;
 		try {
 			const details = await getReservationDetails(event.idReservation);

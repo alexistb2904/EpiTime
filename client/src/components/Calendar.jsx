@@ -240,6 +240,12 @@ const Calendar = () => {
 				const reconciledEvents = reconcileEventsWithCache(apiEvents, Array.isArray(cachedEvents) ? cachedEvents : []);
 				setEvents(reconciledEvents);
 				localStorage.setItem(cacheKey, JSON.stringify(reconciledEvents));
+				trackEvent("calendar_loaded", {
+					source: "api",
+					result: "success",
+					view_mode: viewMode,
+					context_type: scheduleContext.type === "single-group" ? "group" : scheduleContext.type,
+				});
 			}
 		} catch (err) {
 			const cachedEvents = localStorage.getItem(cacheKey);
@@ -321,6 +327,11 @@ const Calendar = () => {
 			if (selectedEventRequestRef.current !== requestId) return;
 			setSelectedEvent(mergedEvent);
 		} catch (err) {
+			trackEvent("event_details_load_failed", {
+				result: "failure",
+				source: "event_details",
+				phase: "reservation_details",
+			});
 			console.error("Erreur chargement détails réservation:", err);
 			if (selectedEventRequestRef.current !== requestId) return;
 			setSelectedEvent({ ...ev, loadingDetails: false });
@@ -504,16 +515,28 @@ const Calendar = () => {
 
 	const handleContextSwitch = (type, id, label) => {
 		const contextType = type === "group" ? "single-group" : type;
+		trackEvent("calendar_context_changed", {
+			context_type: type,
+			source: "event_details",
+		});
 		setScheduleContext({ type: contextType, ids: [id], label });
 		setSelectedEvent(null);
 	};
 
 	const resetContext = () => {
+		trackEvent("calendar_context_changed", {
+			context_type: "group",
+			source: "calendar_header",
+		});
 		setScheduleContext({ type: "group", ids: selectedGroups, label: "Mes Groupes" });
 	};
 
 	const applyRoomCalendarFilter = (room) => {
 		if (!room?.id) return;
+		trackEvent("calendar_context_changed", {
+			context_type: "room",
+			source: "room_search",
+		});
 		setScheduleContext({
 			type: "room",
 			ids: [room.id],
@@ -525,6 +548,7 @@ const Calendar = () => {
 	const handleViewModeChange = (mode) => {
 		setViewMode(mode);
 		localStorage.setItem("zeus_view_mode", mode);
+		trackEvent("calendar_view_changed", { view_mode: mode });
 	};
 
 	const CurrentTimeLine = () => {
@@ -741,7 +765,11 @@ const Calendar = () => {
 											onClick={() => handleEventClick(ev)}
 											style={{
 												borderLeftColor: cancelled ? "var(--text-secondary)" : ev.courseColor || "var(--accent-color)",
-												backgroundColor: cancelled ? "var(--bg-secondary)" : ev.courseColor ? ev.courseColor.replace("hsl", "hsla").replace("%)", "%, 0.2)") : "transparent",
+												backgroundColor: cancelled
+													? "var(--bg-secondary)"
+													: ev.courseColor
+														? ev.courseColor.replace("hsl", "hsla").replace("%)", "%, 0.2)")
+														: "transparent",
 											}}>
 											<div className="list-top-row">
 												{cancelled && <span className="chip cancelled-chip">Annulé</span>}
@@ -851,6 +879,10 @@ const Calendar = () => {
 				setGroupSearch={setGroupSearch}
 				onValidate={() => {
 					setShowGroupModal(false);
+					trackEvent("group_selection_saved", {
+						result: selectedGroups.length > 0 ? "success" : "empty",
+						group_count: selectedGroups.length,
+					});
 					loadCalendar();
 				}}
 			/>

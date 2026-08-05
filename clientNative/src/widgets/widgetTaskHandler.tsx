@@ -7,6 +7,7 @@ import { SemesterGradesWidget } from "./SemesterGradesWidget";
 import { SemesterOverviewWidget } from "./SemesterOverviewWidget";
 import { UpcomingCoursesWidget } from "./UpcomingCoursesWidget";
 import { emptyWidgetPayload } from "./courseWidgetFormat";
+import { trackEvent } from "../services/analytics";
 
 const widgets = {
 	NextCourse: NextCourseWidget,
@@ -24,6 +25,8 @@ const CourseWidgets = NativeModules.EpiTimeCourseWidgets as
 export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
 	const Widget = widgets[props.widgetInfo.widgetName as keyof typeof widgets];
 	if (!Widget || props.widgetAction === "WIDGET_DELETED") return;
+	const widgetType = widgetTypeForName(props.widgetInfo.widgetName);
+	if (props.widgetAction === "WIDGET_CLICK") void trackEvent("widget_opened", { widget_type: widgetType, source: "manual" });
 
 	const shouldForceRefresh = props.widgetAction === "WIDGET_CLICK" && props.clickAction === COURSE_WIDGET_REFRESH_ACTION;
 	const payload = shouldForceRefresh
@@ -32,10 +35,18 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
 			? await getStoredCourseWidgetPayload()
 			: await refreshCourseWidgetsFromStoredConfig();
 	const safePayload = payload || emptyWidgetPayload;
+	void trackEvent("widget_data_refreshed", { widget_type: widgetType, source: shouldForceRefresh ? "manual" : "automatic", result: "success" });
 	props.renderWidget({
 		light: React.createElement(Widget, { payload: safePayload, theme: "light" }),
 		dark: React.createElement(Widget, { payload: safePayload, theme: "dark" }),
 	});
+}
+
+function widgetTypeForName(name: string) {
+	if (name === "NextCourse") return "next_course";
+	if (name === "UpcomingCourses") return "upcoming_courses";
+	if (name === "SemesterGrades") return "semester_grades";
+	return "semester_overview";
 }
 
 async function shouldUseStoredPayload(props: WidgetTaskHandlerProps) {

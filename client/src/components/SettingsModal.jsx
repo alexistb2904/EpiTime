@@ -8,6 +8,7 @@ import {
 	loadAnalyticsScript,
 	setAnalyticsConsent,
 } from "../utils/analyticsConsent";
+import { trackEvent } from "../utils/analyticsTracker";
 
 const SettingsModal = ({ show, onClose }) => {
 	const [analyticsEnabled, setAnalyticsEnabled] = React.useState(() => getAnalyticsConsent() === analyticsConsentValues.accepted);
@@ -58,7 +59,12 @@ const SettingsModal = ({ show, onClose }) => {
 					<div className="settings-section">
 						<h3 className="settings-section-title">🐞 Signaler un bug</h3>
 						<p className="settings-text">Vous avez rencontré un problème ? Merci de le signaler pour améliorer l'application.</p>
-						<a href="https://github.com/alexistb2904/EpiTime/issues/new" target="_blank" rel="noopener noreferrer" className="btn-primary settings-btn">
+						<a
+							href="https://github.com/alexistb2904/EpiTime/issues/new"
+							onClick={() => trackEvent("bug_report_opened", { source: "settings" })}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="btn-primary settings-btn">
 							📝 Signaler sur GitHub
 						</a>
 					</div>

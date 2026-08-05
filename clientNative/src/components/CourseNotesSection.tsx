@@ -19,6 +19,7 @@ import {
 import { getLocalEventKey } from "../services/localEvents";
 import { ZeusEvent } from "../types";
 import { openUrl } from "../utils/calendar";
+import { trackEvent } from "../services/analytics";
 
 type CourseNotesSectionProps = {
 	event: ZeusEvent;
@@ -42,6 +43,7 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 		setLoading(true);
 		try {
 			const next = await getCourseNotes(eventKey);
+			void trackEvent("course_notes_opened");
 			setNotes(next);
 			setNoteDirtyMap(Object.fromEntries(next.map((note) => [note.id, false])));
 		} finally {
@@ -69,6 +71,7 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 			},
 		]);
 		setNoteDirtyMap((items) => ({ ...items, [draftId]: true }));
+		void trackEvent("course_note_created", { has_text: false, has_attachment: false });
 	};
 
 	const updateNote = (noteId: string, patch: Partial<CourseNote>) => {
@@ -81,6 +84,10 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 		setSavingId(note.id);
 		try {
 			const saved = await upsertNote(event, note);
+			void trackEvent(note.id.startsWith("draft-") ? "course_note_created" : "course_note_updated", {
+				has_text: Boolean(note.body.trim()),
+				has_attachment: note.attachments.length > 0,
+			});
 			setNotes((items) => items.map((item) => (item.id === note.id ? saved : item)));
 			setNoteDirtyMap((items) => {
 				const next = { ...items };
@@ -104,6 +111,7 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 				style: "destructive",
 				onPress: async () => {
 					if (!note.id.startsWith("draft-")) await deleteCourseNote(eventKey, note.id);
+					void trackEvent("course_note_deleted");
 					setNotes((items) => items.filter((item) => item.id !== note.id));
 					setNoteDirtyMap((items) => {
 						const next = { ...items };
@@ -183,6 +191,10 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 			const attachment = await copyCourseNoteAttachment({ eventKey, noteId: savedNote.id, ...input });
 			const next = { ...savedNote, attachments: [...savedNote.attachments, attachment] };
 			const updated = await upsertNote(event, next);
+			void trackEvent("course_note_attachment_added", {
+				has_attachment: true,
+				attachment_type: input.mimeType?.includes("pdf") ? "pdf" : input.kind === "photo" ? "image" : "other",
+			});
 			setNotes((items) => items.map((item) => (item.id === note.id || item.id === savedNote.id ? updated : item)));
 			onChanged?.();
 		} catch (err: any) {
@@ -223,6 +235,7 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 				return copy;
 			});
 			onChanged?.();
+			void trackEvent(next.enabled ? (note.reminder ? "reminder_updated" : "reminder_created") : "reminder_deleted", { source: "event_details" });
 		} catch (err: any) {
 			Alert.alert("Rappel", err?.message || "Impossible d'appliquer le rappel.");
 			throw err;

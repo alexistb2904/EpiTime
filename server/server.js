@@ -5,6 +5,8 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import webpush from "web-push";
+import rateLimit from "express-rate-limit";
+import { validateAnalyticsPayload } from "./analyticsValidation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const readPositiveDuration = (value, fallback, minimum) => {
@@ -510,6 +512,14 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 
+const analyticsEventRateLimit = rateLimit({
+	windowMs: 10 * 60 * 1000,
+	limit: 120,
+	standardHeaders: true,
+	legacyHeaders: false,
+	message: { error: "Analytics rate limit exceeded" },
+});
+
 let publicPath;
 if (process.env.NODE_ENV === "production") {
 	publicPath = path.join(__dirname, "public");
@@ -572,6 +582,31 @@ app.get("/api/analytics/overview", async (_req, res) => {
 		console.error("/api/analytics/overview error", err);
 		return res.status(500).json({ error: "Analytics proxy error" });
 	}
+});
+
+async function forwardAnalyticsEvent(event, properties) {
+	if (!RYBBIT_API_BASE || !RYBBIT_SITE_ID || !RYBBIT_API_KEY) return;
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), 2500);
+	try {
+		await fetch(`${RYBBIT_API_BASE.replace(/\/$/, "")}/track`, {
+			method: "POST",
+			headers: { Authorization: `Bearer ${RYBBIT_API_KEY}`, "Content-Type": "application/json" },
+			body: JSON.stringify({ site_id: RYBBIT_SITE_ID, type: "custom_event", event_name: event, properties: JSON.stringify(properties) }),
+			signal: controller.signal,
+		});
+	} catch {
+		// Analytics is best effort and must never affect the app-facing response.
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
+app.post("/api/analytics/event", analyticsEventRateLimit, (req, res) => {
+	const result = validateAnalyticsPayload(req.body);
+	if (!result.ok) return res.status(400).json({ ok: false, error: result.error });
+	void forwardAnalyticsEvent(result.event, result.properties);
+	return res.status(202).json({ ok: true, accepted: true });
 });
 
 app.post("/api/auth", async (req, res) => {

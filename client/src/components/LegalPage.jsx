@@ -9,7 +9,7 @@ import {
 } from "../utils/analyticsConsent";
 import "./LegalPage.css";
 
-const LAST_UPDATED = "15 juillet 2026";
+const LAST_UPDATED = "5 août 2026";
 
 export default function LegalPage() {
 	const [analyticsEnabled, setAnalyticsEnabled] = React.useState(() => getAnalyticsConsent() === analyticsConsentValues.accepted);
@@ -60,6 +60,7 @@ export default function LegalPage() {
 					<a href="#cookies">Cookies &amp; audience</a>
 					<a href="#rights">Vos droits</a>
 					<a href="#mentions">Mentions légales</a>
+					<a href="#terms">CGU</a>
 				</nav>
 
 				<section id="privacy" className="legal-section">
@@ -119,13 +120,22 @@ export default function LegalPage() {
 										est alors supprimé.
 									</td>
 								</tr>
+								<tr>
+									<td>Événements techniques de mesure d’audience, uniquement après consentement (web et application mobile)</td>
+									<td>Comprendre l’utilisation des fonctions et améliorer EpiTime, sans publicité ciblée.</td>
+									<td>
+										Consentement facultatif. EpiTime n’envoie pas de nom, e-mail, identifiant de compte, token, contenu de cours, notes ou note personnelle. Les
+										données techniques de connexion peuvent être traitées par l’instance Rybbit auto-hébergée.
+									</td>
+								</tr>
 							</tbody>
 						</table>
 					</div>
 					<div className="legal-note">
 						<strong>Destinataires.</strong> EpiTime ne vend pas les données personnelles et ne les utilise pas pour de la publicité ciblée. Microsoft, Zeus et Auriga
 						reçoivent les requêtes nécessaires aux fonctions que vous activez. Pour les notifications mobiles, le jeton et le contenu de la notification sont transmis à
-						Expo, puis au service de notification du système d'exploitation. Ces services appliquent leurs propres politiques de confidentialité.
+						Expo, puis au service de notification du système d'exploitation. L’application mobile transmet ses événements d’audience à l’API EpiTime le serveur les
+						valide avant transmission à Rybbit. Ces services appliquent leurs propres politiques de confidentialité.
 					</div>
 				</section>
 
@@ -145,6 +155,11 @@ export default function LegalPage() {
 						<p>
 							La mesure sert uniquement à améliorer l'application et le site. Elle ne sert ni à la publicité ciblée ni au suivi entre sites. Le refus n'empêche pas
 							l'utilisation d'EpiTime et votre choix peut être modifié à tout moment ici ou dans les paramètres web.
+						</p>
+						<p>
+							Dans l’application mobile, la collecte est désactivée par défaut pour un nouvel utilisateur et n’est activée qu’après un choix explicite dans
+							l’onboarding ou les réglages. Les événements transitent par l’API EpiTime, qui supprime les propriétés interdites avant transmission. La désactivation
+							vide la file locale d’événements en attente.
 						</p>
 						<div className="legal-consent" aria-live="polite">
 							<div>
@@ -186,9 +201,39 @@ export default function LegalPage() {
 					</div>
 				</section>
 
+				<section id="terms" className="legal-section legal-section--split">
+					<div className="legal-section-intro">
+						<p className="legal-kicker">04 - Conditions générales d’utilisation</p>
+						<h2>Un service personnel et indépendant.</h2>
+					</div>
+					<div className="legal-copy">
+						<p>
+							EpiTime est fourni à titre personnel et indépendant pour faciliter la consultation de données accessibles depuis les services tiers utilisés par
+							l’utilisateur. Son utilisation implique l’acceptation des présentes conditions et de la politique de confidentialité.
+						</p>
+						<p>
+							L’utilisateur est responsable de ses comptes, de ses identifiants et des autorisations accordées à l’application. Il s’engage à ne pas détourner le
+							service, contourner les protections des services tiers, ni utiliser EpiTime pour porter atteinte aux droits d’autrui.
+						</p>
+						<p>
+							EpiTime dépend de Microsoft, Zeus, Auriga, des services de notification et de l’hébergement réseau. Des interruptions, erreurs ou décalages peuvent
+							survenir les informations importantes doivent être vérifiées auprès des plateformes officielles. L’éditeur peut faire évoluer, suspendre ou arrêter une
+							fonction pour des raisons techniques, de sécurité ou de disponibilité.
+						</p>
+						<p>
+							Les notes, fichiers, photos et autres contenus ajoutés dans l’application restent sous la responsabilité de l’utilisateur. Le code d’EpiTime est publié
+							sous licence MIT les marques et données des services tiers restent la propriété de leurs titulaires.
+						</p>
+						<p>
+							Pour toute question relative au service ou à ces conditions : <a href="mailto:contact@alexistb.com">contact@alexistb.com</a>. Les conditions peuvent
+							être mises à jour la date affichée en tête de page indique la version en vigueur.
+						</p>
+					</div>
+				</section>
+
 				<section id="mentions" className="legal-section legal-section--mentions">
 					<div className="legal-section-intro">
-						<p className="legal-kicker">04 - Mentions légales</p>
+						<p className="legal-kicker">05 - Mentions légales</p>
 						<h2>Édition, contenu et code.</h2>
 					</div>
 					<div className="legal-copy legal-mentions-grid">

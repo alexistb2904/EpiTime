@@ -5,6 +5,7 @@ import { loginWithMicrosoft } from "../services/auth";
 import { unregisterExpoPushToken } from "../services/api";
 import { getExistingPushToken } from "../services/notifications";
 import { Session } from "../types";
+import { trackEvent } from "../services/analytics";
 type C = {
 	session: Session | null;
 	loading: boolean;
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}, [session]);
 	const login = useCallback(async () => {
 		setLoading(true);
+		void trackEvent("login_started", { method: "microsoft", flow: "unknown" });
 
 		try {
 			const nextSession = await loginWithMicrosoft();
@@ -46,10 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 			}
 
 			setSession(nextSession);
+			void trackEvent("login_completed", { method: "microsoft", flow: "unknown" });
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Erreur inconnue pendant la connexion.";
+			const lowerMessage = message.toLowerCase();
+			const errorKind = lowerMessage.includes("cancel") ? "cancelled" : lowerMessage.includes("network") || lowerMessage.includes("timeout") ? "network" : "unknown";
 
 			console.error("[AUTH] Login failed:", error);
+			void trackEvent("login_failed", { method: "microsoft", flow: "unknown", error_kind: errorKind });
 			Alert.alert("Connexion impossible", message);
 		} finally {
 			setLoading(false);
@@ -57,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	const logout = useCallback(async () => {
+		void trackEvent("logout_triggered");
 		await unregisterCurrentDevicePush(session).catch(() => {});
 		await clearSession();
 		setSession(null);

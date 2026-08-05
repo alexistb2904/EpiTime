@@ -199,7 +199,10 @@ const Login = () => {
 							<button
 								className="preview-card-image-button"
 								type="button"
-								onClick={() => openPreview("/icons/androidapp.png", "Aperçu de l’application Android EpiTime")}
+								onClick={() => {
+									trackEvent("preview_opened", { preview_type: "android" });
+									openPreview("/icons/androidapp.png", "Aperçu de l’application Android EpiTime");
+								}}
 								aria-label="Ouvrir en grand l’aperçu Android">
 								<img src="/icons/androidapp.png" alt="Aperçu de l’application Android EpiTime" className="preview-card-image-element" />
 							</button>
@@ -217,7 +220,10 @@ const Login = () => {
 							<button
 								className="preview-card-image-button"
 								type="button"
-								onClick={() => openPreview("/icons/webapp.png", "Aperçu de l’application web EpiTime")}
+								onClick={() => {
+									trackEvent("preview_opened", { preview_type: "web" });
+									openPreview("/icons/webapp.png", "Aperçu de l’application web EpiTime");
+								}}
 								aria-label="Ouvrir en grand l’aperçu web">
 								<img src="/icons/webapp.png" alt="Aperçu de l’application web EpiTime" className="preview-card-image-element" />
 							</button>
@@ -232,7 +238,10 @@ const Login = () => {
 							<button
 								className="preview-card-image-button"
 								type="button"
-								onClick={() => openPreview("/icons/pwa.png", "Aperçu de la PWA EpiTime")}
+								onClick={() => {
+									trackEvent("preview_opened", { preview_type: "pwa" });
+									openPreview("/icons/pwa.png", "Aperçu de la PWA EpiTime");
+								}}
 								aria-label="Ouvrir en grand l’aperçu PWA">
 								<img src="/icons/pwa.png" alt="Aperçu de la PWA EpiTime" className="preview-card-image-element" />
 							</button>

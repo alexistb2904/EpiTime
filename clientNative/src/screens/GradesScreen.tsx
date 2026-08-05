@@ -38,6 +38,7 @@ import { buildGradesPeriods, type DisplayGrade, type DisplaySubject, type Displa
 import { exportSemesterSyllabusPdf, getAvailableSyllabusSemesters, type SyllabusExportDetail } from "../services/syllabusExport";
 import { clearGradeWidgetSummary, syncGradeWidgetsFromStoredData } from "../services/widgets";
 import { AuthHeader, ConnectCard, GradesContent, s } from "../components/grades/GradesComponents";
+import { trackEvent } from "../services/analytics";
 
 type GradesMode = "notes" | "syllabus";
 type AurigaSyncSource = "auto" | "button" | "login" | "pull";
@@ -117,6 +118,14 @@ export default function GradesScreen() {
 	const [rememberAurigaCredentials, setRememberAurigaCredentials] = useState(false);
 	const syllabusExportSemesters = useMemo(() => getAvailableSyllabusSemesters(syllabusList, selectedSemester), [selectedSemester, syllabusList]);
 
+	useEffect(() => {
+		if (selectedSubject) void trackEvent("grade_subject_opened");
+	}, [selectedSubject]);
+
+	useEffect(() => {
+		if (selectedSyllabus) void trackEvent("syllabus_opened");
+	}, [selectedSyllabus]);
+
 	const resetAurigaView = useCallback((options: { clearCredentials?: boolean } = {}) => {
 		setConnected(false);
 		setOffline(false);
@@ -139,12 +148,27 @@ export default function GradesScreen() {
 		}
 	}, []);
 
-	const rebuildPeriods = useCallback((grades: AurigaGrade[], syllabus: AurigaSyllabus[], manual: ManualGrade[], weighted: boolean, coefficientOverrides: SubjectCoefficientOverrides, overrides: GradeOverrides) => {
-		const built = buildGradesPeriods(grades, syllabus, { manualGrades: manual, useWeightedAverages: weighted, subjectCoefficientOverrides: coefficientOverrides, gradeOverrides: overrides });
-		setPeriods(built);
-		setSelectedSemester((current) => (current !== null && built.some((period) => period.semester === current) ? current : latestSemester(built)));
-		return built;
-	}, []);
+	const rebuildPeriods = useCallback(
+		(
+			grades: AurigaGrade[],
+			syllabus: AurigaSyllabus[],
+			manual: ManualGrade[],
+			weighted: boolean,
+			coefficientOverrides: SubjectCoefficientOverrides,
+			overrides: GradeOverrides
+		) => {
+			const built = buildGradesPeriods(grades, syllabus, {
+				manualGrades: manual,
+				useWeightedAverages: weighted,
+				subjectCoefficientOverrides: coefficientOverrides,
+				gradeOverrides: overrides,
+			});
+			setPeriods(built);
+			setSelectedSemester((current) => (current !== null && built.some((period) => period.semester === current) ? current : latestSemester(built)));
+			return built;
+		},
+		[]
+	);
 
 	const hydrateCache = useCallback(async () => {
 		const [cachedGrades, cachedSyllabus, syncDate, manual, weighted, coefficientOverrides, overrides] = await Promise.all([
@@ -169,6 +193,7 @@ export default function GradesScreen() {
 
 	const refreshAuriga = useCallback(
 		async (source: AurigaSyncSource = "button") => {
+			const startedAt = Date.now();
 			const isPullRefresh = source === "pull";
 			const isButtonRefresh = source === "button";
 			const showSyncStatus = source === "login" || source === "auto";
@@ -179,7 +204,12 @@ export default function GradesScreen() {
 			if (source === "auto") setAurigaStatus({ type: "loading", message: "Récupération des informations Auriga..." });
 			try {
 				const data = await syncAurigaData();
-				const [manual, weighted, coefficientOverrides, overrides] = await Promise.all([getManualGrades(), getUseWeightedAverages(), getSubjectCoefficientOverrides(), getGradeOverrides()]);
+				const [manual, weighted, coefficientOverrides, overrides] = await Promise.all([
+					getManualGrades(),
+					getUseWeightedAverages(),
+					getSubjectCoefficientOverrides(),
+					getGradeOverrides(),
+				]);
 				setRawGrades(data.grades);
 				setSyllabusList(data.syllabus);
 				setManualGrades(manual);
@@ -189,6 +219,7 @@ export default function GradesScreen() {
 				rebuildPeriods(data.grades, data.syllabus, manual, weighted, coefficientOverrides, overrides);
 				setLastSync(await getAurigaLastSync());
 				setConnected(true);
+				void trackEvent("grades_loaded", { source: "api", grade_count: data.grades.length, subject_count: data.syllabus.length, load_ms: Date.now() - startedAt });
 				setOffline(false);
 				await registerPlanningNotificationBackgroundSync().catch(() => {});
 				if (source === "login") setAurigaStatus({ type: "success", message: "Connexion Auriga réussie. Notes synchronisées." });
@@ -199,6 +230,8 @@ export default function GradesScreen() {
 				if (error instanceof AurigaAuthError) setConnected(false);
 				setOffline(true);
 				setAurigaStatus({ type: "error", message: error instanceof Error ? error.message : "Récupération Auriga impossible." });
+				void trackEvent("grades_load_failed", { error_kind: error instanceof AurigaAuthError ? "unknown" : "network", load_ms: Date.now() - startedAt });
+				void trackEvent("offline_cache_used", { resource: "grades", result: "success" });
 				return false;
 			} finally {
 				setRefreshing(false);
@@ -276,7 +309,16 @@ export default function GradesScreen() {
 	useFocusEffect(
 		useCallback(() => {
 			let active = true;
-			Promise.all([getManualGrades(), getUseWeightedAverages(), getSubjectCoefficientOverrides(), getGradeOverrides(), hasAurigaRefreshToken(), getCachedAurigaGrades(), getCachedAurigaSyllabus(), getAurigaLastSync()])
+			Promise.all([
+				getManualGrades(),
+				getUseWeightedAverages(),
+				getSubjectCoefficientOverrides(),
+				getGradeOverrides(),
+				hasAurigaRefreshToken(),
+				getCachedAurigaGrades(),
+				getCachedAurigaSyllabus(),
+				getAurigaLastSync(),
+			])
 				.then(([manual, weighted, coefficientOverrides, overrides, hasToken, cachedGrades, cachedSyllabus, syncDate]) => {
 					if (!active) return;
 					if (!hasToken && cachedGrades.length === 0 && cachedSyllabus.length === 0 && !syncDate) {
@@ -388,6 +430,7 @@ export default function GradesScreen() {
 		const built = rebuildPeriods(rawGrades, syllabusList, manualGrades, useWeightedAverages, overrides, gradeOverrides);
 		setSelectedSubject((current) => (current ? findSubjectInPeriods(built, current.id) || current : current));
 		await syncGradeWidgetsFromStoredData().catch(() => {});
+		void trackEvent("grade_coefficient_changed");
 		return built;
 	};
 
@@ -395,17 +438,27 @@ export default function GradesScreen() {
 		const overrides = await setGradeOverride(key, patch);
 		setGradeOverrides(overrides);
 		const built = rebuildPeriods(rawGrades, syllabusList, manualGrades, useWeightedAverages, subjectCoefficientOverrides, overrides);
-		setSelectedGrade((current) => current ? flattenSubjects(built.find((period) => period.semester === selectedSemester) || built[0] || null).flatMap(({ subject }) => subject.grades).find((grade) => grade.overrideKey === current.overrideKey) || current : current);
+		setSelectedGrade((current) =>
+			current
+				? flattenSubjects(built.find((period) => period.semester === selectedSemester) || built[0] || null)
+						.flatMap(({ subject }) => subject.grades)
+						.find((grade) => grade.overrideKey === current.overrideKey) || current
+				: current
+		);
 		setSelectedSubject((current) => (current ? findSubjectInPeriods(built, current.id) || current : current));
 		await syncGradeWidgetsFromStoredData().catch(() => {});
 	};
 
 	const openSyllabusExport = () => {
-		const fallbackSemester = selectedSemester && syllabusExportSemesters.includes(selectedSemester) ? selectedSemester : syllabusExportSemesters[syllabusExportSemesters.length - 1] ?? 1;
+		const fallbackSemester =
+			selectedSemester && syllabusExportSemesters.includes(selectedSemester) ? selectedSemester : (syllabusExportSemesters[syllabusExportSemesters.length - 1] ?? 1);
 		const nextStartSemester = syllabusExportSemesters.includes(syllabusExportStartSemester) ? syllabusExportStartSemester : fallbackSemester;
 		setSyllabusExportStartSemester(nextStartSemester);
-		setSyllabusExportEndSemester((currentSemester) => (currentSemester >= nextStartSemester && syllabusExportSemesters.includes(currentSemester) ? currentSemester : nextStartSemester));
+		setSyllabusExportEndSemester((currentSemester) =>
+			currentSemester >= nextStartSemester && syllabusExportSemesters.includes(currentSemester) ? currentSemester : nextStartSemester
+		);
 		setSyllabusExportVisible(true);
+		void trackEvent("syllabus_export_started", { export_format: "pdf" });
 	};
 
 	const changeSyllabusExportStartSemester = (semester: number) => {
@@ -415,6 +468,7 @@ export default function GradesScreen() {
 
 	const exportSyllabus = async (detail: SyllabusExportDetail) => {
 		setExportingSyllabus(true);
+		void trackEvent("pdf_download_started", { document_type: "syllabus" });
 		try {
 			const result = await exportSemesterSyllabusPdf({
 				syllabus: syllabusList,
@@ -425,6 +479,8 @@ export default function GradesScreen() {
 				detail,
 			});
 			setSyllabusExportVisible(false);
+			void trackEvent("syllabus_export_completed", { export_format: "pdf" });
+			void trackEvent("pdf_download_completed", { document_type: "syllabus" });
 			if (!result.saved || !result.uri) {
 				Alert.alert("Téléchargement annulé", "Aucun fichier n’a été enregistré.");
 				return;
@@ -434,11 +490,15 @@ export default function GradesScreen() {
 				{
 					text: "Ouvrir",
 					onPress: () => {
-						void Linking.openURL(result.uri!).catch(() => Alert.alert("Impossible d’ouvrir le PDF", "Aucune application compatible n’est disponible sur cet appareil."));
+						void Linking.openURL(result.uri!).catch(() =>
+							Alert.alert("Impossible d’ouvrir le PDF", "Aucune application compatible n’est disponible sur cet appareil.")
+						);
 					},
 				},
 			]);
 		} catch (error) {
+			void trackEvent("syllabus_export_failed", { export_format: "pdf", error_kind: "unknown" });
+			void trackEvent("pdf_download_failed", { document_type: "syllabus", error_kind: "unknown" });
 			Alert.alert("Export impossible", error instanceof Error ? error.message : "Le syllabus n’a pas pu être exporté.");
 		} finally {
 			setExportingSyllabus(false);
@@ -454,15 +514,15 @@ export default function GradesScreen() {
 				onPress: () => {
 					void clearGradeWidgetSummary().catch(() => {});
 					void Promise.all([
-							logoutAuriga(),
-							clearRememberedAurigaCredentials(),
-							clearAurigaCache(),
-							clearSubjectCoefficientOverrides(),
-							clearGradeOverrides(),
-							clearAurigaGradeNotificationHistory(),
-						]).then(() => {
+						logoutAuriga(),
+						clearRememberedAurigaCredentials(),
+						clearAurigaCache(),
+						clearSubjectCoefficientOverrides(),
+						clearGradeOverrides(),
+						clearAurigaGradeNotificationHistory(),
+					]).then(() => {
 						resetAurigaView({ clearCredentials: true });
-						});
+					});
 				},
 			},
 		]);
@@ -500,7 +560,11 @@ export default function GradesScreen() {
 
 	return (
 		<GradesContent
-			addManualGrade={addManualGrade}
+			addManualGrade={async (input: Omit<ManualGrade, "id" | "createdAt">) => {
+				const result = await addManualGrade(input);
+				void trackEvent("manual_grade_added");
+				return result;
+			}}
 			aurigaIdentifier={aurigaIdentifier}
 			aurigaPassword={aurigaPassword}
 			connectWithAurigaId={connectWithAurigaId}

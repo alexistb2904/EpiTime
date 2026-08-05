@@ -26,24 +26,33 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 		if (!notificationSettings.enabled) {
 			// Activer : demander permission d'abord
 			if (!("Notification" in window)) {
+				trackEvent("notification_permission_result", { result: "unsupported", source: "notification_settings" });
 				alert("Les notifications ne sont pas supportées sur ce navigateur");
 				return;
 			}
 
 			if (Notification.permission === "denied") {
+				trackEvent("notification_permission_result", { result: "denied", source: "notification_settings" });
 				alert("Les notifications sont bloquées. Veuillez les autoriser dans les paramètres de votre navigateur.");
 				return;
 			}
 
 			if (Notification.permission !== "granted") {
 				const permission = await Notification.requestPermission();
+				trackEvent("notification_permission_result", { result: permission, source: "notification_settings" });
 				if (permission !== "granted") {
 					alert("Permission de notification refusée");
 					return;
 				}
+			} else {
+				trackEvent("notification_permission_result", { result: "granted", source: "notification_settings" });
 			}
 
 			const subscription = await registerPushNotifications();
+			trackEvent("notification_subscription_result", {
+				result: subscription ? "success" : "failure",
+				source: "notification_settings",
+			});
 			if (!subscription) {
 				alert("Impossible d'enregistrer les notifications push");
 				return;

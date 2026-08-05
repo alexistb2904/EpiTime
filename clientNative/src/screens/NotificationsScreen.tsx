@@ -22,6 +22,7 @@ import {
 import { readCachedSelectedGroupsSchedule } from "../services/scheduleRepository";
 import { getJSON } from "../services/storage";
 import { daysOfWeek } from "../utils/calendar";
+import { trackEvent } from "../services/analytics";
 
 export default function NotificationsScreen() {
 	const { theme } = useTheme();
@@ -60,6 +61,8 @@ export default function NotificationsScreen() {
 			await clearLocalCourseNotifications();
 			await registerPlanningNotificationBackgroundSync();
 		}
+		const minutesBucket = next.minutesBefore <= 10 ? "0_10" : next.minutesBefore <= 30 ? "11_30" : next.minutesBefore <= 60 ? "31_60" : "61_plus";
+		void trackEvent("notification_settings_saved", { source: "settings", selected_days_count: next.selectedDays.length, minutes_bucket: minutesBucket });
 	};
 
 	const enableRemote = async () => {
@@ -72,6 +75,7 @@ export default function NotificationsScreen() {
 			const next = { ...settings, enabled: true };
 			await ensureRemoteSubscription(next);
 			await saveSettings(next);
+			void trackEvent("notification_permission_result", { result: "granted", source: "settings" });
 			setMessage("Notifications activées pour cet appareil.");
 		} catch (err: any) {
 			if (isAuthReconnectRequiredError(err)) {
@@ -79,6 +83,7 @@ export default function NotificationsScreen() {
 				return;
 			}
 			setMessage("Activation échouée : " + (err?.message || "erreur inconnue"));
+			void trackEvent("notification_permission_result", { result: "failed", source: "settings" });
 		} finally {
 			setLoading(false);
 		}
@@ -105,6 +110,7 @@ export default function NotificationsScreen() {
 		setLoading(true);
 		try {
 			await sendLocalTestNotification();
+			void trackEvent("notification_test_sent", { source: "settings" });
 			try {
 				await sendMobileTestNotification(userId);
 				setMessage("Notification de test envoyée.");

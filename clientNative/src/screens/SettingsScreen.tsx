@@ -39,6 +39,7 @@ import { getRequiredAppPermissions, openAppPermissionSettings, requestRequiredAp
 import { readCachedSelectedGroupsSchedule } from "../services/scheduleRepository";
 import { getJSON } from "../services/storage";
 import { clearGradeWidgetSummary, syncGradeWidgetsFromStoredData } from "../services/widgets";
+import { getAnalyticsConsent, setAnalyticsConsent, trackEvent } from "../services/analytics";
 import { SettingsContent, buildNextDebugTargetDate, formatDebugTargetDate, wrapNumber } from "../components/settings/SettingsComponents";
 
 export default function SettingsScreen() {
@@ -52,6 +53,7 @@ export default function SettingsScreen() {
 	const [scheduledNotifications, setScheduledNotifications] = useState<ScheduledNotificationItem[]>([]);
 	const [scheduledNotificationsLoading, setScheduledNotificationsLoading] = useState(false);
 	const [useWeightedAverages, setUseWeightedAveragesState] = useState(true);
+	const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
 	const [aurigaDisconnecting, setAurigaDisconnecting] = useState(false);
 	const [creditsVisible, setCreditsVisible] = useState(false);
 	const [deletedEventsCount, setDeletedEventsCount] = useState(0);
@@ -107,6 +109,14 @@ export default function SettingsScreen() {
 		}, [notificationDebugSettings.enabled, refreshScheduledNotifications])
 	);
 
+	useFocusEffect(
+		useCallback(() => {
+			getAnalyticsConsent()
+				.then(setAnalyticsEnabled)
+				.catch(() => setAnalyticsEnabled(false));
+		}, [])
+	);
+
 	useEffect(() => {
 		if (notificationDebugSettings.enabled) void refreshScheduledNotifications();
 	}, [notificationDebugSettings.enabled, refreshScheduledNotifications]);
@@ -128,6 +138,17 @@ export default function SettingsScreen() {
 		} catch {
 			setUseWeightedAveragesState(!enabled);
 		}
+	};
+
+	const toggleAnalytics = async (enabled: boolean) => {
+		setAnalyticsEnabled(enabled);
+		await setAnalyticsConsent(enabled);
+		if (enabled) await trackEvent("analytics_consent_accepted", { source: "settings" });
+	};
+
+	const changeTheme = async (nextMode: "system" | "light" | "dark") => {
+		await setThemeMode(nextMode);
+		void trackEvent("theme_changed", { to_theme: nextMode });
 	};
 
 	const disconnectAuriga = () => {
@@ -326,6 +347,7 @@ export default function SettingsScreen() {
 	return (
 		<SettingsContent
 			account={account}
+			analyticsEnabled={analyticsEnabled}
 			aurigaDisconnecting={aurigaDisconnecting}
 			checkForUpdates={checkForUpdates}
 			checking={checking}
@@ -358,10 +380,11 @@ export default function SettingsScreen() {
 			scheduledNotificationsLoading={scheduledNotificationsLoading}
 			setCreditsVisible={setCreditsVisible}
 			setMaterialYouEnabled={setMaterialYouEnabled}
-			setThemeMode={setThemeMode}
+			setThemeMode={changeTheme}
 			showDebugProgress={showDebugProgress}
 			clearDebugNotifications={clearDebugNotifications}
 			toggleGradeWeighting={toggleGradeWeighting}
+			toggleAnalytics={toggleAnalytics}
 			toggleLiveCourseProgress={toggleLiveCourseProgress}
 			updateAvailable={updateAvailable}
 			updateDebugSettings={updateDebugSettings}

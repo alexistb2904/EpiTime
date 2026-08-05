@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeInUp, Layout, SlideInRight } from "react-native-reanimated";
 import { BellRing, BookOpenCheck, CalendarDays, Check, DoorOpen, LogOut, Search, ShieldCheck, Users } from "lucide-react-native";
@@ -13,6 +13,7 @@ import { requestRequiredAppPermissions } from "../services/permissions";
 import { syncSchedule } from "../services/scheduleRepository";
 import { getJSON, setJSON } from "../services/storage";
 import { syncCourseWidgets } from "../services/widgets";
+import { setAnalyticsConsent, trackEvent } from "../services/analytics";
 import { Group, ZeusEvent } from "../types";
 import { startOfDay } from "../utils/calendar";
 
@@ -30,15 +31,29 @@ const features = [
 export default function OnboardingScreen({ onDone }: Props) {
 	const { theme } = useTheme();
 	const { logout, session, handleAuthExpired } = useAuth();
-	const [step, setStep] = useState<"intro" | "groups">("intro");
+	const [step, setStep] = useState<"intro" | "analytics" | "groups">("intro");
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [selected, setSelected] = useState<(string | number)[]>([]);
 	const [search, setSearch] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	const [consentSaving, setConsentSaving] = useState(false);
 	const [error, setError] = useState("");
+	const trackedSteps = useRef(new Set<string>());
 	const account = session?.account as { id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
 	const userId = account?.id || account?.userPrincipalName || account?.mail || "";
+
+	useEffect(() => {
+		if (!trackedSteps.current.has("started")) {
+			trackedSteps.current.add("started");
+			void trackEvent("onboarding_started", { total_steps: 3 });
+			void trackEvent("screen_viewed", { screen: "onboarding" });
+		}
+		const stepIndex = step === "intro" ? 1 : step === "analytics" ? 2 : 3;
+		if (trackedSteps.current.has(step)) return;
+		trackedSteps.current.add(step);
+		void trackEvent("onboarding_step_viewed", { step, step_index: stepIndex, total_steps: 3 });
+	}, [step]);
 
 	useEffect(() => {
 		(async () => {
@@ -90,6 +105,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 			await syncCourseWidgets(schedule.visibleEvents);
 			await rescheduleCourseNoteReminders(schedule.visibleEvents);
 			await enableDefaultNotifications(schedule.activeEvents);
+			await trackEvent("onboarding_completed", { total_steps: 3 });
 			onDone();
 		} catch (err: any) {
 			if (isAuthReconnectRequiredError(err)) {
@@ -100,6 +116,14 @@ export default function OnboardingScreen({ onDone }: Props) {
 		} finally {
 			setSaving(false);
 		}
+	};
+
+	const chooseAnalyticsConsent = async (accepted: boolean) => {
+		setConsentSaving(true);
+		await setAnalyticsConsent(accepted);
+		if (accepted) await trackEvent("analytics_consent_accepted", { source: "onboarding" });
+		setConsentSaving(false);
+		setStep("groups");
 	};
 
 	const enableDefaultNotifications = async (events: ZeusEvent[]) => {
@@ -157,9 +181,37 @@ export default function OnboardingScreen({ onDone }: Props) {
 							);
 						})}
 
-						<Pressable style={[s.primary, { backgroundColor: theme.accent }]} onPress={() => setStep("groups")}>
+						<Pressable style={[s.primary, { backgroundColor: theme.accent }]} onPress={() => setStep("analytics")}>
 							<Users color="#fff" size={19} />
-							<Text style={s.primaryText}>Choisir mes groupes</Text>
+							<Text style={s.primaryText}>Continuer</Text>
+						</Pressable>
+					</Animated.View>
+				) : step === "analytics" ? (
+					<Animated.View entering={SlideInRight.duration(380)} style={s.stack}>
+						<Card style={s.hero}>
+							<View style={[s.featureIcon, { backgroundColor: theme.accentSoft }]}>
+								<ShieldCheck color={theme.accent} size={22} />
+							</View>
+							<Text style={[s.title, { color: theme.text }]}>Mesure d’audience anonyme</Text>
+							<Text style={[s.body, { color: theme.muted }]}>
+								EpiTime peut envoyer des événements techniques limités à un analytics auto-hébergé pour améliorer l’application.
+							</Text>
+							<Text style={[s.body, { color: theme.muted }]}>
+								Aucun nom, e-mail, identifiant de compte, token, cours ou contenu de note n’est envoyé. Tu peux modifier ce choix à tout moment dans les réglages.
+							</Text>
+						</Card>
+						<Pressable
+							style={[s.primary, { backgroundColor: theme.accent, opacity: consentSaving ? 0.7 : 1 }]}
+							onPress={() => void chooseAnalyticsConsent(true)}
+							disabled={consentSaving}>
+							<Check color="#fff" size={19} />
+							<Text style={s.primaryText}>Autoriser la mesure</Text>
+						</Pressable>
+						<Pressable
+							style={[s.secondary, { borderColor: theme.border, backgroundColor: theme.surface }]}
+							onPress={() => void chooseAnalyticsConsent(false)}
+							disabled={consentSaving}>
+							<Text style={[s.secondaryText, { color: theme.text }]}>Continuer sans autoriser</Text>
 						</Pressable>
 					</Animated.View>
 				) : (
@@ -251,6 +303,8 @@ const s = StyleSheet.create({
 	featureText: { marginTop: 4, lineHeight: 19 },
 	primary: { minHeight: 54, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, marginTop: 4 },
 	primaryText: { color: "#fff", fontWeight: "900", fontSize: 16 },
+	secondary: { minHeight: 52, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center", marginTop: 4 },
+	secondaryText: { fontWeight: "900", fontSize: 15 },
 	searchBox: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 8 },
 	searchInput: { flex: 1, minHeight: 48, fontSize: 16 },
 	selectionBar: { borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: "row", alignItems: "center", gap: 9 },

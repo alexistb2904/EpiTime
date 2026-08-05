@@ -443,6 +443,7 @@ const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], 
 														className="rf-room-map-btn"
 														onClick={(e) => {
 															e.stopPropagation();
+															trackEvent("room_map_opened", { source: "room_search" });
 															window.open(getMapUrl(room, locationsRaw), "_blank", "noopener,noreferrer");
 														}}>
 														Voir la carte
