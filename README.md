@@ -1,139 +1,501 @@
-# EpiTime - l’EDT joli pour remplacer Zeus (et Auriga)
+<div align="center">
 
-Zeus (https://zeus.ionis-it.com/) est pratique mais… pas franchement beau ni pensé pour le mobile. EpiTime apporte une version propre. Il existait bien EpiLife mais bon l'application n'est plus maintenue. Puis sur cette version tu peut consulter t'es notes.
+# EpiTime
+
+### L'emploi du temps EPITA, mais en mieux.
+
+Une interface moderne, responsive et pensée pour le mobile afin de consulter son emploi du temps, ses notes et ses informations académiques sans subir l'interface de Zeus ou d'Auriga.
+
+<br />
+
+<a href="https://epitime.epita.it">
+  <img src="https://img.shields.io/badge/Ouvrir%20EpiTime-ef4444?style=for-the-badge&logo=googlecalendar&logoColor=white" alt="Ouvrir EpiTime" />
+</a>
+<a href="https://github.com/alexistb2904/EpiTime">
+  <img src="https://img.shields.io/github/stars/alexistb2904/EpiTime?style=for-the-badge&logo=github&label=Stars&labelColor=161b22&color=ef4444" alt="GitHub stars" />
+</a>
+<a href="https://github.com/alexistb2904/EpiTime/blob/main/LICENSE">
+  <img src="https://img.shields.io/github/license/alexistb2904/EpiTime?style=for-the-badge&labelColor=161b22&color=ef4444" alt="Licence MIT" />
+</a>
+
+<br /><br />
+
+<img src="https://img.shields.io/badge/React-161b22?style=flat-square&logo=react&logoColor=61DAFB" alt="React" />
+<img src="https://img.shields.io/badge/TypeScript-161b22?style=flat-square&logo=typescript&logoColor=3178C6" alt="TypeScript" />
+<img src="https://img.shields.io/badge/React%20Native-161b22?style=flat-square&logo=react&logoColor=61DAFB" alt="React Native" />
+<img src="https://img.shields.io/badge/Expo-161b22?style=flat-square&logo=expo&logoColor=white" alt="Expo" />
+<img src="https://img.shields.io/badge/Express-161b22?style=flat-square&logo=express&logoColor=white" alt="Express" />
+<img src="https://img.shields.io/badge/Docker-161b22?style=flat-square&logo=docker&logoColor=2496ED" alt="Docker" />
+<img src="https://img.shields.io/badge/Coolify-161b22?style=flat-square&logo=coolify&logoColor=6B16ED" alt="Coolify" />
+
+</div>
+
+---
+
+## Présentation
+
+Zeus est pratique pour accéder aux données de scolarité, mais son interface n'est pas réellement pensée pour une utilisation quotidienne sur mobile.
+
+**EpiTime** propose une expérience plus moderne pour les étudiants de l'EPITA :
+
+* interface claire et responsive 
+* consultation de l'emploi du temps 
+* consultation des notes 
+* authentification Microsoft 
+* notifications web et mobiles 
+* fonctionnement sous forme de PWA 
+* application native Android
+* gestion du mode hors ligne 
+* statistiques d'utilisation respectueuses de la vie privée.
+
+L'objectif est simple : conserver les données utiles de Zeus et d'Auriga, tout en proposant une interface plus rapide, agréable et adaptée aux usages actuels.
+
+---
 
 ## Aperçus
 
-<img width="1920" height="1440" alt="772shots_so" src="https://github.com/user-attachments/assets/8d121cd5-324a-433e-b901-9d212a4f1b6a" />
-<img width="1920" height="1440" alt="706shots_so" src="https://github.com/user-attachments/assets/e143b555-98d4-4688-9a6a-8f49661b6e76" />
-<img width="1920" height="1440" alt="328shots_so" src="https://github.com/user-attachments/assets/ff841497-1700-4dd9-8d7c-c5f7dc7a3063" />
+<div align="center">
 
-## Installer en local
+<img width="32%" alt="Vue calendrier EpiTime" src="https://github.com/user-attachments/assets/8d121cd5-324a-433e-b901-9d212a4f1b6a" />
+<img width="32%" alt="Vue détaillée EpiTime" src="https://github.com/user-attachments/assets/e143b555-98d4-4688-9a6a-8f49661b6e76" />
+<img width="32%" alt="Vue mobile EpiTime" src="https://github.com/user-attachments/assets/ff841497-1700-4dd9-8d7c-c5f7dc7a3063" />
 
-1. Cloner le repo.
-2. Installer les dépendances :
-    ```bash
-    cd client && npm install
-    cd ../server && npm install
-    cd ../clientNative && npm install
-    ```
+</div>
 
-## Variables d’environnement
+---
 
-Créer un fichier `.env` à la racine (ou utiliser `.env.example`). Principales clés :
+## Fonctionnalités
 
-| Nom                                    | Valeur par défaut                            | Description                                                           |
-| -------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------- |
-| NODE_ENV                               | production                                   | `development` en local si besoin                                      |
-| PORT                                   | 3001                                         | Port interne du serveur Express                                       |
-| ZEUS_BASE                              | https://zeus.ionis-it.com                    | Base de l’API Zeus                                                    |
-| ALLOWED_ORIGINS                        | (vide)                                       | Liste d'origines CORS séparées par des virgules                       |
-| VAPID_PUBLIC_KEY                       | (vide)                                       | Clé publique VAPID pour push                                          |
-| VAPID_PRIVATE_KEY                      | (vide)                                       | Clé privée VAPID pour push                                            |
-| EXPO_PUSH_API_URL                      | https://exp.host/--/api/v2/push/send         | API Expo Push pour mobile natif                                       |
-| DATA_DIR                               | ./server/data                                | Dossier de persistance serveur (chemin relatif à la racine)           |
-| WEB_PUSH_STORE                         | ./server/data/web-push-subscriptions.json    | Store JSON des subscriptions Web Push                                 |
-| MOBILE_PUSH_STORE                      | ./server/data/mobile-push-subscriptions.json | Store JSON des tokens Expo Push                                       |
-| RYBBIT_API_BASE                        | https://app.rybbit.io/api                    | URL de l’API Rybbit                                                   |
-| RYBBIT_SITE_ID                         | (vide)                                       | ID du site dans Rybbit                                                |
-| RYBBIT_API_KEY                         | (vide)                                       | Clé API pour Rybbit                                                   |
-| RYBBIT_TIME_ZONE                       | Europe/Paris                                 | Fuseau horaire pour Rybbit                                            |
-| EXPO_PUBLIC_API_BASE                   | https://epitime.epita.it                     | URL publique utilisée par l'app Expo/web pour pointer l'API backend   |
-| EXPO_PUBLIC_MICROSOFT_CLIENT_ID        | votre_client_id                              | Client ID Microsoft (utilisé par l'app Expo/web pour OAuth)           |
-| EXPO_PUBLIC_MICROSOFT_TENANT           | epita.fr                                     | Tenant Microsoft par défaut pour l'OAuth                              |
-| EXPO_PUBLIC_MICROSOFT_REDIRECT_URI     | epitime://auth                               | Redirect URI deep link pour l'app mobile (Expo)                       |
-| EXPO_PUBLIC_MICROSOFT_WEB_REDIRECT_URI | (vide)                                       | Redirect URI pour la version web (si utilisée)                        |
-| EXPO_PUBLIC_EXPO_PROJECT_ID            | REPLACE_WITH_EAS_PROJECT_ID                  | Identifiant EAS (Expo Application Services) pour builds et deep links |
+### Emploi du temps
 
-Notes :
+* affichage clair des cours 
+* navigation par jour et par semaine 
+* détails sur les horaires, salles et matières 
+* interface responsive pour ordinateur, tablette et mobile 
+* mise en cache pour une consultation hors ligne.
 
-- En dev, Vite tourne sur 5000, Express sur 3001 (proxy /api).
-- En prod Docker, un reverse proxy doit pointer vers le port interne 3001.
+### Notes et données académiques
 
-## Lancer en dev
+* consultation des notes disponibles 
+* récupération des données via les services de l'EPITA 
+* affichage simplifié et lisible 
+* synchronisation après authentification.
 
-Deux terminaux :
+### Expérience mobile
 
-1. Front (Vite + HMR) :
+* PWA installable 
+* application React Native 
+* deep links d'authentification 
+* prise en charge d'Android
 
-    ```bash
-    cd client
-    npm run dev
-    ```
+### Confidentialité
 
-2. Back (Express) :
-    ```bash
-    cd server
-    npm start
-    ```
+* mesure d'audience uniquement après consentement 
+* instance Rybbit auto-hébergée 
+* aucune transmission du nom, de l'adresse e-mail ou du token Microsoft 
 
-### Mobile natif (Expo)
+---
 
-Depuis le dossier `clientNative`, tu peux lancer l'app Android/iOS directement :
+## Architecture
+
+```text
+EpiTime/
+├── client/            # Application web React / Vite
+├── clientNative/      # Application mobile React Native
+├── server/            # API Express et services backend
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
+
+### Stack technique
+
+| Partie                | Technologies            |
+| --------------------- | ----------------------- |
+| Application web       | React, TypeScript, Vite |
+| Application mobile    | React Native, Expo      |
+| Backend               | Node.js, Express        |
+| Authentification      | Microsoft OAuth         |
+| Notifications web     | Web Push, VAPID         |
+| Notifications mobiles | Expo Push Notifications |
+| Analytics             | Rybbit auto-hébergé     |
+| Conteneurisation      | Docker, Docker Compose  |
+| Déploiement           | Coolify                 |
+
+---
+
+## Installation locale
+
+### Prérequis
+
+Avant de commencer, assure-toi d'avoir installé :
+
+* Node.js 
+* npm 
+* Git 
+* Docker et Docker Compose pour le lancement conteneurisé 
+* Android Studio ou Xcode pour le développement mobile natif.
+
+### Cloner le projet
+
+```bash
+git clone https://github.com/alexistb2904/EpiTime.git
+cd EpiTime
+```
+
+### Installer les dépendances
+
+```bash
+cd client
+npm install
+
+cd ../server
+npm install
+
+cd ../clientNative
+npm install
+```
+
+---
+
+## Configuration
+
+Crée un fichier `.env` à la racine du projet.
+
+Tu peux également utiliser le fichier `.env.example` comme point de départ.
+
+```bash
+cp .env.example .env
+```
+
+<details>
+<summary><strong>Afficher les variables d'environnement</strong></summary>
+
+<br />
+
+| Variable                                 | Valeur par défaut                              | Description                                                        |
+| ---------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------ |
+| `NODE_ENV`                               | `production`                                   | Environnement d'exécution. Utiliser `development` en local.        |
+| `PORT`                                   | `3001`                                         | Port interne du serveur Express.                                   |
+| `ZEUS_BASE`                              | `https://zeus.ionis-it.com`                    | URL de base de l'API Zeus.                                         |
+| `ALLOWED_ORIGINS`                        | vide                                           | Origines CORS autorisées, séparées par des virgules.               |
+| `VAPID_PUBLIC_KEY`                       | vide                                           | Clé publique VAPID pour les notifications Web Push.                |
+| `VAPID_PRIVATE_KEY`                      | vide                                           | Clé privée VAPID pour les notifications Web Push.                  |
+| `EXPO_PUSH_API_URL`                      | `https://exp.host/--/api/v2/push/send`         | URL de l'API Expo Push.                                            |
+| `DATA_DIR`                               | `./server/data`                                | Répertoire de persistance du backend.                              |
+| `WEB_PUSH_STORE`                         | `./server/data/web-push-subscriptions.json`    | Fichier contenant les abonnements Web Push.                        |
+| `MOBILE_PUSH_STORE`                      | `./server/data/mobile-push-subscriptions.json` | Fichier contenant les tokens Expo Push.                            |
+| `RYBBIT_API_BASE`                        | `https://app.rybbit.io/api`                    | URL de l'API Rybbit.                                               |
+| `RYBBIT_SITE_ID`                         | vide                                           | Identifiant du site Rybbit.                                        |
+| `RYBBIT_API_KEY`                         | vide                                           | Clé API Rybbit.                                                    |
+| `RYBBIT_TIME_ZONE`                       | `Europe/Paris`                                 | Fuseau horaire utilisé par Rybbit.                                 |
+| `EXPO_PUBLIC_API_BASE`                   | `https://epitime.epita.it`                     | URL publique du backend utilisée par le web et l'application Expo. |
+| `EXPO_PUBLIC_MICROSOFT_CLIENT_ID`        | `votre_client_id`                              | Client ID Microsoft OAuth.                                         |
+| `EXPO_PUBLIC_MICROSOFT_TENANT`           | `epita.fr`                                     | Tenant Microsoft utilisé par défaut.                               |
+| `EXPO_PUBLIC_MICROSOFT_REDIRECT_URI`     | `epitime://auth`                               | URI de redirection pour l'application mobile.                      |
+| `EXPO_PUBLIC_MICROSOFT_WEB_REDIRECT_URI` | vide                                           | URI de redirection pour la version web.                            |
+| `EXPO_PUBLIC_EXPO_PROJECT_ID`            | `REPLACE_WITH_EAS_PROJECT_ID`                  | Identifiant du projet Expo EAS.                                    |
+
+</details>
+
+### Ports utilisés en développement
+
+| Service         |   Port |
+| --------------- | -----: |
+| Frontend Vite   | `5000` |
+| Backend Express | `3001` |
+
+En production Docker, le reverse proxy doit rediriger les requêtes vers le port interne `3001`.
+
+---
+
+## Lancer le projet en développement
+
+### Application web
+
+Dans un premier terminal :
+
+```bash
+cd client
+npm run dev
+```
+
+### Backend
+
+Dans un second terminal :
+
+```bash
+cd server
+npm start
+```
+
+L'application web utilise un proxy pour transmettre les requêtes `/api` au backend Express.
+
+---
+
+## Application mobile
+
+Depuis le dossier `clientNative` :
+
+### Android
 
 ```bash
 cd clientNative
 npm run android
-# ou
+```
+
+### iOS (Pas testé)
+
+```bash
+cd clientNative
 npm run ios
 ```
 
-Checks utiles côté natif :
+### Vérifications utiles
 
 ```bash
 npm run typecheck
 npm run doctor
 ```
 
-Pour les services Google/Firebase Android, place le fichier privé dans `clientNative/android/app/google-services.json`. S'il est absent, le plugin Google Services est ignoré pour permettre les builds locaux sans credentials Firebase.
+### Configuration Firebase Android
 
-## Build & Docker
+Pour activer les services Google et Firebase sur Android, ajoute le fichier suivant :
 
-Build front :
+```text
+clientNative/android/app/google-services.json
+```
+
+Ce fichier étant privé, il ne doit pas être versionné.
+
+S'il est absent, le plugin Google Services est ignoré afin de permettre les builds locaux sans identifiants Firebase.
+
+---
+
+## Build
+
+### Build de l'application web
 
 ```bash
 cd client
 npm run build
 ```
 
-Build watch :
+### Build en mode surveillance
 
 ```bash
 cd client
 npm run build:watch
 ```
 
-Lancer en Docker (un seul conteneur) :
+---
+
+## Docker
+
+Pour lancer l'ensemble de l'application dans un seul conteneur :
 
 ```bash
 docker-compose up --build
 ```
 
-Le conteneur expose en interne 3001. Le dossier `/app/data` est monté sur le volume Docker nommé `epitime_data`, ce qui conserve les subscriptions web et mobile après un rebuild ou un redémarrage du conteneur.
+Le conteneur expose le port interne `3001`.
+
+Le dossier `/app/data` est monté sur un volume Docker nommé `epitime_data`.
+
+Cela permet de conserver les données suivantes après un redémarrage ou un rebuild :
+
+* abonnements Web Push 
+* tokens Expo Push 
+* données persistantes du serveur.
+
+---
 
 ## Déploiement
 
-L'application est déployée via CI/CD sur [Coolify](https://coolify.io/).
+EpiTime est déployé automatiquement via une chaîne CI/CD utilisant [Coolify](https://coolify.io/).
 
-## Pourquoi ce projet ?
+```text
+GitHub
+   ↓
+CI/CD
+   ↓
+Coolify
+   ↓
+Docker
+   ↓
+VPS
+```
 
-Parce que l’interface originale de Zeus pique un peu les yeux. Ici, même données, mais UI propre, responsive, PWA, notifications et Tada, c’est tout beau maintenant.
+---
 
-## Fonctionnement pour les curieux
+## Authentification et récupération des données
 
-Pour avoir accès aux données de Zeus, il faut d’abord se connecter à l’API de Zeus via une OAuth Microsoft pour récupérer un token d’authentification. Ensuite, ce token est utilisé pour faire des requêtes à l’API de Zeus afin d’obtenir les données de l’emploi du temps. Ces données sont ensuite traitées et affichées dans le front. Pour les encore plus curieux voici le swagger de l’API de Zeus : https://zeus.ionis-it.com/swagger/index.html
+Pour accéder aux données Zeus, l'utilisateur doit d'abord s'authentifier avec son compte Microsoft EPITA.
 
-Pour les notifications web, le front s’inscrit auprès du service de push via VAPID et le serveur enregistre la subscription dans `WEB_PUSH_STORE`. Pour l’app mobile React Native / Expo, le client envoie son token Expo Push à `POST /api/mobile/subscribe`, et le serveur l’enregistre dans `MOBILE_PUSH_STORE`. Ces deux fichiers vivent par défaut dans `DATA_DIR`. En production multi-instance, ces stores JSON doivent être remplacés par SQL ou Redis.
+Le fonctionnement général est le suivant :
 
-## Statistiques d’utilisation
+1. l'utilisateur lance l'authentification Microsoft 
+2. Microsoft retourne un token OAuth 
+3. ce token est utilisé pour interroger l'API Zeus 
+4. le backend récupère les informations nécessaires 
+5. les données sont normalisées puis envoyées au frontend 
+6. l'interface affiche l'emploi du temps et les notes.
 
-EpiTime utilise [Rybbit](https://rybbit.com/) pour une mesure d’audience activée uniquement après le consentement de l’utilisateur. L’instance est auto-hébergée sur le même VPS OVHcloud qu’EpiTime. Elle reçoit des données techniques limitées (agent utilisateur, pages consultées et position géographique très approximative), mais EpiTime ne lui transmet ni nom, ni adresse e-mail, ni identifiant de compte, ni jeton d’authentification. Ces statistiques servent uniquement à améliorer l’application et ne servent ni à la publicité ciblée ni au suivi entre sites. Le consentement peut être retiré dans les paramètres de l’application web. En cas de doute sur la collecte de données, contactez contact@alexistb.com.
+La documentation Swagger de Zeus est disponible ici :
 
-## Précision
+https://zeus.ionis-it.com/swagger/index.html
 
-Le projet est en aucun cas affilié avec IONIS GROUP, Zeus ou Epita il s'agit simplement d'un projet passe temps.
+---
 
-## License
+## Fonctionnement des notifications
 
+### Notifications web
+
+Le frontend utilise Web Push et VAPID.
+
+Lorsqu'un utilisateur autorise les notifications :
+
+1. le navigateur génère une souscription Push 
+2. le frontend transmet cette souscription au backend 
+3. le backend l'enregistre dans `WEB_PUSH_STORE` 
+4. le serveur peut ensuite envoyer une notification au navigateur.
+
+### Notifications mobiles
+
+L'application Expo récupère un token Expo Push puis l'envoie à :
+
+```http
+POST /api/mobile/subscribe
+```
+
+Le token est ensuite enregistré dans `MOBILE_PUSH_STORE`.
+
+---
+
+## Statistiques d'utilisation et confidentialité
+
+EpiTime utilise [Rybbit](https://rybbit.com/) pour mesurer l'utilisation de l'application.
+
+La collecte est activée uniquement après le consentement explicite de l'utilisateur.
+
+L'instance Rybbit est auto-hébergée sur le même VPS qu'EpiTime.
+
+Les données collectées peuvent inclure :
+
+* le type de navigateur 
+* le système d'exploitation 
+* les pages consultées 
+* une localisation géographique approximative 
+* des informations techniques nécessaires au fonctionnement des statistiques.
+
+EpiTime ne transmet pas à Rybbit :
+
+* le nom de l'utilisateur 
+* son adresse e-mail 
+* son identifiant de compte 
+* son token Microsoft 
+* ses notes 
+* son emploi du temps personnel.
+
+Les données ne sont utilisées ni pour la publicité ciblée ni pour le suivi intersites.
+
+Le consentement peut être retiré depuis les paramètres de l'application web.
+
+Pour toute question liée à la confidentialité :
+
+```text
+contact@alexistb.com
+```
+
+---
+
+## Pourquoi EpiTime ?
+
+Parce que consulter son emploi du temps ne devrait pas ressembler à une visite dans une interface restée bloquée dix ans en arrière.
+
+EpiTime reprend les données utiles de Zeus et d'Auriga, puis les présente dans une interface :
+
+* moderne 
+* rapide 
+* responsive 
+* installable 
+* adaptée aux mobiles 
+* compatible avec les notifications 
+* pensée pour un usage quotidien.
+
+Même données, meilleure expérience.
+
+---
+
+## Contribution
+
+Les contributions sont les bienvenues.
+
+Tu peux participer de plusieurs façons :
+
+* signaler un bug 
+* proposer une fonctionnalité 
+* améliorer l'interface 
+* corriger la documentation 
+* proposer une optimisation 
+* ouvrir une pull request.
+
+### Signaler un problème
+
+Utilise l'onglet Issues du dépôt :
+
+https://github.com/alexistb2904/EpiTime/issues
+
+### Proposer une modification
+
+```bash
+git checkout -b feature/ma-fonctionnalite
+git commit -m "feat: ajout de ma fonctionnalité"
+git push origin feature/ma-fonctionnalite
+```
+
+Puis ouvre une pull request depuis GitHub.
+
+---
+
+## Avertissement
+
+EpiTime est un projet personnel et indépendant.
+
+Il n'est ni développé, ni maintenu, ni approuvé par :
+
+* EPITA 
+* IONIS Education Group 
+* Zeus 
+* Auriga 
+* Microsoft.
+
+Les noms et marques mentionnés appartiennent à leurs propriétaires respectifs.
+
+---
+
+## Licence
+
+Ce projet est distribué sous licence MIT.
+
+```text
 MIT License
+
 Copyright (c) 2026 alexistb2904
+```
+
+Consulte le fichier [LICENSE](LICENSE) pour plus d'informations.
+
+---
+
+<div align="center">
+
+Développé avec soin pour rendre l'emploi du temps EPITA un peu plus agréable.
+
+<br /><br />
+
+<a href="https://epitime.epita.it">
+  <img src="https://img.shields.io/badge/Essayer%20EpiTime-ef4444?style=for-the-badge&logo=googlecalendar&logoColor=white" alt="Essayer EpiTime" />
+</a>
+
+</div>
