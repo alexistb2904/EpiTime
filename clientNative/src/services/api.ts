@@ -169,7 +169,7 @@ export async function getAvailableRooms(payload: { startDate: string; endDate: s
 	return request<Room[]>("/api/rooms/available", { method: "POST", body: JSON.stringify(payload) });
 }
 export async function getUniqueUsers() {
-	return request<{ enabled?: boolean; users?: number }>("/api/analytics/overview");
+	return request<{ enabled?: boolean; users?: number }>("/api/analytics/phone/overview");
 }
 export async function registerExpoPushToken(token: string, userId: string, groups: (string | number)[], settings: any) {
 	return request("/api/mobile/subscribe", {

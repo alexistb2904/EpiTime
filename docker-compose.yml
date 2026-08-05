@@ -19,6 +19,7 @@ services:
             MOBILE_PUSH_STORE: /app/data/mobile-push-subscriptions.json
             RYBBIT_API_BASE: ${RYBBIT_API_BASE:-}
             RYBBIT_SITE_ID: ${RYBBIT_SITE_ID:-}
+            RYBBIT_PHONE_SITE_ID: ${RYBBIT_PHONE_SITE_ID:-}
             RYBBIT_API_KEY: ${RYBBIT_API_KEY:-}
             RYBBIT_TIME_ZONE: ${RYBBIT_TIME_ZONE:-Europe/Paris}
         volumes:

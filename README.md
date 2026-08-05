@@ -186,7 +186,8 @@ cp .env.example .env
 | `WEB_PUSH_STORE`                         | `./server/data/web-push-subscriptions.json`    | Fichier contenant les abonnements Web Push.                        |
 | `MOBILE_PUSH_STORE`                      | `./server/data/mobile-push-subscriptions.json` | Fichier contenant les tokens Expo Push.                            |
 | `RYBBIT_API_BASE`                        | `https://app.rybbit.io/api`                    | URL de l'API Rybbit.                                               |
-| `RYBBIT_SITE_ID`                         | vide                                           | Identifiant du site Rybbit.                                        |
+| `RYBBIT_SITE_ID`                         | vide                                           | Identifiant du site Rybbit web.                                    |
+| `RYBBIT_PHONE_SITE_ID`                   | vide                                           | Identifiant du site Rybbit de l'application native.                |
 | `RYBBIT_API_KEY`                         | vide                                           | Clé API Rybbit.                                                    |
 | `RYBBIT_TIME_ZONE`                       | `Europe/Paris`                                 | Fuseau horaire utilisé par Rybbit.                                 |
 | `EXPO_PUBLIC_API_BASE`                   | `https://epitime.epita.it`                     | URL publique du backend utilisée par le web et l'application Expo. |

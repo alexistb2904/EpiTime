@@ -15,11 +15,13 @@ const readPositiveDuration = (value, fallback, minimum) => {
 };
 
 const app = express();
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3001;
 const ZEUS_BASE = process.env.ZEUS_BASE || "https://zeus.ionis-it.com";
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || "";
 const RYBBIT_API_BASE = process.env.RYBBIT_API_BASE || "";
 const RYBBIT_SITE_ID = process.env.RYBBIT_SITE_ID || "";
+const RYBBIT_PHONE_SITE_ID = process.env.RYBBIT_PHONE_SITE_ID || "";
 const RYBBIT_API_KEY = process.env.RYBBIT_API_KEY || "";
 const RYBBIT_TIME_ZONE = process.env.RYBBIT_TIME_ZONE || "Europe/Paris";
 const EXPO_PUSH_API_URL = process.env.EXPO_PUSH_API_URL || "https://exp.host/--/api/v2/push/send";
@@ -540,9 +542,9 @@ app.get("/health", (_req, res) => {
 	res.json({ ok: true });
 });
 
-app.get("/api/analytics/overview", async (_req, res) => {
+async function proxyAnalyticsOverview(siteId, routePath, res) {
 	try {
-		if (!RYBBIT_SITE_ID || !RYBBIT_API_KEY) {
+		if (!RYBBIT_API_BASE || !siteId || !RYBBIT_API_KEY) {
 			return res.status(200).json({
 				enabled: false,
 				users: null,
@@ -554,7 +556,7 @@ app.get("/api/analytics/overview", async (_req, res) => {
 		const endDate = now.toISOString().slice(0, 10);
 		const startDate = "2020-01-01";
 
-		const url = `${RYBBIT_API_BASE}/overview/${encodeURIComponent(RYBBIT_SITE_ID)}?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&time_zone=${encodeURIComponent(RYBBIT_TIME_ZONE)}`;
+		const url = `${RYBBIT_API_BASE.replace(/\/$/, "")}/overview/${encodeURIComponent(siteId)}?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}&time_zone=${encodeURIComponent(RYBBIT_TIME_ZONE)}`;
 
 		const upstream = await fetch(url, {
 			headers: {
@@ -579,20 +581,26 @@ app.get("/api/analytics/overview", async (_req, res) => {
 			fetchedAt: new Date().toISOString(),
 		});
 	} catch (err) {
-		console.error("/api/analytics/overview error", err);
+		console.error(`${routePath} error`, err);
 		return res.status(500).json({ error: "Analytics proxy error" });
 	}
-});
+}
+
+app.get("/api/analytics/overview", async (_req, res) => proxyAnalyticsOverview(RYBBIT_SITE_ID, "/api/analytics/overview", res));
+
+app.get("/api/analytics/phone/overview", async (_req, res) => proxyAnalyticsOverview(RYBBIT_PHONE_SITE_ID, "/api/analytics/phone/overview", res));
 
 async function forwardAnalyticsEvent(event, properties) {
-	if (!RYBBIT_API_BASE || !RYBBIT_SITE_ID || !RYBBIT_API_KEY) return;
+	const isPhoneEvent = properties?.platform === "android" || properties?.platform === "ios";
+	const siteId = isPhoneEvent ? RYBBIT_PHONE_SITE_ID : RYBBIT_SITE_ID;
+	if (!RYBBIT_API_BASE || !siteId || !RYBBIT_API_KEY) return;
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), 2500);
 	try {
 		await fetch(`${RYBBIT_API_BASE.replace(/\/$/, "")}/track`, {
 			method: "POST",
 			headers: { Authorization: `Bearer ${RYBBIT_API_KEY}`, "Content-Type": "application/json" },
-			body: JSON.stringify({ site_id: RYBBIT_SITE_ID, type: "custom_event", event_name: event, properties: JSON.stringify(properties) }),
+			body: JSON.stringify({ site_id: siteId, type: "custom_event", event_name: event, properties: JSON.stringify(properties) }),
 			signal: controller.signal,
 		});
 	} catch {

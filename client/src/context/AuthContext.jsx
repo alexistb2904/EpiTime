@@ -1,4 +1,5 @@
 import React, { useState, useContext, createContext } from "react";
+import { PublicClientApplication } from "@azure/msal-browser";
 import { trackEvent } from "../utils/analyticsTracker";
 
 const AuthContext = createContext();
@@ -67,11 +68,19 @@ export const AuthProvider = ({ children }) => {
 		cache: { cacheLocation: "localStorage", storeAuthStateInCookie: true },
 	};
 
-	const msalInstance = React.useRef(new msal.PublicClientApplication(msalConfig));
+	const msalInstance = React.useRef(new PublicClientApplication(msalConfig));
+	const msalInitialization = React.useRef(null);
+	const initializeMsal = React.useCallback(() => {
+		if (!msalInitialization.current) {
+			msalInitialization.current = msalInstance.current.initialize();
+		}
+		return msalInitialization.current;
+	}, []);
 
 	const initMsal = React.useCallback(async () => {
 		try {
 			setLoading(true);
+			await initializeMsal();
 
 			if (!navigator.onLine) {
 				const savedToken = localStorage.getItem("zeus_token");
@@ -117,7 +126,7 @@ export const AuthProvider = ({ children }) => {
 			}
 			setLoading(false);
 		}
-	}, []);
+	}, [initializeMsal]);
 
 	const exchangeToken = async (msResponse, analyticsContext = null) => {
 		try {
