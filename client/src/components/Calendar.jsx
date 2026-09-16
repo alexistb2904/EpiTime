@@ -653,8 +653,6 @@ const Calendar = () => {
 						if (borderColor.startsWith("hsl")) {
 							borderColor = borderColor.replace(/hsl\((\d+),\s*(\d+)%?,\s*(\d+)%?\)/, (h, hue, sat, light) => `hsl(${hue}, ${sat}%, ${Math.max(0, light - 20)}%)`);
 						}
-						console.log(scheduleContext);
-						console.log(ev);
 						return (
 							<div
 								key={idx}
