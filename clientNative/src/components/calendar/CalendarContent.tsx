@@ -10,7 +10,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { isEventCancelled, getLocalEventKey } from "../../services/localEvents";
 import { getCourseColor, getEventTitle, hexToRgba, startOfDay } from "../../utils/calendar";
 import { ChangeHistoryModal, EventCard, formatEventChangeNotice } from "./CalendarEvents";
-import { GroupModal, RoomFinderModal } from "./CalendarSelectionModals";
+import { FiltersModal, RoomFinderModal } from "./CalendarSelectionModals";
 import { s } from "./calendarStyles";
 
 export function CalendarContent({
@@ -29,6 +29,7 @@ export function CalendarContent({
 	error,
 	eventChanges,
 	eventsByDay,
+	groups,
 	filteredGroups,
 	focusedDay,
 	groupSearch,
@@ -57,7 +58,11 @@ export function CalendarContent({
 	selectedEvent,
 	selectedEventSyllabus,
 	selectedGroups,
+	selectedRooms,
+	selectedTeachers,
 	selectedLabels,
+	rooms,
+	teachers,
 	setCurrentDate,
 	setEventChanges,
 	setFocusedDay,
@@ -75,7 +80,7 @@ export function CalendarContent({
 	showGroups,
 	showRooms,
 	swipeGesture,
-	applyGroups,
+	applyFilters,
 	viewMode,
 	visibleEvents,
 }: any) {
@@ -286,13 +291,18 @@ export function CalendarContent({
 					)}
 				</ScrollView>
 
-				<GroupModal
+				<FiltersModal
 					visible={showGroups}
 					groups={filteredGroups}
-					selected={selectedGroups}
-					search={groupSearch}
-					onSearch={setGroupSearch}
-					onApply={applyGroups}
+					allGroups={groups}
+					rooms={rooms}
+					teachers={teachers}
+					selectedGroups={selectedGroups}
+					selectedRooms={selectedRooms}
+					selectedTeachers={selectedTeachers}
+					groupSearch={groupSearch}
+					onGroupSearch={setGroupSearch}
+					onApply={applyFilters}
 					onClose={() => {
 						setShowGroups(false);
 						setGroupSearch("");

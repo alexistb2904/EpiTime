@@ -23,6 +23,7 @@ export type ZeusEvent = {
 };
 export type Group = { id: string | number; name: string; idParent?: string | number | null };
 export type Room = { id: string | number; name: string; capacity?: number; idRoomType?: string | number; id_parent?: string | number | null };
+export type Teacher = { id: string | number; name?: string | null; firstname?: string | null; isInternal?: boolean };
 export type RoomType = { id: string | number; type: string };
 export type LocationNode = {
 	id: string | number;

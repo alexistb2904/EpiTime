@@ -18,6 +18,7 @@ import { syncAurigaData } from "./src/services/aurigaClient";
 import { stopLiveCourseNotification } from "./src/services/liveCourse";
 import { getNotificationPermissionStatus, getNotificationSettings, requestPushToken } from "./src/services/notifications";
 import { getJSON } from "./src/services/storage";
+import { hasScheduleFilters } from "./src/utils/scheduleFilters";
 import LoginScreen from "./src/screens/LoginScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import HomeScreen from "./src/screens/HomeScreen";
@@ -117,9 +118,13 @@ function Root() {
 			return;
 		}
 		setCheckingOnboarding(true);
-		Promise.all([getJSON<boolean>("onboardingCompleted", false), getJSON<(string | number)[]>("selectedGroups", [])])
-			.then(([completed, selectedGroups]) => {
-				setOnboardingReady(Boolean(completed && selectedGroups.length > 0) || selectedGroups.length > 0);
+		Promise.all([
+			getJSON<(string | number)[]>("selectedGroups", []),
+			getJSON<(string | number)[]>("selectedRooms", []),
+			getJSON<(string | number)[]>("selectedTeachers", []),
+		])
+			.then(([selectedGroups, selectedRooms, selectedTeachers]) => {
+				setOnboardingReady(hasScheduleFilters({ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers }));
 			})
 			.finally(() => setCheckingOnboarding(false));
 	}, [session]);

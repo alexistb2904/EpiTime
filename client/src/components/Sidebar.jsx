@@ -151,7 +151,7 @@ const Sidebar = ({
 				onToggle={toggleRoom}
 				getLabel={(room) => room.name || `Salle #${room.id}`}
 				searchPlaceholder="Rechercher une salle…"
-				emptyLabel="Recherchez une salle à ajouter"
+				emptyLabel=""
 				loading={filterOptionsLoading}
 			/>
 
@@ -164,7 +164,7 @@ const Sidebar = ({
 				onToggle={toggleTeacher}
 				getLabel={(teacher) => `${teacher.firstname || ""} ${teacher.name || ""}`.trim() || `Enseignant #${teacher.id}`}
 				searchPlaceholder="Rechercher un enseignant…"
-				emptyLabel="Recherchez un enseignant à ajouter"
+				emptyLabel=""
 				loading={filterOptionsLoading}
 			/>
 

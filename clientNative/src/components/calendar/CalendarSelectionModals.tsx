@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown, Layout } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, Clock, DoorOpen, Filter, Layers, MapPin, Navigation, RotateCcw, Search, SlidersHorizontal, Users, X } from "lucide-react-native";
+import { Check, ChevronDown, Clock, DoorOpen, Filter, Layers, MapPin, Navigation, RotateCcw, Search, SlidersHorizontal, Users, X } from "lucide-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { getAvailableRooms, getLocations, getRooms, getRoomTypes } from "../../services/api";
-import { Group, LocationNode, Room, RoomType } from "../../types";
+import { Group, LocationNode, Room, RoomType, Teacher } from "../../types";
 import type { GroupTreeNode } from "../../utils/groups";
 import GroupTreeList from "../GroupTreeList";
 import { openUrl } from "../../utils/calendar";
@@ -97,6 +97,177 @@ export function GroupModal({
 				</View>
 			</View>
 		</Modal>
+	);
+}
+
+type FilterSelectionId = string | number;
+type FilterSelection = { groups: FilterSelectionId[]; rooms: FilterSelectionId[]; teachers: FilterSelectionId[] };
+
+const sameId = (first: FilterSelectionId, second: FilterSelectionId) => String(first) === String(second);
+const toggleSelectionId = (items: FilterSelectionId[], id: FilterSelectionId) => (items.some((item) => sameId(item, id)) ? items.filter((item) => !sameId(item, id)) : [...items, id]);
+const normalizeFilterSearch = (value: string) =>
+	value
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLocaleLowerCase("fr-FR")
+		.trim();
+const matchesFilterSearch = (value: string, search: string) => {
+	const terms = normalizeFilterSearch(search).split(/\s+/).filter(Boolean);
+	const normalizedValue = normalizeFilterSearch(value);
+	return terms.every((term) => normalizedValue.includes(term));
+};
+const teacherLabel = (teacher: Teacher) => `${teacher.firstname || ""} ${teacher.name || ""}`.trim() || `Enseignant #${teacher.id}`;
+
+function FilterAccordion({ title, count, expanded, onToggle, children }: { title: string; count: number; expanded: boolean; onToggle: () => void; children: React.ReactNode }) {
+	const { theme } = useTheme();
+	return (
+		<View style={[filterStyles.accordion, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+			<Pressable style={filterStyles.accordionHead} onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded }}>
+				<View style={filterStyles.accordionTitleRow}>
+					<Text style={[filterStyles.accordionTitle, { color: theme.text }]}>{title}</Text>
+					{count ? <Text style={[filterStyles.accordionCount, { color: theme.accent, backgroundColor: theme.accentSoft }]}>{count}</Text> : null}
+				</View>
+				<ChevronDown color={theme.muted} size={20} style={{ transform: [{ rotate: expanded ? "0deg" : "-90deg" }] }} />
+			</Pressable>
+			{expanded ? <View style={filterStyles.accordionContent}>{children}</View> : null}
+		</View>
+	);
+}
+
+export function FiltersModal({
+	visible,
+	groups,
+	allGroups,
+	rooms,
+	teachers,
+	selectedGroups,
+	selectedRooms,
+	selectedTeachers,
+	groupSearch,
+	onGroupSearch,
+	onApply,
+	onClose,
+}: {
+	visible: boolean;
+	groups: GroupTreeNode[];
+	allGroups: Group[];
+	rooms: Room[];
+	teachers: Teacher[];
+	selectedGroups: FilterSelectionId[];
+	selectedRooms: FilterSelectionId[];
+	selectedTeachers: FilterSelectionId[];
+	groupSearch: string;
+	onGroupSearch: (value: string) => void;
+	onApply: (filters: FilterSelection) => void;
+	onClose: () => void;
+}) {
+	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
+	const [draft, setDraft] = useState<FilterSelection>({ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers });
+	const [roomSearch, setRoomSearch] = useState("");
+	const [teacherSearch, setTeacherSearch] = useState("");
+	const [expanded, setExpanded] = useState({ groups: true, rooms: false, teachers: false });
+
+	useEffect(() => {
+		if (!visible) return;
+		setDraft({ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers });
+		setRoomSearch("");
+		setTeacherSearch("");
+		setExpanded({ groups: true, rooms: false, teachers: false });
+	}, [selectedGroups, selectedRooms, selectedTeachers, visible]);
+
+	const groupNames = useMemo(() => new Map(allGroups.map((group) => [String(group.id), group.name])), [allGroups]);
+	const visibleRooms = useMemo(() => rooms.filter((room) => matchesFilterSearch(room.name || "", roomSearch)).slice(0, 60), [roomSearch, rooms]);
+	const visibleTeachers = useMemo(() => teachers.filter((teacher) => matchesFilterSearch(teacherLabel(teacher), teacherSearch)).slice(0, 60), [teacherSearch, teachers]);
+	const activeSelections = useMemo(
+		() => [
+			...draft.groups.map((id) => ({ id, type: "groups" as const, label: `Groupe · ${groupNames.get(String(id)) || id}` })),
+			...draft.rooms.map((id) => ({ id, type: "rooms" as const, label: `Salle · ${rooms.find((room) => sameId(room.id, id))?.name || id}` })),
+			...draft.teachers.map((id) => ({ id, type: "teachers" as const, label: `Enseignant · ${teacherLabel(teachers.find((teacher) => sameId(teacher.id, id)) || { id })}` })),
+		],
+		[draft, groupNames, rooms, teachers]
+	);
+	const totalSelected = activeSelections.length;
+	const toggle = (type: keyof FilterSelection, id: FilterSelectionId) => setDraft((current) => ({ ...current, [type]: toggleSelectionId(current[type], id) }));
+
+	return (
+		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
+				<ModalHeader title="Mes filtres" onClose={onClose} />
+				<ScrollView contentContainerStyle={filterStyles.filtersBody} keyboardShouldPersistTaps="handled">
+					<View style={[filterStyles.activeCard, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
+						<Text style={[filterStyles.activeTitle, { color: theme.text }]}>Sélections actives</Text>
+						<Text style={[filterStyles.activeSubtitle, { color: theme.muted }]}>Retire un filtre ici sans avoir à le rechercher.</Text>
+						{activeSelections.length ? (
+							<View style={filterStyles.activeChips}>
+								{activeSelections.map((selection) => (
+									<Pressable key={`${selection.type}-${selection.id}`} style={[filterStyles.activeChip, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => toggle(selection.type, selection.id)}>
+										<Text style={[filterStyles.activeChipText, { color: theme.text }]} numberOfLines={1}>
+											{selection.label}
+										</Text>
+										<X color={theme.muted} size={14} />
+									</Pressable>
+								))}
+							</View>
+						) : (
+							<Text style={[filterStyles.emptySelection, { color: theme.muted }]}>Aucun filtre sélectionné</Text>
+						)}
+					</View>
+
+					<FilterAccordion title="Groupes" count={draft.groups.length} expanded={expanded.groups} onToggle={() => setExpanded((current) => ({ ...current, groups: !current.groups }))}>
+						<View style={[s.searchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
+							<Search color={theme.muted} size={18} />
+							<TextInput value={groupSearch} onChangeText={onGroupSearch} placeholder="Rechercher un groupe" placeholderTextColor={theme.muted} style={[s.searchInput, { color: theme.text }]} />
+						</View>
+						<GroupTreeList groups={groups} selected={draft.groups} onToggle={(id) => toggle("groups", id)} searchActive={Boolean(groupSearch.trim())} />
+					</FilterAccordion>
+
+					<FilterAccordion title="Salles" count={draft.rooms.length} expanded={expanded.rooms} onToggle={() => setExpanded((current) => ({ ...current, rooms: !current.rooms }))}>
+						<View style={[s.searchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
+							<Search color={theme.muted} size={18} />
+							<TextInput value={roomSearch} onChangeText={setRoomSearch} placeholder="Rechercher une salle" placeholderTextColor={theme.muted} style={[s.searchInput, { color: theme.text }]} />
+						</View>
+						{visibleRooms.map((room) => (
+							<FilterOption key={String(room.id)} label={room.name} selected={draft.rooms.some((id) => sameId(id, room.id))} onPress={() => toggle("rooms", room.id)} />
+						))}
+					</FilterAccordion>
+
+					<FilterAccordion title="Enseignants" count={draft.teachers.length} expanded={expanded.teachers} onToggle={() => setExpanded((current) => ({ ...current, teachers: !current.teachers }))}>
+						<View style={[s.searchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
+							<Search color={theme.muted} size={18} />
+							<TextInput value={teacherSearch} onChangeText={setTeacherSearch} placeholder="Rechercher un enseignant" placeholderTextColor={theme.muted} style={[s.searchInput, { color: theme.text }]} />
+						</View>
+						{visibleTeachers.map((teacher) => (
+							<FilterOption key={String(teacher.id)} label={teacherLabel(teacher)} selected={draft.teachers.some((id) => sameId(id, teacher.id))} onPress={() => toggle("teachers", teacher.id)} />
+						))}
+					</FilterAccordion>
+				</ScrollView>
+				<View style={[s.groupModalFooter, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+					<Pressable
+						style={[s.groupModalApply, { backgroundColor: totalSelected ? theme.accent : theme.border }]}
+						disabled={!totalSelected}
+						onPress={() => {
+							onApply(draft);
+							onClose();
+						}}>
+						<Check color="#fff" size={18} />
+						<Text style={s.primaryText}>Appliquer {totalSelected} filtre{totalSelected > 1 ? "s" : ""}</Text>
+					</Pressable>
+				</View>
+			</View>
+		</Modal>
+	);
+}
+
+function FilterOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+	const { theme } = useTheme();
+	return (
+		<Pressable style={[filterStyles.option, { backgroundColor: theme.surfaceSoft, borderColor: selected ? theme.accent : theme.border }]} onPress={onPress}>
+			<View style={[filterStyles.optionCheck, { backgroundColor: selected ? theme.accent : "transparent", borderColor: selected ? theme.accent : theme.border }]}>{selected ? <Check color="#fff" size={14} /> : null}</View>
+			<Text style={[filterStyles.optionText, { color: theme.text }]} numberOfLines={1}>
+				{label}
+			</Text>
+		</Pressable>
 	);
 }
 
@@ -635,3 +806,23 @@ export function ModalHeader({ title, onClose }: { title: string; onClose: () => 
 		</View>
 	);
 }
+
+const filterStyles = StyleSheet.create({
+	filtersBody: { padding: 16, gap: 12 },
+	activeCard: { borderWidth: 1, borderRadius: 18, padding: 14, gap: 5 },
+	activeTitle: { fontSize: 16, fontWeight: "900" },
+	activeSubtitle: { fontSize: 13, lineHeight: 18 },
+	activeChips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 5 },
+	activeChip: { maxWidth: "100%", minHeight: 34, borderWidth: 1, borderRadius: 17, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 6 },
+	activeChipText: { flexShrink: 1, fontWeight: "700", fontSize: 12 },
+	emptySelection: { fontSize: 13, fontStyle: "italic", marginTop: 3 },
+	accordion: { borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+	accordionHead: { minHeight: 56, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+	accordionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+	accordionTitle: { fontSize: 16, fontWeight: "900" },
+	accordionCount: { minWidth: 24, height: 24, borderRadius: 12, overflow: "hidden", textAlign: "center", textAlignVertical: "center", fontSize: 12, fontWeight: "900" },
+	accordionContent: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+	option: { minHeight: 48, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+	optionCheck: { width: 21, height: 21, borderRadius: 6, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+	optionText: { flex: 1, fontWeight: "700" },
+});

@@ -1,6 +1,6 @@
 import { clearSession, getSession } from "./storage";
 import { Platform } from "react-native";
-import { LocationNode, Room, RoomType } from "../types";
+import { LocationNode, Room, RoomType, Teacher } from "../types";
 import { publicConfig } from "./config";
 import type { Session } from "../types";
 
@@ -158,6 +158,9 @@ export async function getCourseType(id: string | number) {
 }
 export async function getRooms() {
 	return request<Room[]>("/api/rooms");
+}
+export async function getTeachers() {
+	return request<Teacher[]>("/api/teachers");
 }
 export async function getRoomTypes() {
 	return request<RoomType[]>("/api/roomtypes");
