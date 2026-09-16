@@ -841,6 +841,32 @@ app.get("/api/rooms", async (req, res) => {
 	}
 });
 
+app.get("/api/teachers", async (req, res) => {
+	try {
+		const authHeader = req.headers.authorization || "";
+		const match = authHeader.match(/^Bearer\s+(.+)/i);
+		const zeusToken = match && match[1];
+
+		const url = `${ZEUS_BASE}/api/teacher/public`;
+		const headers = zeusToken ? { Authorization: `Bearer ${zeusToken}` } : {};
+		const upstream = await fetch(url, { headers });
+		const text = await upstream.text();
+
+		if (!upstream.ok) {
+			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+		}
+
+		try {
+			return res.json(text ? JSON.parse(text) : []);
+		} catch (parseErr) {
+			return res.type("application/json").send(text);
+		}
+	} catch (err) {
+		console.error("/api/teachers error", err);
+		return res.status(500).json({ error: "Proxy error" });
+	}
+});
+
 app.get("/api/roomtypes", async (req, res) => {
 	try {
 		const authHeader = req.headers.authorization || "";

@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
+		"test": "node --test src/**/*.test.mjs",
 		"build": "vite build",
 		"build:watch": "vite build --watch",
 		"preview": "vite preview"

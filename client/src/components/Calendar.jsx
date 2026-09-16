@@ -12,6 +12,7 @@ import { NotificationSettings } from "./NotificationSettings";
 import RoomAvailabilityModal from "./RoomAvailabilityModal";
 import { trackEvent } from "../utils/analyticsTracker";
 import { getDisplayedGroupNames } from "../utils/calendarGroups";
+import { buildCalendarFilterParams } from "../utils/calendarFilters";
 import "./Calendar.css";
 
 const generatePastelColor = (str) => {
@@ -76,6 +77,13 @@ const Calendar = () => {
 	const [groups, setGroups] = useState([]);
 	const [groupSearch, setGroupSearch] = useState("");
 	const [showGroupModal, setShowGroupModal] = useState(false);
+	const [selectedRooms, setSelectedRooms] = useState([]);
+	const [rooms, setRooms] = useState([]);
+	const [roomSearch, setRoomSearch] = useState("");
+	const [selectedTeachers, setSelectedTeachers] = useState([]);
+	const [teachers, setTeachers] = useState([]);
+	const [teacherSearch, setTeacherSearch] = useState("");
+	const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
 	const [selectedEvent, setSelectedEvent] = useState(null);
 	const [showSettingsModal, setShowSettingsModal] = useState(false);
 	const [showNotificationsModal, setShowNotificationsModal] = useState(false);
@@ -99,6 +107,7 @@ const Calendar = () => {
 			loadGroups().then(() => {
 				if (selectedGroups.length === 0) setShowGroupModal(true);
 			});
+			loadFilterOptions();
 		}
 	}, [zeusToken]);
 
@@ -108,11 +117,25 @@ const Calendar = () => {
 		}
 	}, [selectedGroups]);
 
+	const calendarFilters = useMemo(() => {
+		const uniqueIds = (ids) => [...new Set(ids)];
+		return {
+			groups: scheduleContext.type === "group" ? selectedGroups : scheduleContext.type === "single-group" ? scheduleContext.ids : selectedGroups,
+			rooms: uniqueIds([...(scheduleContext.type === "room" ? scheduleContext.ids : []), ...selectedRooms]),
+			teachers: uniqueIds([...(scheduleContext.type === "teacher" ? scheduleContext.ids : []), ...selectedTeachers]),
+		};
+	}, [scheduleContext, selectedGroups, selectedRooms, selectedTeachers]);
+
+	const hasCalendarFilter = calendarFilters.groups.length > 0 || calendarFilters.rooms.length > 0 || calendarFilters.teachers.length > 0;
+
 	useEffect(() => {
-		if (zeusToken && scheduleContext.ids.length > 0) {
-			loadCalendar();
+		if (!zeusToken) return;
+		if (!hasCalendarFilter) {
+			setEvents([]);
+			return;
 		}
-	}, [zeusToken, scheduleContext, currentDate, viewMode]);
+		loadCalendar();
+	}, [zeusToken, calendarFilters, hasCalendarFilter, currentDate, viewMode]);
 
 	useEffect(() => {
 		if (!notificationSettings.enabled || events.length === 0) return;
@@ -182,6 +205,24 @@ const Calendar = () => {
 		}
 	};
 
+	const loadFilterOptions = async () => {
+		try {
+			setFilterOptionsLoading(true);
+			const headers = { Authorization: `Bearer ${zeusToken}` };
+			const [roomsResponse, teachersResponse] = await Promise.all([fetch("/api/rooms", { headers }), fetch("/api/teachers", { headers })]);
+			if (!roomsResponse.ok || !teachersResponse.ok) throw new Error("Impossible de charger les filtres de calendrier");
+
+			const [roomsData, teachersData] = await Promise.all([roomsResponse.json(), teachersResponse.json()]);
+			setRooms(Array.isArray(roomsData) ? roomsData : []);
+			setTeachers(Array.isArray(teachersData) ? teachersData : []);
+		} catch (err) {
+			console.error("Erreur chargement filtres calendrier", err);
+			trackEvent("calendar_filter_options_load_failed");
+		} finally {
+			setFilterOptionsLoading(false);
+		}
+	};
+
 	const loadCalendar = async () => {
 		let cacheKey = "";
 		try {
@@ -199,20 +240,11 @@ const Calendar = () => {
 				end = range.end;
 			}
 
-			const params = new URLSearchParams({
-				start: start.toISOString(),
-				end: end.toISOString(),
-			});
+			const params = buildCalendarFilterParams(calendarFilters);
+			params.set("start", start.toISOString());
+			params.set("end", end.toISOString());
 
-			if (scheduleContext.type === "group" || scheduleContext.type === "single-group") {
-				scheduleContext.ids.forEach((id) => params.append("groups", id));
-			} else if (scheduleContext.type === "teacher") {
-				scheduleContext.ids.forEach((id) => params.append("teachers", id));
-			} else if (scheduleContext.type === "room") {
-				scheduleContext.ids.forEach((id) => params.append("rooms", id));
-			}
-
-			cacheKey = `zeus_events_${scheduleContext.type}_${scheduleContext.ids.join("_")}_${start.toISOString()}_${end.toISOString()}`;
+			cacheKey = `zeus_events_${calendarFilters.groups.join("_")}_${calendarFilters.rooms.join("_")}_${calendarFilters.teachers.join("_")}_${start.toISOString()}_${end.toISOString()}`;
 
 			const res = await fetch(`/api/events?${params.toString()}`, {
 				headers: { Authorization: `Bearer ${zeusToken}` },
@@ -512,6 +544,16 @@ const Calendar = () => {
 			localStorage.setItem("zeus_selected_groups", JSON.stringify(newSelected));
 			return newSelected;
 		});
+	};
+
+	const toggleRoom = (id) => {
+		setSelectedRooms((previous) => (previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id]));
+		trackEvent("calendar_filter_changed", { filter_type: "room" });
+	};
+
+	const toggleTeacher = (id) => {
+		setSelectedTeachers((previous) => (previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id]));
+		trackEvent("calendar_filter_changed", { filter_type: "teacher" });
 	};
 
 	const handleContextSwitch = (type, id, label) => {
@@ -841,6 +883,17 @@ const Calendar = () => {
 				groups={groups}
 				toggleGroup={toggleGroup}
 				setShowGroupModal={setShowGroupModal}
+				selectedRooms={selectedRooms}
+				rooms={rooms}
+				roomSearch={roomSearch}
+				setRoomSearch={setRoomSearch}
+				toggleRoom={toggleRoom}
+				selectedTeachers={selectedTeachers}
+				teachers={teachers}
+				teacherSearch={teacherSearch}
+				setTeacherSearch={setTeacherSearch}
+				toggleTeacher={toggleTeacher}
+				filterOptionsLoading={filterOptionsLoading}
 				theme={theme}
 				toggleTheme={toggleTheme}
 				setShowSettingsModal={setShowSettingsModal}

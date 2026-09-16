@@ -1,9 +1,66 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import ReactCalendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { Bell, LogOut, Moon, Plus, Settings, Sun } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Moon, Plus, Settings, Sun } from "lucide-react";
 import { trackEvent } from "../utils/analyticsTracker";
 import { androidAppDownloadUrl } from "../utils/downloadLinks";
+import { filterCalendarFilterOptions } from "../utils/calendarFilters";
+
+const FilterSelectionSection = ({ title, items, selectedIds, search, setSearch, onToggle, getLabel, searchPlaceholder, emptyLabel, loading }) => {
+	const [expanded, setExpanded] = useState(true);
+	const filteredItems = useMemo(() => filterCalendarFilterOptions(items, search, getLabel), [items, search, getLabel]);
+	const selectedItems = useMemo(() => items.filter((item) => selectedIds.includes(item.id)), [items, selectedIds]);
+	const displayedItems = search.trim() ? filteredItems : selectedItems;
+
+	return (
+		<section className={`sidebar-section sidebar-filter-section ${expanded ? "is-expanded" : ""}`}>
+			<div className="sidebar-section-head">
+				<h3 className="sidebar-title">{title}</h3>
+				<button
+					type="button"
+					className="btn-icon sidebar-collapse-btn"
+					onClick={() => setExpanded((value) => !value)}
+					aria-expanded={expanded}
+					aria-label={expanded ? `Réduire la section ${title}` : `Développer la section ${title}`}>
+					<ChevronDown size={16} strokeWidth={2.6} />
+				</button>
+			</div>
+
+			{expanded && (
+				<div className="sidebar-filter-content">
+					<input
+						className="sidebar-filter-search"
+						placeholder={searchPlaceholder}
+						value={search}
+						onChange={(event) => setSearch(event.target.value)}
+						aria-label={searchPlaceholder}
+					/>
+					<div className="group-list sidebar-filter-list">
+						{loading ? (
+							<div className="empty-state-sidebar">Chargement…</div>
+						) : displayedItems.length > 0 ? (
+							displayedItems.map((item) => {
+								const isSelected = selectedIds.includes(item.id);
+								return (
+									<button
+										type="button"
+										key={item.id}
+										className={`group-item sidebar-filter-item ${isSelected ? "active" : ""}`}
+										onClick={() => onToggle(item.id)}>
+										<div className="group-checkbox" aria-hidden="true"></div>
+										<span>{getLabel(item)}</span>
+									</button>
+								);
+							})
+						) : (
+							<div className="empty-state-sidebar">{search.trim() ? "Aucun résultat" : emptyLabel}</div>
+						)}
+					</div>
+				</div>
+			)}
+		</section>
+	);
+};
 
 const Sidebar = ({
 	sidebarOpen,
@@ -13,6 +70,17 @@ const Sidebar = ({
 	groups,
 	toggleGroup,
 	setShowGroupModal,
+	selectedRooms,
+	rooms,
+	roomSearch,
+	setRoomSearch,
+	toggleRoom,
+	selectedTeachers,
+	teachers,
+	teacherSearch,
+	setTeacherSearch,
+	toggleTeacher,
+	filterOptionsLoading,
 	theme,
 	toggleTheme,
 	setShowSettingsModal,
@@ -47,9 +115,9 @@ const Sidebar = ({
 				/>
 			</div>
 
-			<div className="sidebar-section">
+			<section className="sidebar-section">
 				<div className="sidebar-section-head">
-					<h3 className="sidebar-title">Groupe sélectionnés</h3>
+					<h3 className="sidebar-title">Groupes sélectionnés</h3>
 					<button className="btn-icon sidebar-add-btn" onClick={() => setShowGroupModal(true)} title="Modifier la sélection">
 						<Plus size={16} strokeWidth={2.6} />
 					</button>
@@ -72,7 +140,33 @@ const Sidebar = ({
 						</div>
 					)}
 				</div>
-			</div>
+			</section>
+
+			<FilterSelectionSection
+				title="Salles"
+				items={rooms}
+				selectedIds={selectedRooms}
+				search={roomSearch}
+				setSearch={setRoomSearch}
+				onToggle={toggleRoom}
+				getLabel={(room) => room.name || `Salle #${room.id}`}
+				searchPlaceholder="Rechercher une salle…"
+				emptyLabel="Recherchez une salle à ajouter"
+				loading={filterOptionsLoading}
+			/>
+
+			<FilterSelectionSection
+				title="Enseignants"
+				items={teachers}
+				selectedIds={selectedTeachers}
+				search={teacherSearch}
+				setSearch={setTeacherSearch}
+				onToggle={toggleTeacher}
+				getLabel={(teacher) => `${teacher.firstname || ""} ${teacher.name || ""}`.trim() || `Enseignant #${teacher.id}`}
+				searchPlaceholder="Rechercher un enseignant…"
+				emptyLabel="Recherchez un enseignant à ajouter"
+				loading={filterOptionsLoading}
+			/>
 
 			<div className="sidebar-footer">
 				<button className="sidebar-btn sidebar-download-btn" onClick={handleAndroidDownload}>
