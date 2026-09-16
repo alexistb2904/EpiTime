@@ -36,6 +36,7 @@ import { readCachedSchedule, syncSchedule } from "../services/scheduleRepository
 import { refreshCourseWidgetsForGroups, syncCourseWidgets } from "../services/widgets";
 import { Group, ZeusEvent } from "../types";
 import { eventOverlapsDay, getCourseColor, getRoomName, getWeekRange, startOfDay } from "../utils/calendar";
+import { buildGroupTree, filterGroupTree } from "../utils/groups";
 import { CalendarContent } from "../components/calendar/CalendarContent";
 import { CalendarRouteParams, ScheduleContext, ViewMode, dayKey, getCourseProgress, getTargetEventKey, minute, rangeFor } from "../components/calendar/calendarModel";
 import { trackEvent } from "../services/analytics";
@@ -292,11 +293,7 @@ export default function CalendarScreen() {
 	}, [days, sortedEvents]);
 
 	const filteredGroups = useMemo(() => {
-		const term = groupSearch.trim().toLowerCase();
-		return groups
-			.filter((group) => !term || group.name.toLowerCase().includes(term))
-			.sort((first, second) => first.name.localeCompare(second.name, "fr", { sensitivity: "base", numeric: true }))
-			.slice(0, 160);
+		return filterGroupTree(buildGroupTree(groups), groupSearch);
 	}, [groupSearch, groups]);
 
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));

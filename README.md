@@ -266,12 +266,12 @@ npm run doctor
 Pour activer les services Google et Firebase sur Android, ajoute le fichier suivant :
 
 ```text
-clientNative/android/app/google-services.json
+clientNative/google-services.json
 ```
 
-Ce fichier étant privé, il ne doit pas être versionné.
+Ou, dans EAS, configure `GOOGLE_SERVICES_JSON` comme secret de type fichier. Ce fichier étant privé, il ne doit pas être versionné.
 
-S'il est absent, le plugin Google Services est ignoré afin de permettre les builds locaux sans identifiants Firebase.
+S'il est absent, `npm run android` poursuit sans Firebase afin de permettre les builds locaux. Les builds de release (`npm run apk:build` et EAS) exigent toutefois un fichier valide. Le fichier est copié vers `clientNative/android/app/google-services.json` pour le build Android.
 
 ---
 

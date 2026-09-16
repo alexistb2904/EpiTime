@@ -11,6 +11,7 @@ import SettingsModal from "./SettingsModal";
 import { NotificationSettings } from "./NotificationSettings";
 import RoomAvailabilityModal from "./RoomAvailabilityModal";
 import { trackEvent } from "../utils/analyticsTracker";
+import { getDisplayedGroupNames } from "../utils/calendarGroups";
 import "./Calendar.css";
 
 const generatePastelColor = (str) => {
@@ -605,10 +606,13 @@ const Calendar = () => {
 
 					{dayEvents.map((ev, idx) => {
 						const cancelled = isEventCancelled(ev);
+						const displayedGroupNames = getDisplayedGroupNames(ev.groups, scheduleContext);
 						let borderColor = ev.courseColor || "var(--accent-color)";
 						if (borderColor.startsWith("hsl")) {
 							borderColor = borderColor.replace(/hsl\((\d+),\s*(\d+)%?,\s*(\d+)%?\)/, (h, hue, sat, light) => `hsl(${hue}, ${sat}%, ${Math.max(0, light - 20)}%)`);
 						}
+						console.log(scheduleContext);
+						console.log(ev);
 						return (
 							<div
 								key={idx}
@@ -627,6 +631,7 @@ const Calendar = () => {
 								</div>
 								<div className="ev-title">{ev.name || ev.typeName}</div>
 								<div className="ev-room">{ev.rooms?.map((r) => r.name).join(", ")}</div>
+								{displayedGroupNames.length > 0 && <div className="ev-group">{displayedGroupNames.join(", ")}</div>}
 							</div>
 						);
 					})}
@@ -664,6 +669,7 @@ const Calendar = () => {
 										<div key={dayIdx} style={{ flex: 1, minHeight: dayMultiDayEvents.length > 0 ? "auto" : "0" }} className="multi-day-col">
 											{dayMultiDayEvents.map((ev, idx) => {
 												const cancelled = isEventCancelled(ev);
+												const displayedGroupNames = getDisplayedGroupNames(ev.groups, scheduleContext);
 												return (
 													<div
 														key={idx}
@@ -677,6 +683,7 @@ const Calendar = () => {
 														{cancelled && <div className="event-badge cancelled-badge">Annulé</div>}
 														<div className="ev-title">{ev.name || ev.typeName}</div>
 														<div className="ev-room">{ev.rooms?.map((r) => r.name).join(", ")}</div>
+														{displayedGroupNames.length > 0 && <div className="ev-group">{displayedGroupNames.join(", ")}</div>}
 													</div>
 												);
 											})}
@@ -887,7 +894,7 @@ const Calendar = () => {
 				}}
 			/>
 
-			<EventDetailsModal event={selectedEvent} onClose={() => setSelectedEvent(null)} onContextSwitch={handleContextSwitch} />
+			<EventDetailsModal event={selectedEvent} selectedGroups={selectedGroups} onClose={() => setSelectedEvent(null)} onContextSwitch={handleContextSwitch} />
 
 			<SettingsModal show={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
 			<NotificationSettings isOpen={showNotificationsModal} onClose={() => setShowNotificationsModal(false)} userEmail={user?.username} userGroups={selectedGroups} />

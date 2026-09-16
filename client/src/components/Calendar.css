@@ -747,7 +747,8 @@
 	color: rgba(0, 0, 0, 0.85);
 }
 
-.ev-room {
+.ev-room,
+.ev-group {
 	font-size: 0.7rem;
 	opacity: 0.75;
 	color: rgba(0, 0, 0, 0.65);

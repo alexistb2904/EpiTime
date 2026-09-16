@@ -9,7 +9,9 @@ export default defineConfig({
 			registerType: "autoUpdate",
 			injectRegister: false,
 			includeAssets: ["icons/*.png"],
-			useFilesForDev: true,
+			devOptions: {
+				enabled: true,
+			},
 			logger: undefined,
 			manifest: {
 				name: "EpiTime - Emploi du Temps",

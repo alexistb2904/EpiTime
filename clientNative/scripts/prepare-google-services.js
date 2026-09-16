@@ -5,11 +5,20 @@ const path = require("node:path");
 
 const projectRoot = path.resolve(__dirname, "..");
 const fallbackFile = path.join(projectRoot, "google-services.json");
-const sourceFile = process.env.GOOGLE_SERVICES_JSON || fallbackFile;
 const destinationFile = path.join(projectRoot, "android", "app", "google-services.json");
 const expectedPackage = require(path.join(projectRoot, "app.json")).expo.android.package;
+const isRequired = process.argv.includes("--require");
+const sourceCandidates = process.env.GOOGLE_SERVICES_JSON
+	? [process.env.GOOGLE_SERVICES_JSON]
+	: [fallbackFile, destinationFile];
+const sourceFile = sourceCandidates.find((candidate) => fs.existsSync(candidate));
 
-if (!fs.existsSync(sourceFile)) {
+if (!sourceFile) {
+	if (!isRequired) {
+		console.log("google-services.json not found; skipping Google services setup for local Android development.");
+		process.exit(0);
+	}
+
 	throw new Error(
 		"google-services.json is required for an Android release. Set GOOGLE_SERVICES_JSON to an EAS file secret or provide clientNative/google-services.json locally.",
 	);

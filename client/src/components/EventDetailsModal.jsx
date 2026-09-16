@@ -2,7 +2,7 @@ import React from "react";
 import { AlertTriangle, CalendarDays, Clock3, Laptop, Link2, Timer, X } from "lucide-react";
 import { trackEvent } from "../utils/analyticsTracker";
 
-const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
+const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitch }) => {
 	if (!event) return null;
 	const isCancelled = Boolean(event.isCancelled || event.isCanceled);
 	const isSameDay = event.startObj.toDateString() === event.endObj.toDateString();
@@ -76,6 +76,7 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 	const getTeacherName = (teacher) => [teacher.firstname, teacher.name].filter(Boolean).join(" ") || teacher.displayname || teacher.name || "Intervenant";
 	const courseTypeLabel = event.courseTypeName ? mappingCourseTypeToLabel[event.courseTypeName] || event.courseTypeName : null;
 	const title = event.name || event.typeName || "Cours";
+	const associatedGroups = (event.groups || []).filter((group) => group.id !== undefined && group.id !== null && selectedGroups.some((id) => String(id) === String(group.id)));
 
 	return (
 		<div
@@ -99,6 +100,11 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 							</span>
 						)}
 						{courseTypeLabel && <span className="event-detail-status">{courseTypeLabel}</span>}
+						{associatedGroups.map((group) => (
+							<span key={group.id || group.name} className="event-detail-status">
+								{group.name || String(group.id)}
+							</span>
+						))}
 						<button
 							type="button"
 							className="btn-icon event-detail-close"
@@ -200,11 +206,11 @@ const EventDetailsModal = ({ event, onClose, onContextSwitch }) => {
 						</div>
 					)}
 
-					{event.groups && event.groups.length > 0 && (
+					{associatedGroups.length > 0 && (
 						<div className="event-detail-section">
-							<span className="detail-label">Groupes</span>
+							<span className="detail-label">Mes groupes</span>
 							<div className="event-detail-chip-row">
-								{event.groups.map((g) => (
+								{associatedGroups.map((g) => (
 									<button type="button" className="detail-chip" key={g.id || g.name} onClick={() => onContextSwitch("group", g.id, g.name)}>
 										<span className="detail-chip-emoji" aria-hidden="true">
 											👥

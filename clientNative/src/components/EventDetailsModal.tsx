@@ -10,9 +10,11 @@ import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, get
 import { getRoomMapUrl } from "../utils/rooms";
 import { trackEvent } from "../services/analytics";
 import CourseNotesSection from "./CourseNotesSection";
+import { getAssociatedGroups } from "../utils/groups";
 
 type EventDetailsModalProps = {
 	event: ZeusEvent | null;
+	selectedGroups?: Array<string | number>;
 	onClose: () => void;
 	onApplyContext: (type: "single-group" | "teacher" | "room", id?: string | number, label?: string) => void;
 	onDelete: (event: ZeusEvent) => void;
@@ -25,6 +27,7 @@ type EventDetailsModalProps = {
 
 export default function EventDetailsModal({
 	event,
+	selectedGroups = [],
 	onClose,
 	onApplyContext,
 	onDelete,
@@ -44,14 +47,22 @@ export default function EventDetailsModal({
 	const cancelled = isEventCancelled(event);
 	const ignored = isEventIgnored(event);
 	const visualColor = cancelled || ignored ? theme.muted : color;
+	const associatedGroups = getAssociatedGroups(event.groups, selectedGroups);
 
 	return (
 		<Modal visible animationType="slide" presentationStyle="pageSheet">
 			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
 				<View style={[s.eventHero, { backgroundColor: visualColor, paddingTop: Math.max(insets.top + 20, 60) }]}>
 					<View style={s.eventHeroTop}>
-						<View style={s.eventHeroBadge}>
-							<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{cancelled ? "Annulé" : ignored ? "Ignoré" : typeName || "Cours"}</Text>
+						<View style={s.eventHeroBadges}>
+							<View style={s.eventHeroBadge}>
+								<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{cancelled ? "Annulé" : ignored ? "Ignoré" : typeName || "Cours"}</Text>
+							</View>
+							{associatedGroups.map((group) => (
+								<View key={String(group.id)} style={s.eventHeroBadge}>
+									<Text style={[s.eventHeroBadgeText, { color: visualColor }]}>{group.name || String(group.id)}</Text>
+								</View>
+							))}
 						</View>
 						<Pressable style={s.eventHeroClose} onPress={onClose}>
 							<X color="#fff" size={24} />
@@ -167,11 +178,11 @@ export default function EventDetailsModal({
 						</View>
 					) : null}
 
-					{event.groups?.length ? (
+					{associatedGroups.length ? (
 						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
-							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Groupes</Text>
+							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Mes groupes</Text>
 							<View style={s.eventChipGrid}>
-								{event.groups.map((group) => (
+								{associatedGroups.map((group) => (
 									<Pressable
 										key={`${group.id || group.name}`}
 										style={[s.eventPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
@@ -219,6 +230,7 @@ const s = StyleSheet.create({
 	modalRoot: { flex: 1 },
 	eventHero: { paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20 },
 	eventHeroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
+	eventHeroBadges: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 8, marginRight: 12 },
 	eventHeroBadge: { backgroundColor: "rgba(255,255,255,0.9)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
 	eventHeroBadgeText: { fontSize: 13, fontWeight: "900", textTransform: "uppercase" },
 	eventHeroClose: { width: 36, height: 36, backgroundColor: "rgba(0,0,0,0.15)", borderRadius: 18, alignItems: "center", justifyContent: "center" },

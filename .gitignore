@@ -80,6 +80,7 @@ server/data/
 
 clientNative/android/keystore.properties
 clientNative/android/app/release.keystore
+clientNative/google-services.json
 .metals/metals.lock.db
 .gitignore
 .metals/metals.mv.db

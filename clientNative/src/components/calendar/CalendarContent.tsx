@@ -301,6 +301,7 @@ export function CalendarContent({
 				<DatePickerModal visible={showDatePicker} currentDate={currentDate} pickerMonth={pickerMonth} onChangeMonth={setPickerMonth} onSelectDate={applyDate} onToday={() => applyDate(new Date())} onClose={() => setShowDatePicker(false)} />
 				<EventDetailsModal
 					event={selectedEvent}
+					selectedGroups={selectedGroups}
 					linkedSyllabus={selectedEventSyllabus}
 					onClose={() => setSelectedEvent(null)}
 					onApplyContext={applyContext}

@@ -6,6 +6,8 @@ import { Check, Clock, DoorOpen, Filter, Layers, MapPin, Navigation, RotateCcw, 
 import { useTheme } from "../../context/ThemeContext";
 import { getAvailableRooms, getLocations, getRooms, getRoomTypes } from "../../services/api";
 import { Group, LocationNode, Room, RoomType } from "../../types";
+import type { GroupTreeNode } from "../../utils/groups";
+import GroupTreeList from "../GroupTreeList";
 import { openUrl } from "../../utils/calendar";
 import { getRoomMapUrl } from "../../utils/rooms";
 import { s } from "./calendarStyles";
@@ -38,7 +40,7 @@ export function GroupModal({
 	onClose,
 }: {
 	visible: boolean;
-	groups: Group[];
+	groups: GroupTreeNode[];
 	selected: (string | number)[];
 	search: string;
 	onSearch: (value: string) => void;
@@ -77,23 +79,7 @@ export function GroupModal({
 						: "Choisis au moins un groupe"}
 				</Text>
 				<ScrollView contentContainerStyle={s.modalList} keyboardShouldPersistTaps="handled">
-					{groups.map((group, index) => {
-						const active = draftSelected.includes(group.id);
-						return (
-							<Animated.View key={String(group.id)} entering={FadeInDown.delay(Math.min(index, 18) * 20).duration(250)} layout={Layout.springify()}>
-								<Pressable
-									style={[s.groupRow, { backgroundColor: theme.surface, borderColor: active ? theme.accent : theme.border }]}
-									onPress={() => toggleGroup(group.id)}>
-									<View style={[s.check, { backgroundColor: active ? theme.accent : "transparent", borderColor: active ? theme.accent : theme.border }]}>
-										{active ? <Check color="#fff" size={14} /> : null}
-									</View>
-									<Text style={[s.groupName, { color: theme.text }]} numberOfLines={1}>
-										{group.name}
-									</Text>
-								</Pressable>
-							</Animated.View>
-						);
-					})}
+					<GroupTreeList groups={groups} selected={draftSelected} onToggle={toggleGroup} searchActive={Boolean(search.trim())} />
 				</ScrollView>
 				<View style={[s.groupModalFooter, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
 					<Pressable

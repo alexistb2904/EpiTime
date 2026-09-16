@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeIn, FadeInDown, FadeInUp, Layout, SlideInRight } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeInUp, SlideInRight } from "react-native-reanimated";
 import { BellRing, BookOpenCheck, CalendarDays, Check, DoorOpen, LogOut, Search, ShieldCheck, Users } from "lucide-react-native";
 import Card from "../components/Card";
+import GroupTreeList from "../components/GroupTreeList";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { getGroups, registerExpoPushToken, isAuthReconnectRequiredError } from "../services/api";
@@ -16,6 +17,7 @@ import { syncCourseWidgets } from "../services/widgets";
 import { setAnalyticsConsent, trackEvent, trackScreen } from "../services/analytics";
 import { Group, ZeusEvent } from "../types";
 import { startOfDay } from "../utils/calendar";
+import { buildGroupTree, filterGroupTree } from "../utils/groups";
 
 type Props = {
 	onDone: () => void;
@@ -77,11 +79,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 	}, [handleAuthExpired]);
 
 	const filteredGroups = useMemo(() => {
-		const term = search.trim().toLowerCase();
-		return groups
-			.filter((group) => !term || group.name.toLowerCase().includes(term))
-			.sort((first, second) => first.name.localeCompare(second.name, "fr", { sensitivity: "base", numeric: true }))
-			.slice(0, 220);
+		return filterGroupTree(buildGroupTree(groups), search);
 	}, [groups, search]);
 
 	const toggle = (id: string | number) => {
@@ -243,25 +241,7 @@ export default function OnboardingScreen({ onDone }: Props) {
 
 						{error ? <Text style={[s.error, { color: theme.danger }]}>{error}</Text> : null}
 						{loading ? <ActivityIndicator color={theme.accent} /> : null}
-						<View style={s.groupList}>
-							{filteredGroups.map((group, index) => {
-								const active = selected.includes(group.id);
-								return (
-									<Animated.View key={String(group.id)} entering={FadeInDown.delay(Math.min(index, 20) * 18).duration(260)} layout={Layout.springify()}>
-										<Pressable
-											style={[s.groupRow, { backgroundColor: theme.surface, borderColor: active ? theme.accent : theme.border }]}
-											onPress={() => toggle(group.id)}>
-											<View style={[s.check, { backgroundColor: active ? theme.accent : "transparent", borderColor: active ? theme.accent : theme.border }]}>
-												{active ? <Check color="#fff" size={14} /> : null}
-											</View>
-											<Text style={[s.groupName, { color: theme.text }]} numberOfLines={1}>
-												{group.name}
-											</Text>
-										</Pressable>
-									</Animated.View>
-								);
-							})}
-						</View>
+						<GroupTreeList groups={filteredGroups} selected={selected} onToggle={toggle} searchActive={Boolean(search.trim())} />
 					</Animated.View>
 				)}
 			</ScrollView>
@@ -311,10 +291,6 @@ const s = StyleSheet.create({
 	selectionText: { flex: 1, fontWeight: "900" },
 	error: { fontWeight: "800" },
 	listHint: { fontSize: 12, fontWeight: "800", letterSpacing: 0.2, marginTop: 2 },
-	groupList: { gap: 8 },
-	groupRow: { borderWidth: 1, borderRadius: 14, padding: 13, flexDirection: "row", alignItems: "center", gap: 10 },
-	check: { width: 22, height: 22, borderWidth: 1, borderRadius: 6, alignItems: "center", justifyContent: "center" },
-	groupName: { flex: 1, fontWeight: "800" },
 	stickyAction: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14 },
 	stickyButton: { marginTop: 0 },
 });
