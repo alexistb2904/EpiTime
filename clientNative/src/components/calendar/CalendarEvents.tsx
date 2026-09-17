@@ -10,15 +10,8 @@ import { EventChange } from "../../services/eventsCache";
 import { isEventCancelled, isEventIgnored } from "../../services/localEvents";
 import { EventChangeHistoryItem } from "../../services/notifications";
 import { ZeusEvent } from "../../types";
-import {
-	formatDateRange,
-	getCourseColor,
-	getCourseTypeLabel,
-	getEventTitle,
-	getRoomName,
-	getTeacherName,
-	hexToRgba,
-} from "../../utils/calendar";
+import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba } from "../../utils/calendar";
+import { getDisplayedGroupNames } from "../../utils/groups";
 import { s } from "./calendarStyles";
 
 const getCourseProgress = (startMillis: number, endMillis: number, now: number) => {
@@ -36,17 +29,7 @@ export function formatEventChangeNotice(changes: EventChange[]) {
 	return `Cours modifié${suffix} : ${first.title}${time}${detail}`;
 }
 
-export function ChangeHistoryModal({
-	visible,
-	changes,
-	onClose,
-	onClear,
-}: {
-	visible: boolean;
-	changes: EventChangeHistoryItem[];
-	onClose: () => void;
-	onClear: () => void;
-}) {
+export function ChangeHistoryModal({ visible, changes, onClose, onClear }: { visible: boolean; changes: EventChangeHistoryItem[]; onClose: () => void; onClear: () => void }) {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
 	return (
@@ -55,7 +38,9 @@ export function ChangeHistoryModal({
 				<View style={[s.modalHeader, { borderBottomColor: theme.border, paddingTop: Math.max(insets.top, 18) }]}>
 					<View style={s.changeModalTitleWrap}>
 						<Text style={[s.modalTitle, { color: theme.text }]}>Modifications</Text>
-						<Text style={[s.changeModalSubtitle, { color: theme.muted }]}>{changes.length ? `${changes.length} changement(s) conservé(s)` : "Aucune modification enregistrée"}</Text>
+						<Text style={[s.changeModalSubtitle, { color: theme.muted }]}>
+							{changes.length ? `${changes.length} changement(s) conservé(s)` : "Aucune modification enregistrée"}
+						</Text>
 					</View>
 					<Pressable style={[s.iconBtn, { borderColor: theme.border }]} onPress={onClose}>
 						<X color={theme.text} size={20} />
@@ -91,9 +76,7 @@ function ChangeHistoryCard({ change }: { change: EventChangeHistoryItem }) {
 	const { theme } = useTheme();
 	const start = new Date(change.startDate);
 	const detectedAt = new Date(change.notifiedAt);
-	const dateLabel = Number.isNaN(start.getTime())
-		? "Date inconnue"
-		: start.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" });
+	const dateLabel = Number.isNaN(start.getTime()) ? "Date inconnue" : start.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" });
 	const detectedLabel = Number.isNaN(detectedAt.getTime())
 		? ""
 		: `Détecté ${detectedAt.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} à ${detectedAt.toLocaleTimeString("fr-FR", {
@@ -110,7 +93,10 @@ function ChangeHistoryCard({ change }: { change: EventChangeHistoryItem }) {
 					<Text style={[s.changeCardTitle, { color: theme.text }]} numberOfLines={2}>
 						{change.title}
 					</Text>
-					<Text style={[s.changeCardMeta, { color: theme.muted }]}>{dateLabel}{detectedLabel ? ` · ${detectedLabel}` : ""}</Text>
+					<Text style={[s.changeCardMeta, { color: theme.muted }]}>
+						{dateLabel}
+						{detectedLabel ? ` · ${detectedLabel}` : ""}
+					</Text>
 				</View>
 			</View>
 			<View style={s.changeDetails}>
@@ -139,6 +125,8 @@ export function EventCard({
 	highlighted,
 	noteSummary,
 	now,
+	selectedGroups,
+	availableGroups,
 	onPress,
 }: {
 	event: ZeusEvent;
@@ -146,9 +134,12 @@ export function EventCard({
 	highlighted?: boolean;
 	noteSummary?: CourseNoteSummary;
 	now: number;
+	selectedGroups?: Array<string | number>;
+	availableGroups?: Array<{ id: string | number; name: string }>;
 	onPress: () => void;
 }) {
 	const { theme } = useTheme();
+	const activeGroupNames = (selectedGroups?.length || 0) > 1 ? getDisplayedGroupNames(event.groups, selectedGroups || [], availableGroups) : [];
 	const rooms = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
 	const teachers = event.teachers?.map(getTeacherName).filter(Boolean).slice(0, 2).join(", ");
 	const color = getCourseColor(event);
@@ -201,6 +192,14 @@ export function EventCard({
 								</View>
 							)}
 							<View style={s.eventIndicators}>
+								{activeGroupNames.length ? (
+									<View style={[s.groupChip, { backgroundColor: theme.accentSoft }]}>
+										<Users color={theme.accent} size={13} />
+										<Text style={[s.groupChipText, { color: theme.accent }]} numberOfLines={1}>
+											{activeGroupNames.join(", ")}
+										</Text>
+									</View>
+								) : null}
 								{event.isOnline ? (
 									<View style={[s.onlineChip, { backgroundColor: theme.accentSoft }]}>
 										<Bell color={theme.accent} size={13} />

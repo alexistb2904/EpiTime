@@ -63,6 +63,8 @@ export function CalendarContent({
 	selectedLabels,
 	rooms,
 	teachers,
+	filterOptionsLoading,
+	onLoadFilterOptions,
 	setCurrentDate,
 	setEventChanges,
 	setFocusedDay,
@@ -285,6 +287,8 @@ export function CalendarContent({
 								highlighted={highlightedEventKey === getLocalEventKey(event)}
 								noteSummary={noteSummaries[getLocalEventKey(event)]}
 								now={now}
+								selectedGroups={selectedGroups}
+								availableGroups={groups}
 								onPress={() => openDetails(event)}
 							/>
 						))
@@ -300,6 +304,8 @@ export function CalendarContent({
 					selectedGroups={selectedGroups}
 					selectedRooms={selectedRooms}
 					selectedTeachers={selectedTeachers}
+					filterOptionsLoading={filterOptionsLoading}
+					onLoadFilterOptions={onLoadFilterOptions}
 					groupSearch={groupSearch}
 					onGroupSearch={setGroupSearch}
 					onApply={applyFilters}

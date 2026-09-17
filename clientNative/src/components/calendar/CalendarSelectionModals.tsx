@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown, Layout } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, ChevronDown, Clock, DoorOpen, Filter, Layers, MapPin, Navigation, RotateCcw, Search, SlidersHorizontal, Users, X } from "lucide-react-native";
+import { Check, Clock, DoorOpen, Filter, Layers, MapPin, Minus, Navigation, Plus, RotateCcw, Search, SlidersHorizontal, Users, X } from "lucide-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { getAvailableRooms, getLocations, getRooms, getRoomTypes } from "../../services/api";
 import { Group, LocationNode, Room, RoomType, Teacher } from "../../types";
@@ -122,12 +122,17 @@ function FilterAccordion({ title, count, expanded, onToggle, children }: { title
 	const { theme } = useTheme();
 	return (
 		<View style={[filterStyles.accordion, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-			<Pressable style={filterStyles.accordionHead} onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded }}>
+			<Pressable
+				style={filterStyles.accordionHead}
+				onPress={onToggle}
+				accessibilityRole="button"
+				accessibilityState={{ expanded }}
+				accessibilityLabel={`${expanded ? "Réduire" : "Développer"} ${title}`}>
 				<View style={filterStyles.accordionTitleRow}>
 					<Text style={[filterStyles.accordionTitle, { color: theme.text }]}>{title}</Text>
 					{count ? <Text style={[filterStyles.accordionCount, { color: theme.accent, backgroundColor: theme.accentSoft }]}>{count}</Text> : null}
 				</View>
-				<ChevronDown color={theme.muted} size={20} style={{ transform: [{ rotate: expanded ? "0deg" : "-90deg" }] }} />
+				<View style={[filterStyles.accordionIcon, { backgroundColor: theme.accentSoft }]}>{expanded ? <Minus color={theme.accent} size={17} strokeWidth={2.5} /> : <Plus color={theme.accent} size={17} strokeWidth={2.5} />}</View>
 			</Pressable>
 			{expanded ? <View style={filterStyles.accordionContent}>{children}</View> : null}
 		</View>
@@ -145,6 +150,8 @@ export function FiltersModal({
 	selectedTeachers,
 	groupSearch,
 	onGroupSearch,
+	filterOptionsLoading,
+	onLoadFilterOptions,
 	onApply,
 	onClose,
 }: {
@@ -158,6 +165,8 @@ export function FiltersModal({
 	selectedTeachers: FilterSelectionId[];
 	groupSearch: string;
 	onGroupSearch: (value: string) => void;
+	filterOptionsLoading: boolean;
+	onLoadFilterOptions: () => void | Promise<void>;
 	onApply: (filters: FilterSelection) => void;
 	onClose: () => void;
 }) {
@@ -222,21 +231,47 @@ export function FiltersModal({
 						<GroupTreeList groups={groups} selected={draft.groups} onToggle={(id) => toggle("groups", id)} searchActive={Boolean(groupSearch.trim())} />
 					</FilterAccordion>
 
-					<FilterAccordion title="Salles" count={draft.rooms.length} expanded={expanded.rooms} onToggle={() => setExpanded((current) => ({ ...current, rooms: !current.rooms }))}>
+					<FilterAccordion
+						title="Salles"
+						count={draft.rooms.length}
+						expanded={expanded.rooms}
+						onToggle={() => {
+							if (!expanded.rooms) void onLoadFilterOptions();
+							setExpanded((current) => ({ ...current, rooms: !current.rooms }));
+						}}>
 						<View style={[s.searchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
 							<Search color={theme.muted} size={18} />
 							<TextInput value={roomSearch} onChangeText={setRoomSearch} placeholder="Rechercher une salle" placeholderTextColor={theme.muted} style={[s.searchInput, { color: theme.text }]} />
 						</View>
+						{filterOptionsLoading && !rooms.length ? (
+							<View style={filterStyles.optionsLoading}>
+								<ActivityIndicator color={theme.accent} />
+								<Text style={[filterStyles.optionsLoadingText, { color: theme.muted }]}>Chargement des salles…</Text>
+							</View>
+						) : null}
 						{visibleRooms.map((room) => (
 							<FilterOption key={String(room.id)} label={room.name} selected={draft.rooms.some((id) => sameId(id, room.id))} onPress={() => toggle("rooms", room.id)} />
 						))}
 					</FilterAccordion>
 
-					<FilterAccordion title="Enseignants" count={draft.teachers.length} expanded={expanded.teachers} onToggle={() => setExpanded((current) => ({ ...current, teachers: !current.teachers }))}>
+					<FilterAccordion
+						title="Enseignants"
+						count={draft.teachers.length}
+						expanded={expanded.teachers}
+						onToggle={() => {
+							if (!expanded.teachers) void onLoadFilterOptions();
+							setExpanded((current) => ({ ...current, teachers: !current.teachers }));
+						}}>
 						<View style={[s.searchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
 							<Search color={theme.muted} size={18} />
 							<TextInput value={teacherSearch} onChangeText={setTeacherSearch} placeholder="Rechercher un enseignant" placeholderTextColor={theme.muted} style={[s.searchInput, { color: theme.text }]} />
 						</View>
+						{filterOptionsLoading && !teachers.length ? (
+							<View style={filterStyles.optionsLoading}>
+								<ActivityIndicator color={theme.accent} />
+								<Text style={[filterStyles.optionsLoadingText, { color: theme.muted }]}>Chargement des enseignants…</Text>
+							</View>
+						) : null}
 						{visibleTeachers.map((teacher) => (
 							<FilterOption key={String(teacher.id)} label={teacherLabel(teacher)} selected={draft.teachers.some((id) => sameId(id, teacher.id))} onPress={() => toggle("teachers", teacher.id)} />
 						))}
@@ -821,7 +856,10 @@ const filterStyles = StyleSheet.create({
 	accordionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
 	accordionTitle: { fontSize: 16, fontWeight: "900" },
 	accordionCount: { minWidth: 24, height: 24, borderRadius: 12, overflow: "hidden", textAlign: "center", textAlignVertical: "center", fontSize: 12, fontWeight: "900" },
+	accordionIcon: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
 	accordionContent: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
+	optionsLoading: { minHeight: 48, borderRadius: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+	optionsLoadingText: { fontSize: 13, fontWeight: "800" },
 	option: { minHeight: 48, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 10 },
 	optionCheck: { width: 21, height: 21, borderRadius: 6, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 	optionText: { flex: 1, fontWeight: "700" },

@@ -57,6 +57,38 @@ export default function HomeScreen() {
 	const [aurigaAverage, setAurigaAverage] = useState("-");
 	const [nowMs, setNowMs] = useState(Date.now());
 	const refreshingRef = useRef(false);
+	const groupsLoadedRef = useRef(false);
+	const groupsRequestRef = useRef<Promise<void> | null>(null);
+
+	const loadGroups = useCallback(
+		async (cachedGroups: Group[] = []) => {
+			if (cachedGroups.length) setGroups((current) => (current.length ? current : cachedGroups));
+			if (groupsLoadedRef.current) return;
+			if (groupsRequestRef.current) {
+				await groupsRequestRef.current;
+				return;
+			}
+
+			const request = (async () => {
+				try {
+					const allGroups = await getGroups();
+					setGroups(allGroups);
+					await setJSON("lastGroups", allGroups);
+					groupsLoadedRef.current = true;
+				} catch (error) {
+					if (isAuthReconnectRequiredError(error)) await handleAuthExpired();
+				}
+			})();
+
+			groupsRequestRef.current = request;
+			try {
+				await request;
+			} finally {
+				if (groupsRequestRef.current === request) groupsRequestRef.current = null;
+			}
+		},
+		[handleAuthExpired]
+	);
 
 	const refresh = useCallback(async () => {
 		if (refreshingRef.current) return;
@@ -66,28 +98,20 @@ export default function HomeScreen() {
 		const end = new Date(start);
 		end.setDate(end.getDate() + 30);
 		let ids: (string | number)[] = [];
+		let cachedGroups: Group[] = [];
 		try {
-			ids = await getJSON<(string | number)[]>("selectedGroups", []);
+			const [storedGroups, storedCachedGroups, notificationSettings] = await Promise.all([
+				getJSON<(string | number)[]>("selectedGroups", []),
+				getJSON<Group[]>("lastGroups", []),
+				getNotificationSettings(),
+			]);
+			ids = storedGroups;
+			cachedGroups = storedCachedGroups;
 			setSelectedGroups(ids);
-
-			const cachedGroups = await getJSON<Group[]>("lastGroups", []);
 			if (cachedGroups.length) setGroups(cachedGroups);
-
-			try {
-				const allGroups = await getGroups();
-				setGroups(allGroups);
-				await setJSON("lastGroups", allGroups);
-			} catch (error) {
-				if (isAuthReconnectRequiredError(error)) {
-					await handleAuthExpired();
-					return;
-				}
-				if (!cachedGroups.length) setGroups([]);
-			}
 
 			if (ids.length > 0) {
 				const query = { groups: ids };
-				const notificationSettings = await getNotificationSettings();
 				const result = await syncSchedule({
 					start,
 					end,
@@ -95,14 +119,11 @@ export default function HomeScreen() {
 					changeDetectionWindowDays: notificationSettings.changeDetectionWindowDays,
 					onCached: async (cached) => {
 						setEvents(cached.visibleEvents);
-						await syncCourseWidgets(cached.visibleEvents);
-						await rescheduleCourseNoteReminders(cached.visibleEvents);
 					},
 				});
 
 				setEvents(result.visibleEvents);
-				await syncCourseWidgets(result.visibleEvents);
-				await rescheduleCourseNoteReminders(result.visibleEvents);
+				void Promise.all([syncCourseWidgets(result.visibleEvents), rescheduleCourseNoteReminders(result.visibleEvents)]).catch(() => {});
 				if (result.source === "network" && (result.changed || !result.exactCacheHit)) {
 					if (result.changes.length) {
 						setEventChanges(result.changes);
@@ -113,7 +134,8 @@ export default function HomeScreen() {
 							result.activeEvents,
 							notificationSettings.minutesBefore,
 							notificationSettings.selectedDays,
-							notificationSettings.notificationType
+							notificationSettings.notificationType,
+							{ requestPermission: false }
 						);
 					}
 				}
@@ -121,10 +143,10 @@ export default function HomeScreen() {
 			} else {
 				const result = await syncSchedule({ start, end, query: {} });
 				setEvents(result.visibleEvents);
-				await syncCourseWidgets(result.visibleEvents);
-				await rescheduleCourseNoteReminders(result.visibleEvents);
+				void Promise.all([syncCourseWidgets(result.visibleEvents), rescheduleCourseNoteReminders(result.visibleEvents)]).catch(() => {});
 				setUsingCache(false);
 			}
+			void loadGroups(cachedGroups);
 		} catch (error) {
 			if (isAuthReconnectRequiredError(error)) {
 				await handleAuthExpired();
@@ -132,15 +154,15 @@ export default function HomeScreen() {
 			}
 			const fallback = ids.length ? await readCachedSchedule(start, end, { groups: ids }, true) : await syncSchedule({ start, end, query: {} });
 			setEvents(fallback.visibleEvents);
-			setGroups(await getJSON("lastGroups", []));
-			await syncCourseWidgets(fallback.visibleEvents);
-			await rescheduleCourseNoteReminders(fallback.visibleEvents);
+			if (cachedGroups.length) setGroups(cachedGroups);
+			void loadGroups(cachedGroups);
+			void Promise.all([syncCourseWidgets(fallback.visibleEvents), rescheduleCourseNoteReminders(fallback.visibleEvents)]).catch(() => {});
 			setUsingCache(true);
 		} finally {
 			refreshingRef.current = false;
 			setRefreshing(false);
 		}
-	}, [handleAuthExpired]);
+	}, [handleAuthExpired, loadGroups]);
 
 	useEffect(() => {
 		refresh();

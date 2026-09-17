@@ -6,16 +6,12 @@ import Card from "../components/Card";
 import GroupTreeList from "../components/GroupTreeList";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { getGroups, registerExpoPushToken, isAuthReconnectRequiredError } from "../services/api";
-import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
-import { rescheduleCourseNoteReminders } from "../services/courseNotes";
-import { getNotificationSettings, requestPushToken, scheduleLocalCourseNotifications, setNotificationSettings } from "../services/notifications";
-import { requestRequiredAppPermissions } from "../services/permissions";
+import { getGroups, isAuthReconnectRequiredError } from "../services/api";
 import { syncSchedule } from "../services/scheduleRepository";
 import { getJSON, setJSON } from "../services/storage";
 import { syncCourseWidgets } from "../services/widgets";
 import { setAnalyticsConsent, trackEvent, trackScreen } from "../services/analytics";
-import { Group, ZeusEvent } from "../types";
+import { Group } from "../types";
 import { startOfDay } from "../utils/calendar";
 import { buildGroupTree, filterGroupTree } from "../utils/groups";
 
@@ -43,7 +39,6 @@ export default function OnboardingScreen({ onDone }: Props) {
 	const [error, setError] = useState("");
 	const trackedSteps = useRef(new Set<string>());
 	const account = session?.account as { id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
-	const userId = account?.id || account?.userPrincipalName || account?.mail || "";
 
 	useEffect(() => {
 		if (!trackedSteps.current.has("started")) {
@@ -78,9 +73,8 @@ export default function OnboardingScreen({ onDone }: Props) {
 		})();
 	}, [handleAuthExpired]);
 
-	const filteredGroups = useMemo(() => {
-		return filterGroupTree(buildGroupTree(groups), search);
-	}, [groups, search]);
+	const groupTree = useMemo(() => buildGroupTree(groups), [groups]);
+	const filteredGroups = useMemo(() => filterGroupTree(groupTree, search), [groupTree, search]);
 
 	const toggle = (id: string | number) => {
 		setSelected((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
@@ -101,8 +95,6 @@ export default function OnboardingScreen({ onDone }: Props) {
 			end.setDate(end.getDate() + 30);
 			const schedule = await syncSchedule({ start, end, query: { groups: selected } });
 			await syncCourseWidgets(schedule.visibleEvents);
-			await rescheduleCourseNoteReminders(schedule.visibleEvents);
-			await enableDefaultNotifications(schedule.activeEvents);
 			await trackEvent("onboarding_completed", { total_steps: 3 });
 			onDone();
 		} catch (err: any) {
@@ -122,21 +114,6 @@ export default function OnboardingScreen({ onDone }: Props) {
 		if (accepted) await trackEvent("analytics_consent_accepted", { source: "onboarding" });
 		setConsentSaving(false);
 		setStep("groups");
-	};
-
-	const enableDefaultNotifications = async (events: ZeusEvent[]) => {
-		const notificationSettings = { ...(await getNotificationSettings()), enabled: true };
-		await setNotificationSettings(notificationSettings);
-		const permissions = await requestRequiredAppPermissions().catch(() => null);
-		const notificationsGranted = permissions ? !permissions.missing.some((permission) => permission.id === "notifications") : false;
-		const token = notificationsGranted ? await requestPushToken().catch(() => null) : null;
-		if (notificationsGranted) {
-			await scheduleLocalCourseNotifications(events, notificationSettings.minutesBefore, notificationSettings.selectedDays, notificationSettings.notificationType, {
-				requestPermission: false,
-			}).catch(() => {});
-			await registerPlanningNotificationBackgroundSync().catch(() => {});
-		}
-		if (token && userId) await registerExpoPushToken(token, userId, selected, notificationSettings);
 	};
 
 	return (

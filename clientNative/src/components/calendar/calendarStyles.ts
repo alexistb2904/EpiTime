@@ -99,6 +99,8 @@ export const s = StyleSheet.create({
 	cancelledText: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	onlineChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
 	onlineText: { fontSize: 12, fontWeight: "900" },
+	groupChip: { maxWidth: 180, flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
+	groupChipText: { flexShrink: 1, fontSize: 12, fontWeight: "900" },
 	noteIndicator: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 5 },
 	noteIndicatorText: { fontSize: 12, fontWeight: "900" },
 	noteIconIndicator: { width: 27, height: 27, borderRadius: 8, alignItems: "center", justifyContent: "center" },

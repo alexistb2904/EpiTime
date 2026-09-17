@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { runOnJS } from "react-native-reanimated";
@@ -42,6 +42,13 @@ import { CalendarContent } from "../components/calendar/CalendarContent";
 import { CalendarRouteParams, ScheduleContext, ViewMode, dayKey, getCourseProgress, getTargetEventKey, minute, rangeFor } from "../components/calendar/calendarModel";
 import { trackEvent } from "../services/analytics";
 
+const FILTER_ROOMS_CACHE_KEY = "filterOptions.rooms";
+const FILTER_TEACHERS_CACHE_KEY = "filterOptions.teachers";
+
+const sortRooms = (items: Room[] = []) => [...items].sort((a, b) => (a.name || "").localeCompare(b.name || "", "fr"));
+const sortTeachers = (items: Teacher[] = []) =>
+	[...items].sort((a, b) => `${a.firstname || ""} ${a.name || ""}`.localeCompare(`${b.firstname || ""} ${b.name || ""}`, "fr"));
+
 export default function CalendarScreen() {
 	const { handleAuthExpired } = useAuth();
 	const { theme } = useTheme();
@@ -54,6 +61,9 @@ export default function CalendarScreen() {
 	const [selectedRooms, setSelectedRooms] = useState<(string | number)[]>([]);
 	const [teachers, setTeachers] = useState<Teacher[]>([]);
 	const [selectedTeachers, setSelectedTeachers] = useState<(string | number)[]>([]);
+	const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
+	const filterOptionsLoadedRef = useRef(false);
+	const filterOptionsRequestRef = useRef<Promise<void> | null>(null);
 	const [events, setEvents] = useState<ZeusEvent[]>([]);
 	const [currentDate, setCurrentDate] = useState(new Date());
 	const [focusedDay, setFocusedDay] = useState(startOfDay(new Date()));
@@ -91,6 +101,74 @@ export default function CalendarScreen() {
 	const refreshChangeHistory = useCallback(async () => {
 		setChangeHistory(await getEventChangeHistory());
 	}, []);
+
+	const refreshGroups = useCallback(
+		async (cachedGroups: Group[] = []) => {
+			try {
+				const allGroups = await getGroups();
+				setGroups(allGroups);
+				await setJSON("lastGroups", allGroups);
+			} catch (err) {
+				if (isAuthReconnectRequiredError(err)) {
+					await handleAuthExpired();
+					return;
+				}
+				if (!cachedGroups.length) setGroups([]);
+			}
+		},
+		[handleAuthExpired]
+	);
+
+	const loadFilterOptions = useCallback(async () => {
+		if (filterOptionsLoadedRef.current) return;
+		if (filterOptionsRequestRef.current) {
+			await filterOptionsRequestRef.current;
+			return;
+		}
+
+		const request = (async () => {
+			setFilterOptionsLoading(true);
+			try {
+				const [cachedRooms, cachedTeachers] = await Promise.all([
+					getJSON<Room[]>(FILTER_ROOMS_CACHE_KEY, []),
+					getJSON<Teacher[]>(FILTER_TEACHERS_CACHE_KEY, []),
+				]);
+				if (cachedRooms.length) setRooms(sortRooms(cachedRooms));
+				if (cachedTeachers.length) setTeachers(sortTeachers(cachedTeachers));
+
+				// Start both Zeus calls together, but update each list as soon as its
+				// own response arrives instead of waiting for the slower endpoint.
+				const roomsRequest = getRooms().then((items) => {
+					const sortedRooms = sortRooms(items || []);
+					setRooms(sortedRooms);
+					void setJSON(FILTER_ROOMS_CACHE_KEY, sortedRooms).catch(() => {});
+					return sortedRooms;
+				});
+				const teachersRequest = getTeachers().then((items) => {
+					const sortedTeachers = sortTeachers(items || []);
+					setTeachers(sortedTeachers);
+					void setJSON(FILTER_TEACHERS_CACHE_KEY, sortedTeachers).catch(() => {});
+					return sortedTeachers;
+				});
+				const [roomsResult, teachersResult] = await Promise.allSettled([roomsRequest, teachersRequest]);
+				const authError = [roomsResult, teachersResult].find((result) => result.status === "rejected" && isAuthReconnectRequiredError(result.reason));
+				if (authError) {
+					await handleAuthExpired();
+					return;
+				}
+				filterOptionsLoadedRef.current = roomsResult.status === "fulfilled" && teachersResult.status === "fulfilled";
+			} finally {
+				setFilterOptionsLoading(false);
+			}
+		})();
+
+		filterOptionsRequestRef.current = request;
+		try {
+			await request;
+		} finally {
+			if (filterOptionsRequestRef.current === request) filterOptionsRequestRef.current = null;
+		}
+	}, [handleAuthExpired]);
 
 	const loadCalendar = useCallback(
 		async (nextContext = context, nextDate = currentDate, nextView = viewMode, nextFilters = selectedFilters) => {
@@ -135,7 +213,8 @@ export default function CalendarScreen() {
 							result.activeEvents,
 							notificationSettings.minutesBefore,
 							notificationSettings.selectedDays,
-							notificationSettings.notificationType
+							notificationSettings.notificationType,
+							{ requestPermission: false }
 						);
 					}
 				}
@@ -181,33 +260,11 @@ export default function CalendarScreen() {
 					getJSON<(string | number)[]>("selectedTeachers", []),
 					Promise.resolve(initialMode),
 				]);
-				await refreshSyllabusList();
 				savedGroups = storedGroups;
 				savedRooms = storedRooms;
 				savedTeachers = storedTeachers;
 				savedMode = storedMode;
 				if (cachedGroups.length) setGroups(cachedGroups);
-				try {
-					const allGroups = await getGroups();
-					setGroups(allGroups);
-					await setJSON("lastGroups", allGroups);
-				} catch (err) {
-					if (isAuthReconnectRequiredError(err)) {
-						await handleAuthExpired();
-						return;
-					}
-					if (!cachedGroups.length) setGroups([]);
-				}
-				try {
-					const [allRooms, allTeachers] = await Promise.all([getRooms(), getTeachers()]);
-					setRooms((allRooms || []).sort((a, b) => a.name.localeCompare(b.name, "fr")));
-					setTeachers((allTeachers || []).sort((a, b) => `${a.firstname || ""} ${a.name || ""}`.localeCompare(`${b.firstname || ""} ${b.name || ""}`, "fr")));
-				} catch (err) {
-					if (isAuthReconnectRequiredError(err)) {
-						await handleAuthExpired();
-						return;
-					}
-				}
 				setSelectedGroups(savedGroups);
 				setSelectedRooms(savedRooms);
 				setSelectedTeachers(savedTeachers);
@@ -217,6 +274,8 @@ export default function CalendarScreen() {
 				const initialContext = { type: "group" as const, ids: savedGroups, label: "Mes filtres" };
 				setContext(initialContext);
 				await loadCalendar(initialContext, initialDate, savedMode, { groups: savedGroups, rooms: savedRooms, teachers: savedTeachers });
+				void refreshGroups(cachedGroups);
+				void refreshSyllabusList();
 			} catch {
 				setGroups(await getJSON("lastGroups", []));
 				const { start, end } = rangeFor(initialDate, savedMode);
@@ -319,9 +378,8 @@ export default function CalendarScreen() {
 		return map;
 	}, [days, sortedEvents]);
 
-	const filteredGroups = useMemo(() => {
-		return filterGroupTree(buildGroupTree(groups), groupSearch);
-	}, [groupSearch, groups]);
+	const groupTree = useMemo(() => buildGroupTree(groups), [groups]);
+	const filteredGroups = useMemo(() => filterGroupTree(groupTree, groupSearch), [groupTree, groupSearch]);
 
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
 	const selectedDay = viewMode === "day" ? startOfDay(currentDate) : focusedDay;
@@ -477,15 +535,16 @@ export default function CalendarScreen() {
 						const notificationSettings = await getNotificationSettings();
 						await Promise.all([
 							rescheduleCourseNoteReminders(nextEvents),
-							syncCourseWidgets(nextEvents),
-							notificationSettings.enabled
-								? scheduleLocalCourseNotifications(
-										activeEvents,
-										notificationSettings.minutesBefore,
-										notificationSettings.selectedDays,
-										notificationSettings.notificationType
-									)
-								: Promise.resolve(),
+						syncCourseWidgets(nextEvents),
+						notificationSettings.enabled
+							? scheduleLocalCourseNotifications(
+									activeEvents,
+									notificationSettings.minutesBefore,
+									notificationSettings.selectedDays,
+									notificationSettings.notificationType,
+									{ requestPermission: false }
+								)
+							: Promise.resolve(),
 						]);
 						await refreshNoteSummaries();
 						setSelectedEvent(null);
@@ -516,7 +575,8 @@ export default function CalendarScreen() {
 									activeEvents,
 									notificationSettings.minutesBefore,
 									notificationSettings.selectedDays,
-									notificationSettings.notificationType
+									notificationSettings.notificationType,
+									{ requestPermission: false }
 								)
 							: Promise.resolve(),
 					]);
@@ -542,13 +602,14 @@ export default function CalendarScreen() {
 					await Promise.all([
 						rescheduleCourseNoteReminders(nextEvents),
 						syncCourseWidgets(nextEvents),
-						notificationSettings.enabled
-							? scheduleLocalCourseNotifications(
-									activeEvents,
-									notificationSettings.minutesBefore,
-									notificationSettings.selectedDays,
-									notificationSettings.notificationType
-								)
+							notificationSettings.enabled
+								? scheduleLocalCourseNotifications(
+										activeEvents,
+											notificationSettings.minutesBefore,
+											notificationSettings.selectedDays,
+											notificationSettings.notificationType,
+										{ requestPermission: false }
+									)
 							: Promise.resolve(),
 					]);
 					setSelectedEvent((current) => (current && eventMatchesIgnoredCourse(current, [signature]) ? { ...current, isIgnored: false } : current));
@@ -614,6 +675,8 @@ export default function CalendarScreen() {
 			selectedTeachers={selectedTeachers}
 			rooms={rooms}
 			teachers={teachers}
+			filterOptionsLoading={filterOptionsLoading}
+			onLoadFilterOptions={loadFilterOptions}
 			selectedLabels={selectedLabels}
 			setCurrentDate={setCurrentDate}
 			setEventChanges={setEventChanges}

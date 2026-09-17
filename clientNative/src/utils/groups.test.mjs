@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildGroupTree, filterGroupTree, getAssociatedGroups } from "./groups.ts";
+import { buildGroupTree, filterGroupTree, getAssociatedGroups, getDisplayedGroupNames } from "./groups.ts";
 
 const groups = [
 	{ id: 1, name: "ING1" },
@@ -35,4 +35,26 @@ test("getAssociatedGroups returns only groups selected by the user", () => {
 	);
 
 	assert.deepEqual(associated, [{ id: "3", name: "B2" }]);
+});
+
+test("getDisplayedGroupNames resolves API group ids through the onboarding directory", () => {
+	const names = getDisplayedGroupNames(
+		[
+			{ idGroup: "3" },
+			{ groupId: 5 },
+		],
+		[3, 5],
+		[
+			{ id: 1, name: "ING1" },
+			{ id: 3, name: "B2" },
+			{ id: 5, name: "SRS" },
+		]
+	);
+
+	assert.deepEqual(names, ["B2", "SRS"]);
+});
+
+test("getDisplayedGroupNames supports named event groups and hides the chip for one filter", () => {
+	assert.deepEqual(getDisplayedGroupNames([{ group: { name: "B2" } }, { name: "SRS" }], [1, 2, 3]), ["B2", "SRS"]);
+	assert.deepEqual(getDisplayedGroupNames([{ id: 1, name: "ING1" }], [1]), []);
 });
