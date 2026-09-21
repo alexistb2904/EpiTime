@@ -84,7 +84,7 @@ export function VersionProvider({ children }: { children: React.ReactNode }) {
 			if (next.updateAvailable) {
 				setUpdatePhase((current) => (current === "downloading" || current === "installing" || current === "permission" ? current : "available"));
 				if (Platform.OS === "android") setUpdatePromptVisible(true);
-				else if (manual) showToast(\`Version \${next.latestVersion} disponible.\`);
+				else if (manual) showToast(`Version ${next.latestVersion} disponible.`);
 			} else {
 				setUpdatePhase("idle");
 				setUpdatePromptVisible(false);
@@ -96,7 +96,7 @@ export function VersionProvider({ children }: { children: React.ReactNode }) {
 		} catch (err: unknown) {
 			const message = getErrorMessage(err) || "Vérification impossible.";
 			setError(message);
-			if (manual) showToast(\`Vérification impossible : \${message}\`);
+			if (manual) showToast(`Vérification impossible : ${message}`);
 			return null;
 		} finally {
 			setChecking(false);
