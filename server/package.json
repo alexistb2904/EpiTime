@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"start": "node server.js",
-		"test": "node --test analyticsValidation.test.mjs"
+		"test": "node --test analyticsValidation.test.mjs calendarFilters.test.mjs"
 	},
 	"dependencies": {
 		"cors": "^2.8.5",
