@@ -7,6 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 import fr.alexistb2904.epitime.autofill.AutofillModule
 import fr.alexistb2904.epitime.downloads.PdfDownloadsModule
 import fr.alexistb2904.epitime.network.NetworkStatusModule
+import fr.alexistb2904.epitime.update.AppUpdateModule
 import fr.alexistb2904.epitime.widget.CourseWidgetsModule
 
 class LiveCoursePackage : ReactPackage {
@@ -16,7 +17,8 @@ class LiveCoursePackage : ReactPackage {
       PdfDownloadsModule(reactContext),
       AutofillModule(reactContext),
       NetworkStatusModule(reactContext),
-      CourseWidgetsModule(reactContext)
+      CourseWidgetsModule(reactContext),
+      AppUpdateModule(reactContext)
     )
 
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
