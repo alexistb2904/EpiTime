@@ -45,7 +45,7 @@ import { SettingsContent, buildNextDebugTargetDate, formatDebugTargetDate, wrapN
 export default function SettingsScreen() {
 	const { logout, session, handleAuthExpired } = useAuth();
 	const { mode, resolvedMode, setThemeMode, materialYouEnabled, materialYouAvailable, materialYouActive, setMaterialYouEnabled } = useTheme();
-	const { currentVersion, latestVersion, updateAvailable, checking, error, lastCheckedAt, checkForUpdates, openLatestRelease } = useVersion();
+	const { currentVersion, latestVersion, updateAvailable, checking, error, lastCheckedAt, updatePhase, updateProgress, updateError, checkForUpdates, openLatestRelease, startUpdate } = useVersion();
 	const [liveCourseProgressEnabled, setLiveCourseProgressEnabled] = useState(true);
 	const [notificationDebugSettings, setNotificationDebugSettingsState] = useState(defaultNotificationDebugSettings);
 	const [debugBusyAction, setDebugBusyAction] = useState<string | null>(null);
@@ -63,9 +63,21 @@ export default function SettingsScreen() {
 	const userId = account?.id || account?.userPrincipalName || account?.mail || "";
 	const missingPermissionsCount = permissionState?.missing.length ?? 0;
 	const permissionsKnown = permissionState !== null;
-	const versionStatus = updateAvailable ? "Mise à jour disponible" : error ? "Vérification indisponible" : "Application à jour";
+	const versionStatus = updateAvailable
+		? updatePhase === "downloading"
+			? `Téléchargement de la mise à jour · ${Math.round(updateProgress * 100)}%`
+			: updatePhase === "permission"
+				? "Autorisation d’installation requise"
+				: updatePhase === "error"
+					? "Mise à jour à réessayer"
+					: "Mise à jour disponible"
+		: error
+			? "Vérification indisponible"
+			: "Application à jour";
 	const versionDetails = updateAvailable
-		? `Version installée ${currentVersion} · Release ${latestVersion}`
+		? updateError
+			? `Version installée ${currentVersion} · ${updateError}`
+			: `Version installée ${currentVersion} · Release ${latestVersion}`
 		: error
 			? `Version installée ${currentVersion} · ${error}`
 			: `Version installée ${currentVersion}${lastCheckedAt ? ` · Vérifiée à ${lastCheckedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}`;
@@ -367,6 +379,9 @@ export default function SettingsScreen() {
 			modeLabel={modeLabel}
 			notificationDebugSettings={notificationDebugSettings}
 			openLatestRelease={openLatestRelease}
+			startUpdate={startUpdate}
+			updatePhase={updatePhase}
+			updateProgress={updateProgress}
 			permissionsKnown={permissionsKnown}
 			permissionsLoading={permissionsLoading}
 			refreshScheduledNotifications={refreshScheduledNotifications}
