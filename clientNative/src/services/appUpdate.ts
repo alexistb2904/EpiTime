@@ -27,12 +27,12 @@ function requireAndroidUpdater() {
 
 function getUpdateDirectory() {
 	if (!FileSystem.cacheDirectory) throw new Error("Le cache local EpiTime n'est pas disponible.");
-	return \`\${FileSystem.cacheDirectory}updates/\`;
+	return `${FileSystem.cacheDirectory}updates/`;
 }
 
 function getDestination(update: VersionCheckResult) {
 	const version = normalizeVersion(update.latestVersion).replace(/[^0-9A-Za-z._-]/g, "-");
-	return \`\${getUpdateDirectory()}EpiTime-\${version}.apk\`;
+	return `${getUpdateDirectory()}EpiTime-${version}.apk`;
 }
 
 async function ensureUpdateDirectory() {
