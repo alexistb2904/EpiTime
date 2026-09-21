@@ -74,7 +74,7 @@ export async function checkAppVersion(): Promise<VersionCheckResult> {
 	});
 
 	if (!response.ok) {
-		throw new Error(\`GitHub a répondu \${response.status}.\`);
+		throw new Error(`GitHub a répondu ${response.status}.`);
 	}
 
 	const release = (await response.json()) as GitHubRelease;
