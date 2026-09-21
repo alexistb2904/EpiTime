@@ -10,9 +10,18 @@ export function hasScheduleFilters(filters: ScheduleFilters) {
 }
 
 export function buildScheduleFilterQuery(filters: ScheduleFilters, context: ScheduleContext): ScheduleFilters {
+	if (context.type === "group") {
+		return {
+			groups: uniqueIds(filters.groups),
+			rooms: uniqueIds(filters.rooms),
+			teachers: uniqueIds(filters.teachers),
+		};
+	}
+
+	const contextIds = uniqueIds(context.ids);
 	return {
-		groups: context.type === "single-group" ? uniqueIds(context.ids) : uniqueIds(filters.groups),
-		rooms: uniqueIds([...(context.type === "room" ? context.ids : []), ...filters.rooms]),
-		teachers: uniqueIds([...(context.type === "teacher" ? context.ids : []), ...filters.teachers]),
+		groups: context.type === "single-group" ? contextIds : [],
+		rooms: context.type === "room" ? contextIds : [],
+		teachers: context.type === "teacher" ? contextIds : [],
 	};
 }

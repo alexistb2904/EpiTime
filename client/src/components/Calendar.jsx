@@ -12,7 +12,7 @@ import { NotificationSettings } from "./NotificationSettings";
 import RoomAvailabilityModal from "./RoomAvailabilityModal";
 import { trackEvent } from "../utils/analyticsTracker";
 import { getDisplayedGroupNames } from "../utils/calendarGroups";
-import { buildCalendarFilterParams } from "../utils/calendarFilters";
+import { buildCalendarFilterParams, buildEffectiveCalendarFilters } from "../utils/calendarFilters";
 import "./Calendar.css";
 
 const generatePastelColor = (str) => {
@@ -117,14 +117,14 @@ const Calendar = () => {
 		}
 	}, [selectedGroups]);
 
-	const calendarFilters = useMemo(() => {
-		const uniqueIds = (ids) => [...new Set(ids)];
-		return {
-			groups: scheduleContext.type === "group" ? selectedGroups : scheduleContext.type === "single-group" ? scheduleContext.ids : selectedGroups,
-			rooms: uniqueIds([...(scheduleContext.type === "room" ? scheduleContext.ids : []), ...selectedRooms]),
-			teachers: uniqueIds([...(scheduleContext.type === "teacher" ? scheduleContext.ids : []), ...selectedTeachers]),
-		};
-	}, [scheduleContext, selectedGroups, selectedRooms, selectedTeachers]);
+	const calendarFilters = useMemo(
+		() =>
+			buildEffectiveCalendarFilters(
+				{ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers },
+				scheduleContext,
+			),
+		[scheduleContext, selectedGroups, selectedRooms, selectedTeachers],
+	);
 
 	const hasCalendarFilter = calendarFilters.groups.length > 0 || calendarFilters.rooms.length > 0 || calendarFilters.teachers.length > 0;
 
