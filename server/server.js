@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import webpush from "web-push";
 import rateLimit from "express-rate-limit";
 import { validateAnalyticsPayload } from "./analyticsValidation.js";
+import { filterEventsByCalendarFilters } from "./calendarFilters.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const readPositiveDuration = (value, fallback, minimum) => {
@@ -654,35 +655,30 @@ app.get("/api/events", async (req, res) => {
 			return res.status(401).json({ error: "Bearer token required" });
 		}
 
-		const { start, end, groups } = req.query;
+		const { start, end, groups, rooms, teachers } = req.query;
 		if (!start || !end) {
 			return res.status(400).json({ error: "start and end query params are required" });
 		}
 
+		const parseFilterIds = (value) => {
+			if (!value) return [];
+			return (Array.isArray(value) ? value : value.split(",")).map((id) => String(id).trim()).filter(Boolean);
+		};
+		const groupIds = parseFilterIds(groups);
+		const roomIds = parseFilterIds(rooms);
+		const teacherIds = parseFilterIds(teachers);
+
 		let url = `${ZEUS_BASE}/api/reservation/filter/displayable?StartDate=${encodeURIComponent(start)}&EndDate=${encodeURIComponent(end)}`;
 
-		if (groups) {
-			const groupIds = Array.isArray(groups) ? groups : groups.split(",");
-			groupIds.forEach((gid) => {
-				url += `&Groups=${encodeURIComponent(gid.trim())}`;
-			});
-		}
-
-		const { teachers } = req.query;
-		if (teachers) {
-			const teacherIds = Array.isArray(teachers) ? teachers : teachers.split(",");
-			teacherIds.forEach((tid) => {
-				url += `&Teachers=${encodeURIComponent(tid.trim())}`;
-			});
-		}
-
-		const { rooms } = req.query;
-		if (rooms) {
-			const roomIds = Array.isArray(rooms) ? rooms : rooms.split(",");
-			roomIds.forEach((rid) => {
-				url += `&Rooms=${encodeURIComponent(rid.trim())}`;
-			});
-		}
+		groupIds.forEach((gid) => {
+			url += `&Groups=${encodeURIComponent(gid)}`;
+		});
+		teacherIds.forEach((tid) => {
+			url += `&Teachers=${encodeURIComponent(tid)}`;
+		});
+		roomIds.forEach((rid) => {
+			url += `&Rooms=${encodeURIComponent(rid)}`;
+		});
 
 		const upstream = await fetch(url, {
 			headers: { Authorization: `Bearer ${zeusToken}` },
@@ -699,9 +695,22 @@ app.get("/api/events", async (req, res) => {
 		try {
 			const data = text ? JSON.parse(text) : null;
 
-			if (data && Array.isArray(data)) {
-				const groupIds = groups ? (Array.isArray(groups) ? groups : groups.split(",")) : [];
-				cacheEvents(data, groupIds);
+			if (Array.isArray(data)) {
+				// Zeus combines Groups/Rooms/Teachers as an OR. Keep OR inside each
+				// category but enforce AND across active categories before returning.
+				const filteredData = filterEventsByCalendarFilters(data, {
+					groups: groupIds,
+					rooms: roomIds,
+					teachers: teacherIds,
+				});
+
+				// The notification cache is group-scoped. Only hydrate it from a
+				// group-only request so room/teacher filtering cannot make it partial.
+				if (groupIds.length && roomIds.length === 0 && teacherIds.length === 0) {
+					cacheEvents(data, groupIds);
+				}
+
+				return res.json(filteredData);
 			}
 
 			return res.json(data);
