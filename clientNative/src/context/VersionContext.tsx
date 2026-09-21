@@ -9,6 +9,7 @@ import {
 	openInstallPermissionSettings,
 	type UpdatePhase,
 } from "../services/appUpdate";
+import { getJSON, setJSON } from "../services/storage";
 import { EPITIME_REPOSITORY_URL, VersionCheckResult, checkAppVersion, getCurrentAppVersion } from "../services/version";
 
 type VersionContextValue = {
@@ -30,6 +31,14 @@ type VersionContextValue = {
 };
 
 const VersionContext = createContext<VersionContextValue | null>(null);
+
+const UPDATE_CACHE_KEY = "epitime.androidUpdateCheck";
+const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+type CachedUpdateCheck = {
+	checkedAt: number;
+	result: VersionCheckResult;
+};
 
 function showToast(message: string) {
 	if (Platform.OS === "android") {
@@ -65,8 +74,12 @@ export function VersionProvider({ children }: { children: React.ReactNode }) {
 
 		try {
 			const next = await checkAppVersion();
+			const checkedAt = Date.now();
 			setResult(next);
-			setLastCheckedAt(new Date());
+			setLastCheckedAt(new Date(checkedAt));
+			if (Platform.OS === "android") {
+				void setJSON<CachedUpdateCheck>(UPDATE_CACHE_KEY, { checkedAt, result: next }).catch(() => {});
+			}
 
 			if (next.updateAvailable) {
 				setUpdatePhase((current) => (current === "downloading" || current === "installing" || current === "permission" ? current : "available"));
@@ -182,7 +195,34 @@ export function VersionProvider({ children }: { children: React.ReactNode }) {
 
 	useEffect(() => {
 		if (Platform.OS !== "android") return;
-		void checkForUpdates(false);
+		let active = true;
+
+		void (async () => {
+			const cached = await getJSON<CachedUpdateCheck | null>(UPDATE_CACHE_KEY, null).catch(() => null);
+			if (!active) return;
+
+			const currentVersion = getCurrentAppVersion();
+			const cacheIsFresh =
+				cached &&
+				cached.result.currentVersion === currentVersion &&
+				Date.now() - cached.checkedAt < UPDATE_CHECK_INTERVAL_MS;
+
+			if (cacheIsFresh && cached) {
+				setResult(cached.result);
+				setLastCheckedAt(new Date(cached.checkedAt));
+				if (cached.result.updateAvailable) {
+					setUpdatePhase("available");
+					setUpdatePromptVisible(true);
+				}
+				return;
+			}
+
+			await checkForUpdates(false);
+		})();
+
+		return () => {
+			active = false;
+		};
 	}, [checkForUpdates]);
 
 	useEffect(() => {
