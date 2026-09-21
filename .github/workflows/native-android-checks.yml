@@ -1,0 +1,57 @@
+name: Native Android checks
+
+on:
+  pull_request:
+    paths:
+      - "clientNative/**"
+      - ".github/workflows/native-android-checks.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "clientNative/**"
+      - ".github/workflows/native-android-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  native-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clientNative
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: clientNative/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Updater version tests
+        run: npm run test:version
+
+      - name: Existing native filter tests
+        run: npm run test:filters
+
+      - name: Compile Android Kotlin
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew :app:compileDebugKotlin --no-daemon

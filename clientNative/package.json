@@ -1,6 +1,6 @@
 {
 	"name": "epitime-native-front",
-	"version": "1.1.15",
+	"version": "1.1.16",
 	"private": true,
 	"main": "index.ts",
 	"scripts": {
@@ -12,6 +12,7 @@
 		"typecheck": "tsc --noEmit",
 		"test:analytics": "node --experimental-strip-types --test src/services/analyticsUtils.test.mjs",
 		"test:filters": "node --experimental-strip-types --test src/utils/scheduleFilters.test.mjs",
+		"test:version": "node --experimental-strip-types --test src/services/versionUtils.test.mjs",
 		"doctor": "npx expo-doctor",
 		"apk:cloud": "npm run build:android:development",
 		"apk": "npm run apk:build && npm run apk:copy",

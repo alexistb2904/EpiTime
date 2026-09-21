@@ -49,6 +49,9 @@ export function SettingsContent({
 	modeLabel,
 	notificationDebugSettings,
 	openLatestRelease,
+	startUpdate,
+	updatePhase,
+	updateProgress,
 	permissionsKnown,
 	permissionsLoading,
 	refreshScheduledNotifications,
@@ -264,12 +267,38 @@ export function SettingsContent({
 						</View>
 					</View>
 					{updateAvailable ? (
-						<Pressable
-							onPress={() => void openLatestRelease()}
-							style={({ pressed }) => [s.downloadButton, { backgroundColor: theme.warn, opacity: pressed ? 0.82 : 1 }]}>
-							<Download color="#fff" size={18} />
-							<Text style={s.downloadText}>Télécharger la version correcte</Text>
-						</Pressable>
+						<>
+							<Pressable
+								disabled={updatePhase === "downloading" || updatePhase === "installing"}
+								onPress={() => void startUpdate()}
+								style={({ pressed }) => [
+									s.downloadButton,
+									{
+										backgroundColor: theme.warn,
+										opacity: updatePhase === "downloading" || updatePhase === "installing" ? 0.68 : pressed ? 0.82 : 1,
+									},
+								]}>
+								{updatePhase === "downloading" || updatePhase === "installing" ? (
+									<ActivityIndicator color="#fff" size="small" />
+								) : (
+									<Download color="#fff" size={18} />
+								)}
+								<Text style={s.downloadText}>
+									{updatePhase === "downloading"
+										? `Téléchargement… ${Math.round(updateProgress * 100)}%`
+										: updatePhase === "permission"
+											? "Autoriser l’installation"
+											: updatePhase === "installing"
+												? "Ouverture de l’installateur…"
+												: updatePhase === "error"
+													? "Réessayer la mise à jour"
+													: "Télécharger et installer"}
+								</Text>
+							</Pressable>
+							<Pressable onPress={() => void openLatestRelease()} style={({ pressed }) => [s.releaseLink, { opacity: pressed ? 0.65 : 1 }]}>
+								<Text style={[s.releaseLinkText, { color: theme.accent }]}>Voir les détails sur GitHub</Text>
+							</Pressable>
+						</>
 					) : null}
 				</Card>
 
@@ -654,6 +683,8 @@ export const s = StyleSheet.create({
 		marginTop: 6,
 	},
 	downloadText: { color: "#fff", fontSize: 15, fontWeight: "900" },
+	releaseLink: { alignSelf: "center", minHeight: 36, justifyContent: "center", paddingHorizontal: 8 },
+	releaseLinkText: { fontSize: 13, fontWeight: "800" },
 
 	actionItem: { borderWidth: 1, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", gap: 16 },
 	actionText: { flex: 1, fontSize: 16, fontWeight: "700" },

@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
@@ -41,6 +42,13 @@
       android:value="courses" />
     <service android:name="com.reactnativeandroidwidget.RNWidgetCollectionService"
       android:permission="android.permission.BIND_REMOTEVIEWS" />
+    <provider android:name="androidx.core.content.FileProvider"
+      android:authorities="${applicationId}.app-update-provider"
+      android:exported="false"
+      android:grantUriPermissions="true">
+      <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/app_update_paths" />
+    </provider>
     <activity android:name=".MainActivity"
       android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize"
       android:launchMode="singleTask" android:windowSoftInputMode="adjustResize"

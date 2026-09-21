@@ -3,7 +3,7 @@
 		"name": "EpiTime",
 		"slug": "epitime",
 		"scheme": "epitime",
-		"version": "1.1.15",
+		"version": "1.1.16",
 		"orientation": "portrait",
 		"icon": "./assets/app_logo.png",
 		"userInterfaceStyle": "automatic",
@@ -22,7 +22,7 @@
 				"foregroundImage": "./assets/epitime_app_adaptive.png",
 				"backgroundColor": "#FFFFFF"
 			},
-			"permissions": ["POST_NOTIFICATIONS", "POST_PROMOTED_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM"]
+			"permissions": ["POST_NOTIFICATIONS", "POST_PROMOTED_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM", "REQUEST_INSTALL_PACKAGES"]
 		},
 		"plugins": [
 			"expo-secure-store",
