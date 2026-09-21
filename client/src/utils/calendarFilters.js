@@ -1,3 +1,23 @@
+const uniqueFilterIds = (ids = []) =>
+	Array.from(new Map(ids.filter((id) => id !== null && id !== undefined && id !== "").map((id) => [String(id), id])).values());
+
+export const buildEffectiveCalendarFilters = ({ groups = [], rooms = [], teachers = [] } = {}, context = { type: "group", ids: [] }) => {
+	const globalFilters = {
+		groups: uniqueFilterIds(groups),
+		rooms: uniqueFilterIds(rooms),
+		teachers: uniqueFilterIds(teachers),
+	};
+
+	if (!context || context.type === "group") return globalFilters;
+
+	const contextIds = uniqueFilterIds(context.ids || []);
+	return {
+		groups: context.type === "single-group" ? contextIds : [],
+		rooms: context.type === "room" ? contextIds : [],
+		teachers: context.type === "teacher" ? contextIds : [],
+	};
+};
+
 const appendFilterIds = (params, key, ids = []) => {
 	ids.filter((id) => id !== null && id !== undefined && id !== "").forEach((id) => params.append(key, String(id)));
 };
