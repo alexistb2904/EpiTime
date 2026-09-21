@@ -22,7 +22,7 @@
 				"foregroundImage": "./assets/epitime_app_adaptive.png",
 				"backgroundColor": "#FFFFFF"
 			},
-			"permissions": ["POST_NOTIFICATIONS", "POST_PROMOTED_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM"]
+			"permissions": ["POST_NOTIFICATIONS", "POST_PROMOTED_NOTIFICATIONS", "SCHEDULE_EXACT_ALARM", "REQUEST_INSTALL_PACKAGES"]
 		},
 		"plugins": [
 			"expo-secure-store",
