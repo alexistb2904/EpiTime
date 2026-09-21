@@ -86,11 +86,8 @@ class AppUpdateModule(
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
           }
 
-        if (intent.resolveActivity(reactContext.packageManager) == null) {
-          promise.reject("UPDATE_INSTALLER_UNAVAILABLE", "Aucun installateur APK Android n'est disponible.")
-          return@Thread
-        }
-
+        // Do not preflight with resolveActivity(): package visibility rules can
+        // hide the system installer even though startActivity() is allowed.
         reactContext.runOnUiQueueThread {
           try {
             reactContext.startActivity(intent)
