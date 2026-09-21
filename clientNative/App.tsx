@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createNavigationContainerRef, NavigationContainer, type LinkingOptions } from "@react-navigation/native";
@@ -16,8 +16,9 @@ import { getRememberedAurigaCredentials, hasAurigaRefreshToken } from "./src/ser
 import { getAurigaLastSync, isAurigaSyncStale } from "./src/services/aurigaCache";
 import { syncAurigaData } from "./src/services/aurigaClient";
 import { stopLiveCourseNotification } from "./src/services/liveCourse";
-import { getNotificationPermissionStatus, getNotificationSettings, requestPushToken } from "./src/services/notifications";
-import { getJSON } from "./src/services/storage";
+import { getNotificationPermissionStatus, getNotificationSettings, requestNotificationPermission, requestPushToken } from "./src/services/notifications";
+import { openAppPermissionSettings } from "./src/services/permissions";
+import { getJSON, setJSON } from "./src/services/storage";
 import { hasScheduleFilters } from "./src/utils/scheduleFilters";
 import LoginScreen from "./src/screens/LoginScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
@@ -82,11 +83,15 @@ const linking: LinkingOptions<RootTabParamList> = {
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
+const NOTIFICATION_PERMISSION_PROMPT_DISABLED_KEY = "notificationPermissionPromptDisabled";
+
 function Root() {
 	const { session, loading } = useAuth();
 	const { theme, resolvedMode } = useTheme();
 	const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 	const [onboardingReady, setOnboardingReady] = useState(false);
+	const [notificationPermissionPrompt, setNotificationPermissionPrompt] = useState<{ visible: boolean; canAskAgain: boolean }>({ visible: false, canAskAgain: true });
+	const [requestingNotificationPermission, setRequestingNotificationPermission] = useState(false);
 	const handledNotificationResponseId = useRef<string | null>(null);
 	const aurigaAutoRefreshTriggeredRef = useRef(false);
 	const analyticsUserId = (session?.account as { id?: string } | null | undefined)?.id?.trim() || "";
@@ -118,11 +123,7 @@ function Root() {
 			return;
 		}
 		setCheckingOnboarding(true);
-		Promise.all([
-			getJSON<(string | number)[]>("selectedGroups", []),
-			getJSON<(string | number)[]>("selectedRooms", []),
-			getJSON<(string | number)[]>("selectedTeachers", []),
-		])
+		Promise.all([getJSON<(string | number)[]>("selectedGroups", []), getJSON<(string | number)[]>("selectedRooms", []), getJSON<(string | number)[]>("selectedTeachers", [])])
 			.then(([selectedGroups, selectedRooms, selectedTeachers]) => {
 				setOnboardingReady(hasScheduleFilters({ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers }));
 			})
@@ -133,6 +134,43 @@ function Root() {
 		if (!session || !onboardingReady) return;
 		registerPlanningNotificationBackgroundSync().catch(() => {});
 	}, [session, onboardingReady]);
+
+	useEffect(() => {
+		if (!session || !onboardingReady) return;
+		let active = true;
+		(async () => {
+			const [permission, promptDisabled] = await Promise.all([getNotificationPermissionStatus(), getJSON<boolean>(NOTIFICATION_PERMISSION_PROMPT_DISABLED_KEY, false)]);
+			if (!active || promptDisabled || permission.granted || permission.status === "granted") return;
+			setNotificationPermissionPrompt({ visible: true, canAskAgain: permission.canAskAgain });
+		})().catch(() => {});
+		return () => {
+			active = false;
+		};
+	}, [onboardingReady, session]);
+
+	const postponeNotificationPermission = () => setNotificationPermissionPrompt((current) => ({ ...current, visible: false }));
+	const disableNotificationPermissionPrompt = async () => {
+		await setJSON(NOTIFICATION_PERMISSION_PROMPT_DISABLED_KEY, true);
+		setNotificationPermissionPrompt((current) => ({ ...current, visible: false }));
+	};
+	const requestNotificationPermissionFromPrompt = async () => {
+		setRequestingNotificationPermission(true);
+		try {
+			if (!notificationPermissionPrompt.canAskAgain) {
+				await openAppPermissionSettings();
+				return;
+			}
+			const granted = await requestNotificationPermission();
+			if (granted) {
+				setNotificationPermissionPrompt((current) => ({ ...current, visible: false }));
+				return;
+			}
+			const permission = await getNotificationPermissionStatus();
+			setNotificationPermissionPrompt({ visible: true, canAskAgain: permission.canAskAgain });
+		} finally {
+			setRequestingNotificationPermission(false);
+		}
+	};
 
 	useEffect(() => {
 		if (!session || !onboardingReady) return;
@@ -230,50 +268,82 @@ function Root() {
 	}
 	if (!onboardingReady) return <OnboardingScreen onDone={() => setOnboardingReady(true)} />;
 	return (
-		<NavigationContainer
-			ref={navigationRef}
-			onReady={trackCurrentScreen}
-			onStateChange={trackCurrentScreen}
-			linking={linking}
-			theme={{
-				dark: resolvedMode === "dark",
-				colors: {
-					primary: theme.accent,
-					background: theme.bg,
-					card: theme.surface,
-					text: theme.text,
-					border: theme.border,
-					notification: theme.accent,
-				},
-				fonts: {
-					regular: { fontFamily: "System", fontWeight: "400" },
-					medium: { fontFamily: "System", fontWeight: "600" },
-					bold: { fontFamily: "System", fontWeight: "700" },
-					heavy: { fontFamily: "System", fontWeight: "900" },
-				},
-			}}>
-			<StatusBar style={resolvedMode === "dark" ? "light" : "dark"} />
-			<Tab.Navigator
-				screenOptions={{
-					headerShown: false,
-					tabBarStyle: {
-						backgroundColor: theme.surface,
-						borderTopColor: theme.border,
-						height: 72,
-						paddingTop: 8,
-						paddingBottom: 10,
+		<>
+			<NavigationContainer
+				ref={navigationRef}
+				onReady={trackCurrentScreen}
+				onStateChange={trackCurrentScreen}
+				linking={linking}
+				theme={{
+					dark: resolvedMode === "dark",
+					colors: {
+						primary: theme.accent,
+						background: theme.bg,
+						card: theme.surface,
+						text: theme.text,
+						border: theme.border,
+						notification: theme.accent,
 					},
-					tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
-					tabBarActiveTintColor: theme.accent,
-					tabBarInactiveTintColor: theme.muted,
+					fonts: {
+						regular: { fontFamily: "System", fontWeight: "400" },
+						medium: { fontFamily: "System", fontWeight: "600" },
+						bold: { fontFamily: "System", fontWeight: "700" },
+						heavy: { fontFamily: "System", fontWeight: "900" },
+					},
 				}}>
-				<Tab.Screen name="Accueil" component={HomeScreen} options={{ tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }} />
-				<Tab.Screen name="Agenda" component={CalendarScreen} options={{ tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} /> }} />
-				<Tab.Screen name="Notes" component={GradesScreen} options={{ tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size} /> }} />
-				<Tab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarIcon: ({ color, size }) => <Bell color={color} size={size} /> }} />
-				<Tab.Screen name="Réglages" component={SettingsScreen} options={{ tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> }} />
-			</Tab.Navigator>
-		</NavigationContainer>
+				<StatusBar style={resolvedMode === "dark" ? "light" : "dark"} />
+				<Tab.Navigator
+					screenOptions={{
+						headerShown: false,
+						tabBarStyle: {
+							backgroundColor: theme.surface,
+							borderTopColor: theme.border,
+							height: 72,
+							paddingTop: 8,
+							paddingBottom: 10,
+						},
+						tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
+						tabBarActiveTintColor: theme.accent,
+						tabBarInactiveTintColor: theme.muted,
+					}}>
+					<Tab.Screen name="Accueil" component={HomeScreen} options={{ tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }} />
+					<Tab.Screen name="Agenda" component={CalendarScreen} options={{ tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} /> }} />
+					<Tab.Screen name="Notes" component={GradesScreen} options={{ tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size} /> }} />
+					<Tab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarIcon: ({ color, size }) => <Bell color={color} size={size} /> }} />
+					<Tab.Screen name="Réglages" component={SettingsScreen} options={{ tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> }} />
+				</Tab.Navigator>
+			</NavigationContainer>
+			<Modal visible={notificationPermissionPrompt.visible} transparent animationType="fade" onRequestClose={postponeNotificationPermission}>
+				<View style={s.permissionBackdrop}>
+					<View style={[s.permissionDialog, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+						<View style={[s.permissionIcon, { backgroundColor: theme.accentSoft }]}>
+							<Bell color={theme.accent} size={24} />
+						</View>
+						<Text style={[s.permissionTitle, { color: theme.text }]}>Active les notifications</Text>
+						<Text style={[s.permissionBody, { color: theme.muted }]}>
+							EpiTime a besoin de cette autorisation pour te prévenir avant un cours et t’informer d’un changement de salle ou de planning. Sans elle, l’application
+							reste utilisable, mais aucun rappel ne pourra être envoyé.
+						</Text>
+						<Pressable
+							style={[s.permissionPrimary, { backgroundColor: theme.accent, opacity: requestingNotificationPermission ? 0.7 : 1 }]}
+							onPress={() => void requestNotificationPermissionFromPrompt()}
+							disabled={requestingNotificationPermission}>
+							<Text style={s.permissionPrimaryText}>
+								{requestingNotificationPermission ? "Vérification…" : notificationPermissionPrompt.canAskAgain ? "Donner les permissions" : "Ouvrir les réglages"}
+							</Text>
+						</Pressable>
+						<View style={s.permissionSecondaryActions}>
+							<Pressable style={s.permissionSecondary} onPress={postponeNotificationPermission} disabled={requestingNotificationPermission}>
+								<Text style={[s.permissionSecondaryText, { color: theme.text }]}>Plus tard</Text>
+							</Pressable>
+							<Pressable style={s.permissionSecondary} onPress={() => void disableNotificationPermissionPrompt()} disabled={requestingNotificationPermission}>
+								<Text style={[s.permissionSecondaryText, { color: theme.muted }]}>Jamais</Text>
+							</Pressable>
+						</View>
+					</View>
+				</View>
+			</Modal>
+		</>
 	);
 }
 export default function App() {
@@ -300,4 +370,14 @@ export default function App() {
 
 const s = StyleSheet.create({
 	loading: { flex: 1, alignItems: "center", justifyContent: "center" },
+	permissionBackdrop: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "rgba(16, 20, 30, 0.48)" },
+	permissionDialog: { borderWidth: 1, borderRadius: 24, padding: 22, gap: 14 },
+	permissionIcon: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+	permissionTitle: { fontSize: 22, fontWeight: "900" },
+	permissionBody: { fontSize: 15, lineHeight: 22 },
+	permissionPrimary: { minHeight: 52, borderRadius: 15, alignItems: "center", justifyContent: "center", marginTop: 4 },
+	permissionPrimaryText: { color: "#fff", fontSize: 16, fontWeight: "900" },
+	permissionSecondaryActions: { flexDirection: "row", gap: 10 },
+	permissionSecondary: { flex: 1, minHeight: 44, alignItems: "center", justifyContent: "center" },
+	permissionSecondaryText: { fontSize: 15, fontWeight: "800" },
 });

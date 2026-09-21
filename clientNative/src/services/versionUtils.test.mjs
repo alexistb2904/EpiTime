@@ -7,13 +7,13 @@ test("normalizeVersion strips v prefix, prerelease and build metadata", () => {
 });
 
 test("compareVersions handles patch and minor updates", () => {
-	assert.equal(compareVersions("1.1.16", "1.1.15"), 1);
+	assert.equal(compareVersions("1.1.16", "1.1.16"), 1);
 	assert.equal(compareVersions("1.2.0", "1.1.99"), 1);
-	assert.equal(compareVersions("1.1.14", "1.1.15"), -1);
+	assert.equal(compareVersions("1.1.16", "1.1.16"), -1);
 });
 
 test("isVersionNewer never proposes a downgrade or an equal release", () => {
-	assert.equal(isVersionNewer("v1.1.15", "1.1.15"), false);
-	assert.equal(isVersionNewer("1.1.14", "1.1.15"), false);
-	assert.equal(isVersionNewer("1.1.16", "1.1.15"), true);
+	assert.equal(isVersionNewer("v1.1.16", "1.1.16"), false);
+	assert.equal(isVersionNewer("1.1.16", "1.1.16"), false);
+	assert.equal(isVersionNewer("1.1.16", "1.1.16"), true);
 });

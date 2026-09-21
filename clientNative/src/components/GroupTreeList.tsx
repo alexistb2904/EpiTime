@@ -43,9 +43,7 @@ const GroupTreeItem = memo(function GroupTreeItem({ group, selectedIds, onToggle
 				) : (
 					<View style={s.expandSpacer} />
 				)}
-				<Pressable
-					style={[s.groupRow, { backgroundColor: theme.surface, borderColor: active ? theme.accent : theme.border }]}
-					onPress={() => onToggle(group.id)}>
+				<Pressable style={[s.groupRow, { backgroundColor: theme.surface, borderColor: active ? theme.accent : theme.border }]} onPress={() => onToggle(group.id)}>
 					<View style={[s.check, { backgroundColor: active ? theme.accent : "transparent", borderColor: active ? theme.accent : theme.border }]}>
 						{active ? <Check color="#fff" size={14} /> : null}
 					</View>
@@ -102,8 +100,8 @@ export default function GroupTreeList({ groups, selected, onToggle, searchActive
 }
 
 const s = StyleSheet.create({
-	list: { gap: 8 },
-	row: { flexDirection: "row", alignItems: "center", gap: 8 },
+	list: { gap: 2 },
+	row: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
 	expandButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
 	expandSpacer: { width: 32 },
 	groupRow: { flex: 1, minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 10 },
