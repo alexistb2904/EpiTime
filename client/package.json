@@ -25,6 +25,7 @@
 		"workbox-window": "^7.4.0"
 	},
 	"overrides": {
-		"serialize-javascript": "^7.0.5"
+		"serialize-javascript": "^7.0.5",
+		"is-typed-array": "1.1.15"
 	}
 }

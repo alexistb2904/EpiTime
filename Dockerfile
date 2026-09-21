@@ -10,7 +10,7 @@ COPY client/package*.json ./
 COPY client/vite.config.js ./
 COPY client/index.html ./
 
-RUN npm install
+RUN npm ci
 
 COPY client/src ./src
 COPY client/public ./public
@@ -34,7 +34,7 @@ ENV NODE_ENV=production \
 
 COPY server/package*.json ./
 
-RUN npm install --production
+RUN npm ci --omit=dev
 
 COPY server/ ./
 
