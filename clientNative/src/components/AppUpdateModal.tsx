@@ -21,8 +21,8 @@ type Props = {
 
 function formatBytes(value?: number) {
 	if (!value || value <= 0) return "";
-	if (value < 1024 * 1024) return \`\${Math.max(1, Math.round(value / 1024))} Ko\`;
-	return \`\${(value / (1024 * 1024)).toFixed(value >= 10 * 1024 * 1024 ? 0 : 1)} Mo\`;
+	if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} Ko`;
+	return `${(value / (1024 * 1024)).toFixed(value >= 10 * 1024 * 1024 ? 0 : 1)} Mo`;
 }
 
 function cleanReleaseNotes(notes?: string) {
@@ -64,7 +64,7 @@ export default function AppUpdateModal({
 	const busy = phase === "downloading" || phase === "installing";
 	const primaryLabel =
 		phase === "downloading"
-			? \`Téléchargement… \${percent}%\`
+			? `Téléchargement… ${percent}%`
 			: phase === "permission"
 				? "Autoriser l’installation"
 				: phase === "installing"
@@ -80,19 +80,19 @@ export default function AppUpdateModal({
 			? "Une autorisation Android est nécessaire"
 			: phase === "error"
 				? "Mise à jour interrompue"
-				: \`EpiTime \${update.latestVersion} est disponible\`;
+				: `EpiTime ${update.latestVersion} est disponible`;
 
 	const subtitle =
 		phase === "permission"
 			? "Android doit autoriser EpiTime à installer son APK. Active « Autoriser depuis cette source », puis reviens dans l’app : l’installation reprendra automatiquement."
 			: phase === "error"
 				? error || "Impossible de terminer la mise à jour."
-				: \`Version installée \${update.currentVersion}\${update.apkSize ? \` · APK \${formatBytes(update.apkSize)}\` : ""}\`;
+				: `Version installée ${update.currentVersion}${update.apkSize ? ` · APK ${formatBytes(update.apkSize)}` : ""}`;
 
 	const progressTotal = totalBytes || update.apkSize || 0;
 	const progressText =
 		phase === "downloading" && writtenBytes > 0
-			? \`\${formatBytes(writtenBytes)}\${progressTotal ? \` / \${formatBytes(progressTotal)}\` : ""}\`
+			? `${formatBytes(writtenBytes)}${progressTotal ? ` / ${formatBytes(progressTotal)}` : ""}`
 			: "";
 
 	return (
@@ -140,7 +140,7 @@ export default function AppUpdateModal({
 					{phase === "downloading" ? (
 						<View style={s.progressBlock}>
 							<View style={[s.progressTrack, { backgroundColor: theme.surfaceSoft }]}>
-								<View style={[s.progressFill, { backgroundColor: theme.accent, width: \`\${percent}%\` }]} />
+								<View style={[s.progressFill, { backgroundColor: theme.accent, width: `${percent}%` }]} />
 							</View>
 							<View style={s.progressMeta}>
 								<Text style={[s.progressPercent, { color: theme.text }]}>{percent}%</Text>
@@ -154,7 +154,7 @@ export default function AppUpdateModal({
 							<Text style={[s.notesTitle, { color: theme.text }]}>Nouveautés</Text>
 							<ScrollView style={s.notesScroll} nestedScrollEnabled>
 								{notes.map((line, index) => (
-									<Text key={\`\${index}-\${line}\`} style={[s.note, { color: theme.muted }]}>
+									<Text key={`${index}-${line}`} style={[s.note, { color: theme.muted }]}>
 										{line}
 									</Text>
 								))}
