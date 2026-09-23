@@ -206,11 +206,11 @@ const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitc
 						</div>
 					)}
 
-					{associatedGroups.length > 0 && (
+					{event.groups?.length > 0 && (
 						<div className="event-detail-section">
-							<span className="detail-label">Mes groupes</span>
+							<span className="detail-label">Groupes Associés</span>
 							<div className="event-detail-chip-row">
-								{associatedGroups.map((g) => (
+								{event.groups.map((g) => (
 									<button type="button" className="detail-chip" key={g.id || g.name} onClick={() => onContextSwitch("group", g.id, g.name)}>
 										<span className="detail-chip-emoji" aria-hidden="true">
 											👥

@@ -178,11 +178,11 @@ export default function EventDetailsModal({
 						</View>
 					) : null}
 
-					{associatedGroups.length ? (
+					{event.groups?.length ? (
 						<View style={[s.eventSection, { borderBottomColor: theme.border }]}>
-							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Mes groupes</Text>
+							<Text style={[s.eventSectionTitle, { color: theme.text }]}>Groupes Associés</Text>
 							<View style={s.eventChipGrid}>
-								{associatedGroups.map((group) => (
+								{event.groups.map((group) => (
 									<Pressable
 										key={`${group.id || group.name}`}
 										style={[s.eventPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
