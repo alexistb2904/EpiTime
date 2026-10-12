@@ -11,6 +11,7 @@ import SettingsModal from "./SettingsModal";
 import { NotificationSettings } from "./NotificationSettings";
 import RoomAvailabilityModal from "./RoomAvailabilityModal";
 import { trackEvent } from "../utils/analyticsTracker";
+import { fetchApi } from "../utils/api";
 import { getDisplayedGroupNames } from "../utils/calendarGroups";
 import { buildCalendarFilterParams, buildEffectiveCalendarFilters } from "../utils/calendarFilters";
 import "./Calendar.css";
@@ -172,7 +173,7 @@ const Calendar = () => {
 	const loadGroups = async () => {
 		try {
 			setLoading(true);
-			const res = await fetch("/api/groups", {
+			const res = await fetchApi("/api/groups", {
 				headers: { Authorization: `Bearer ${zeusToken}` },
 			});
 			const data = await res.json();
@@ -209,7 +210,7 @@ const Calendar = () => {
 		try {
 			setFilterOptionsLoading(true);
 			const headers = { Authorization: `Bearer ${zeusToken}` };
-			const [roomsResponse, teachersResponse] = await Promise.all([fetch("/api/rooms", { headers }), fetch("/api/teachers", { headers })]);
+			const [roomsResponse, teachersResponse] = await Promise.all([fetchApi("/api/rooms", { headers }), fetchApi("/api/teachers", { headers })]);
 			if (!roomsResponse.ok || !teachersResponse.ok) throw new Error("Impossible de charger les filtres de calendrier");
 
 			const [roomsData, teachersData] = await Promise.all([roomsResponse.json(), teachersResponse.json()]);
@@ -246,7 +247,7 @@ const Calendar = () => {
 
 			cacheKey = `zeus_events_${calendarFilters.groups.join("_")}_${calendarFilters.rooms.join("_")}_${calendarFilters.teachers.join("_")}_${start.toISOString()}_${end.toISOString()}`;
 
-			const res = await fetch(`/api/events?${params.toString()}`, {
+			const res = await fetchApi(`/api/events?${params.toString()}`, {
 				headers: { Authorization: `Bearer ${zeusToken}` },
 			});
 			const data = await res.json();
@@ -327,7 +328,7 @@ const Calendar = () => {
 		}
 
 		try {
-			const res = await fetch(`/api/reservation/${ev.idReservation}/details`, {
+			const res = await fetchApi(`/api/reservation/${ev.idReservation}/details`, {
 				headers: { Authorization: `Bearer ${zeusToken}` },
 			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -336,7 +337,7 @@ const Calendar = () => {
 			let courseTypeName = null;
 			if (data.idType) {
 				try {
-					const typeRes = await fetch(`/api/coursetype/${data.idType}`, {
+					const typeRes = await fetchApi(`/api/coursetype/${data.idType}`, {
 						headers: { Authorization: `Bearer ${zeusToken}` },
 					});
 					if (typeRes.ok) {

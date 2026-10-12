@@ -1,6 +1,7 @@
 import React, { useState, useContext, createContext } from "react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { trackEvent } from "../utils/analyticsTracker";
+import { fetchApi } from "../utils/api";
 
 const AuthContext = createContext();
 const LOGIN_ANALYTICS_FLOW_KEY = "epitime_login_analytics_flow";
@@ -130,13 +131,14 @@ export const AuthProvider = ({ children }) => {
 
 	const exchangeToken = async (msResponse, analyticsContext = null) => {
 		try {
-			const res = await fetch("/api/auth", {
+			const res = await fetchApi("/api/auth", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ accessToken: msResponse.accessToken }),
 			});
 
-			if (!res.ok && !navigator.onLine) {
+			if (!res.ok) {
+				if (navigator.onLine) throw new Error(`Le service de connexion est indisponible (HTTP ${res.status}).`);
 				console.log("Mode hors ligne détecté, conservation de la session");
 				const savedToken = localStorage.getItem("zeus_token");
 				const savedUser = localStorage.getItem("zeus_user");
@@ -148,14 +150,13 @@ export const AuthProvider = ({ children }) => {
 			}
 
 			const data = await res.json();
-			if (data.token) {
-				setZeusToken(data.token);
-				setUser(msResponse.account);
-				localStorage.setItem("zeus_token", data.token);
-				localStorage.setItem("zeus_user", JSON.stringify(msResponse.account));
-				const completedContext = analyticsContext || consumeLoginAnalyticsFlow();
-				if (completedContext) trackEvent("login_completed", completedContext);
-			}
+			if (!data.token) throw new Error(data.error || "Le service de connexion n’a pas renvoyé de session.");
+			setZeusToken(data.token);
+			setUser(msResponse.account);
+			localStorage.setItem("zeus_token", data.token);
+			localStorage.setItem("zeus_user", JSON.stringify(msResponse.account));
+			const completedContext = analyticsContext || consumeLoginAnalyticsFlow();
+			if (completedContext) trackEvent("login_completed", completedContext);
 		} catch (err) {
 			if (!navigator.onLine) {
 				console.log("Mode hors ligne détecté lors de l'erreur, tentative de récupération du cache");

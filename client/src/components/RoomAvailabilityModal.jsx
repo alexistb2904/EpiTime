@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { trackEvent } from "../utils/analyticsTracker";
+import { fetchApi } from "../utils/api";
 
 const LOCATION_LABEL_OVERRIDES = {
 	2: "Kremlin-Bicêtre",
@@ -201,9 +202,9 @@ const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], 
 			setError("");
 			try {
 				const [roomsRes, roomTypesRes, locationsRes] = await Promise.all([
-					fetch("/api/rooms", { headers: { Authorization: `Bearer ${zeusToken}` } }),
-					fetch("/api/roomtypes", { headers: { Authorization: `Bearer ${zeusToken}` } }),
-					fetch("/api/locations", { headers: { Authorization: `Bearer ${zeusToken}` } }),
+					fetchApi("/api/rooms", { headers: { Authorization: `Bearer ${zeusToken}` } }),
+					fetchApi("/api/roomtypes", { headers: { Authorization: `Bearer ${zeusToken}` } }),
+					fetchApi("/api/locations", { headers: { Authorization: `Bearer ${zeusToken}` } }),
 				]);
 
 				if (!roomsRes.ok || !roomTypesRes.ok || !locationsRes.ok) {
@@ -275,7 +276,7 @@ const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], 
 				payload.capacity = Number(capacity);
 			}
 
-			const res = await fetch("/api/rooms/available", {
+			const res = await fetchApi("/api/rooms/available", {
 				method: "POST",
 				headers: {
 					Authorization: `Bearer ${zeusToken}`,

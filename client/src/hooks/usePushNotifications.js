@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { fetchApi } from "../utils/api";
 
 export const usePushNotifications = (userEmail = null, userGroups = [], notificationSettings = null) => {
 	const registerPushNotifications = useCallback(async () => {
@@ -13,7 +14,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 		}
 
 		try {
-			const vapidResponse = await fetch('/api/vapid-key');
+			const vapidResponse = await fetchApi('/api/vapid-key');
 			const vapidData = await vapidResponse.json();
 
 			if (vapidData.error || vapidData.offline) {
@@ -47,7 +48,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 
 			const settings = notificationSettings || { minutesBefore: 15, selectedDays: [0, 1, 2, 3, 4, 5, 6] };
 
-			const response = await fetch('/api/subscribe', {
+			const response = await fetchApi('/api/subscribe', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -72,7 +73,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 	const updateNotificationSettings = useCallback(
 		async (settings, groups = null) => {
 			try {
-				const response = await fetch('/api/update-notification-settings', {
+				const response = await fetchApi('/api/update-notification-settings', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 					console.warn('⚠️ Subscription non trouvée, réenregistrement automatique...');
 					await registerPushNotifications();
 
-					const retryResponse = await fetch('/api/update-notification-settings', {
+					const retryResponse = await fetchApi('/api/update-notification-settings', {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
@@ -125,7 +126,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 			if (!events || events.length === 0) return null;
 
 			try {
-				const response = await fetch('/api/check-notifications', {
+				const response = await fetchApi('/api/check-notifications', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -154,7 +155,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 	const sendTestNotification = useCallback(
 		async (title, body) => {
 			try {
-				const response = await fetch('/api/notify-test', {
+				const response = await fetchApi('/api/notify-test', {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -181,7 +182,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 
 	const unsubscribeNotifications = useCallback(async () => {
 		try {
-			await fetch('/api/unsubscribe', {
+			await fetchApi('/api/unsubscribe', {
 				method: 'POST',
 				headers: {
 					'X-User-ID': userEmail,

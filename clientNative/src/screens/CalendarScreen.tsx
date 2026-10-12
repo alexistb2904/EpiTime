@@ -46,8 +46,7 @@ const FILTER_ROOMS_CACHE_KEY = "filterOptions.rooms";
 const FILTER_TEACHERS_CACHE_KEY = "filterOptions.teachers";
 
 const sortRooms = (items: Room[] = []) => [...items].sort((a, b) => (a.name || "").localeCompare(b.name || "", "fr"));
-const sortTeachers = (items: Teacher[] = []) =>
-	[...items].sort((a, b) => `${a.firstname || ""} ${a.name || ""}`.localeCompare(`${b.firstname || ""} ${b.name || ""}`, "fr"));
+const sortTeachers = (items: Teacher[] = []) => [...items].sort((a, b) => `${a.firstname || ""} ${a.name || ""}`.localeCompare(`${b.firstname || ""} ${b.name || ""}`, "fr"));
 
 export default function CalendarScreen() {
 	const { handleAuthExpired } = useAuth();
@@ -129,10 +128,7 @@ export default function CalendarScreen() {
 		const request = (async () => {
 			setFilterOptionsLoading(true);
 			try {
-				const [cachedRooms, cachedTeachers] = await Promise.all([
-					getJSON<Room[]>(FILTER_ROOMS_CACHE_KEY, []),
-					getJSON<Teacher[]>(FILTER_TEACHERS_CACHE_KEY, []),
-				]);
+				const [cachedRooms, cachedTeachers] = await Promise.all([getJSON<Room[]>(FILTER_ROOMS_CACHE_KEY, []), getJSON<Teacher[]>(FILTER_TEACHERS_CACHE_KEY, [])]);
 				if (cachedRooms.length) setRooms(sortRooms(cachedRooms));
 				if (cachedTeachers.length) setTeachers(sortTeachers(cachedTeachers));
 
@@ -535,16 +531,16 @@ export default function CalendarScreen() {
 						const notificationSettings = await getNotificationSettings();
 						await Promise.all([
 							rescheduleCourseNoteReminders(nextEvents),
-						syncCourseWidgets(nextEvents),
-						notificationSettings.enabled
-							? scheduleLocalCourseNotifications(
-									activeEvents,
-									notificationSettings.minutesBefore,
-									notificationSettings.selectedDays,
-									notificationSettings.notificationType,
-									{ requestPermission: false }
-								)
-							: Promise.resolve(),
+							syncCourseWidgets(nextEvents),
+							notificationSettings.enabled
+								? scheduleLocalCourseNotifications(
+										activeEvents,
+										notificationSettings.minutesBefore,
+										notificationSettings.selectedDays,
+										notificationSettings.notificationType,
+										{ requestPermission: false }
+									)
+								: Promise.resolve(),
 						]);
 						await refreshNoteSummaries();
 						setSelectedEvent(null);
@@ -555,6 +551,7 @@ export default function CalendarScreen() {
 	};
 
 	const ignoreEvent = (event: ZeusEvent) => {
+		event = events.find((item) => getLocalEventKey(item) === getLocalEventKey(event)) || event;
 		const signature = getEventIgnoreSignature(event);
 		if (!signature) return;
 		Alert.alert("Ignorer ce cours", "Toutes les occurrences identiques resteront visibles dans l'agenda, mais seront exclues des notifications et des widgets.", [
@@ -580,13 +577,14 @@ export default function CalendarScreen() {
 								)
 							: Promise.resolve(),
 					]);
-					setSelectedEvent((current) => (current && eventMatchesIgnoredCourse(current, [signature]) ? { ...current, isIgnored: true } : current));
+					setSelectedEvent((current) => (current && getLocalEventKey(current) === getLocalEventKey(event) ? { ...current, isIgnored: true } : current));
 				},
 			},
 		]);
 	};
 
 	const reactivateEvent = (event: ZeusEvent) => {
+		event = events.find((item) => getLocalEventKey(item) === getLocalEventKey(event)) || event;
 		const signature = getEventIgnoreSignature(event);
 		if (!signature) return;
 		Alert.alert("Réactiver ce cours", "Toutes les occurrences identiques seront de nouveau prises en compte par les notifications et les widgets.", [
@@ -602,17 +600,17 @@ export default function CalendarScreen() {
 					await Promise.all([
 						rescheduleCourseNoteReminders(nextEvents),
 						syncCourseWidgets(nextEvents),
-							notificationSettings.enabled
-								? scheduleLocalCourseNotifications(
-										activeEvents,
-											notificationSettings.minutesBefore,
-											notificationSettings.selectedDays,
-											notificationSettings.notificationType,
-										{ requestPermission: false }
-									)
+						notificationSettings.enabled
+							? scheduleLocalCourseNotifications(
+									activeEvents,
+									notificationSettings.minutesBefore,
+									notificationSettings.selectedDays,
+									notificationSettings.notificationType,
+									{ requestPermission: false }
+								)
 							: Promise.resolve(),
 					]);
-					setSelectedEvent((current) => (current && eventMatchesIgnoredCourse(current, [signature]) ? { ...current, isIgnored: false } : current));
+					setSelectedEvent((current) => (current && getLocalEventKey(current) === getLocalEventKey(event) ? { ...current, isIgnored: false } : current));
 				},
 			},
 		]);

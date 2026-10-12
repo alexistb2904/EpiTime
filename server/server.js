@@ -1441,8 +1441,9 @@ app.get("*", (req, res) => {
 
 	res.sendFile(indexPath, (err) => {
 		if (err) {
+			if (req.aborted || err.code === "ECONNABORTED") return;
 			console.error("Erreur SPA fallback:", err);
-			res.status(404).json({ error: "Not found" });
+			if (!res.headersSent && !res.writableEnded) res.status(404).json({ error: "Not found" });
 		}
 	});
 });

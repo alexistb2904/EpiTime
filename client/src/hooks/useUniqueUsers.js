@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { fetchApi } from "../utils/api";
 
 const OVERVIEW_ENDPOINT = "/api/analytics/overview";
 
@@ -14,7 +15,7 @@ export const useUniqueUsers = ({ enabled = true } = {}) => {
 		setLoading(true);
 		setError("");
 		try {
-			const response = await fetch(OVERVIEW_ENDPOINT);
+			const response = await fetchApi(OVERVIEW_ENDPOINT);
 			const payload = await response.json();
 
 			if (!response.ok) {
