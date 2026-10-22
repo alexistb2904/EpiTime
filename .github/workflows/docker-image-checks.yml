@@ -1,0 +1,49 @@
+name: Docker image checks
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - "client/**"
+      - "server/**"
+      - ".github/workflows/docker-image-checks.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "Dockerfile"
+      - "client/**"
+      - "server/**"
+      - ".github/workflows/docker-image-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build patched Docker image
+        run: docker build --pull -t epitime-security-check .
+
+      - name: Verify Node.js security patch
+        run: |
+          actual="$(docker run --rm epitime-security-check node -p 'process.versions.node')"
+          echo "Node.js: $actual"
+          test "$actual" = "24.22.1"
+
+      - name: Verify HTTP health endpoint
+        run: |
+          docker run -d --name epitime-security-test -p 127.0.0.1:3001:3001 epitime-security-check
+          trap 'docker logs epitime-security-test; docker rm -f epitime-security-test' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3001/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
