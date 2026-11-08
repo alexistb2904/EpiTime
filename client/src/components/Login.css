@@ -326,6 +326,7 @@
 }
 
 .btn-login-secondary {
+	text-decoration: none;
 	padding: 0.95rem 1.12rem;
 	color: #062a25;
 	background: rgba(15, 159, 143, 0.14);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { androidAppDownloadUrl } from "../utils/downloadLinks";
 import { trackEvent } from "../utils/analyticsTracker";
+import { isIOSDevice } from "../utils/platform";
 
 export const usePWA = () => {
 	const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -12,9 +13,7 @@ export const usePWA = () => {
 
 	const androidApkUrl = androidAppDownloadUrl;
 
-	const isIOS = () =>
-		/iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-		(navigator.maxTouchPoints > 1 && /MacIntel/.test(navigator.platform));
+	const isIOS = isIOSDevice(navigator);
 
 	const isAndroidDevice = () =>
 		/Android/i.test(navigator.userAgent);
@@ -45,7 +44,7 @@ export const usePWA = () => {
 			return;
 		}
 
-		if (isIOS()) {
+		if (isIOS) {
 			setInstallMethod("ios");
 
 			setTimeout(() => {
@@ -133,7 +132,7 @@ export const usePWA = () => {
 
 		if (installMethod === "ios") {
 			trackEvent("pwa_install_result", { result: "manual_instructions", method: "ios" });
-			window.alert("Sur iPhone : appuie sur Partager, puis 'Sur l'écran d'accueil'.");
+			window.alert("Sur iPhone ou iPad : dans Safari, appuie sur Partager, puis 'Sur l'écran d'accueil'.");
 			return;
 		}
 
@@ -170,6 +169,7 @@ export const usePWA = () => {
 		isInstalled,
 		installMethod,
 		isAndroid,
+		isIOS,
 		androidApkUrl,
 		handleInstall,
 		handleAndroidBetaInstall,

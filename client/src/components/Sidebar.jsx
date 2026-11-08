@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
 import ReactCalendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { Bell, ChevronDown, LogOut, Moon, Plus, Settings, Sun } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Moon, Plus, Settings, Smartphone, Sun } from "lucide-react";
 import { trackEvent } from "../utils/analyticsTracker";
-import { androidAppDownloadUrl } from "../utils/downloadLinks";
+import { androidAppDownloadUrl, iosAppDownloadUrl } from "../utils/downloadLinks";
 import { filterCalendarFilterOptions } from "../utils/calendarFilters";
 
 const FilterSelectionSection = ({ title, items, selectedIds, search, setSearch, onToggle, getLabel, searchPlaceholder, emptyLabel, loading }) => {
@@ -172,6 +172,17 @@ const Sidebar = ({
 				<button className="sidebar-btn sidebar-download-btn" onClick={handleAndroidDownload}>
 					<img src="/icons/android.svg" alt="" className="sidebar-btn-img" aria-hidden="true" />
 					<span>Télécharger Android</span>
+				</button>
+				<button
+					className="sidebar-btn sidebar-download-btn"
+					onClick={() => {
+						trackEvent("ios_download_clicked", { area: "sidebar", channel: "app_store" });
+						window.open(iosAppDownloadUrl, "_blank", "noopener,noreferrer");
+					}}>
+					<span className="sidebar-btn-icon">
+						<Smartphone size={18} strokeWidth={2.3} aria-hidden="true" />
+					</span>
+					<span>Télécharger iOS</span>
 				</button>
 				<button
 					className="sidebar-btn"

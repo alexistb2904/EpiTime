@@ -5,8 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-    <title>EpiTime - emploi du temps EPITA, PWA et Android</title>
-    <meta name="description" content="EpiTime aide les étudiants EPITA à consulter leur emploi du temps, leurs salles et leurs cours sur le web, en PWA et sur Android.">
+    <title>EpiTime - emploi du temps EPITA, PWA, Android et iOS</title>
+    <meta name="description"
+        content="EpiTime aide les étudiants EPITA à consulter leur emploi du temps, leurs salles et leurs cours sur le web, en PWA, sur Android, iPhone et iPad.">
     <meta name="author" content="EpiTime">
     <meta name="application-name" content="EpiTime">
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
@@ -15,14 +16,14 @@
     <meta property="og:type" content="website">
     <meta property="og:locale" content="fr_FR">
     <meta property="og:site_name" content="EpiTime">
-    <meta property="og:title" content="EpiTime - emploi du temps EPITA, PWA et Android">
+    <meta property="og:title" content="EpiTime - emploi du temps EPITA, PWA, Android et iOS">
     <meta property="og:description" content="Une application indépendante pour consulter facilement son emploi du temps EPITA, ses salles et ses cours.">
     <meta property="og:url" content="https://epitime.epita.it/">
     <meta property="og:image" content="https://epitime.epita.it/icons/webapp.png">
     <meta property="og:image:alt" content="Aperçu de l'application web EpiTime">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="EpiTime - emploi du temps EPITA, PWA et Android">
-    <meta name="twitter:description" content="Consulte ton emploi du temps EPITA, tes salles et tes cours sur web, PWA ou Android.">
+    <meta name="twitter:title" content="EpiTime - emploi du temps EPITA, PWA, Android et iOS">
+    <meta name="twitter:description" content="Consulte ton emploi du temps EPITA, tes salles et tes cours sur web, PWA, Android ou iOS.">
     <meta name="twitter:image" content="https://epitime.epita.it/icons/webapp.png">
 
     <meta name="theme-color" content="#5b5fef">
@@ -43,22 +44,139 @@
     <script type="application/ld+json">
         {
             "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "EpiTime",
-            "applicationCategory": "EducationalApplication",
-            "operatingSystem": "Web, Android",
-            "url": "https://epitime.epita.it/",
-            "description": "Application indépendante pour les étudiants EPITA : emploi du temps, cours et salles sur web, PWA et Android.",
-            "audience": {
-                "@type": "Audience",
-                "audienceType": "Étudiants EPITA"
-            },
-            "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "EUR"
-            },
-            "sameAs": "https://github.com/alexistb2904/EpiTime"
+            "@graph": [
+                {
+                    "@type": "WebSite",
+                    "@id": "https://epitime.epita.it/#website",
+                    "name": "EpiTime",
+                    "url": "https://epitime.epita.it/",
+                    "inLanguage": "fr-FR",
+                    "publisher": { "@id": "https://epitime.epita.it/#author" },
+                    "about": { "@id": "https://epitime.epita.it/#software" }
+                },
+                {
+                    "@type": "WebPage",
+                    "@id": "https://epitime.epita.it/#webpage",
+                    "url": "https://epitime.epita.it/",
+                    "name": "EpiTime - emploi du temps EPITA, PWA, Android et iOS",
+                    "description": "Découvre EpiTime pour consulter ton planning EPITA sur le web ou télécharger l'application Android, iPhone et iPad.",
+                    "inLanguage": "fr-FR",
+                    "isPartOf": { "@id": "https://epitime.epita.it/#website" },
+                    "mainEntity": { "@id": "https://epitime.epita.it/#software" }
+                },
+                {
+                    "@type": "Person",
+                    "@id": "https://epitime.epita.it/#author",
+                    "name": "Alexis Thierry-Bellefond",
+                    "url": "https://github.com/alexistb2904",
+                    "email": "contact@alexistb.com"
+                },
+                {
+                    "@type": "Offer",
+                    "@id": "https://epitime.epita.it/#free-offer",
+                    "price": "0",
+                    "priceCurrency": "EUR",
+                    "url": "https://epitime.epita.it/"
+                },
+                {
+                    "@type": "SoftwareApplication",
+                    "@id": "https://epitime.epita.it/#software",
+                    "name": "EpiTime",
+                    "url": "https://epitime.epita.it/",
+                    "description": "Application gratuite et open source pour les étudiants EPITA : emploi du temps, cours et salles sur web et PWA, avec notes et syllabus dans les applications Android et iOS. Projet étudiant indépendant, non affilié à EPITA, IONIS, Zeus ou Auriga.",
+                    "applicationCategory": "EducationalApplication",
+                    "applicationSubCategory": "Emploi du temps et suivi académique",
+                    "operatingSystem": ["Web", "Android", "iOS", "iPadOS"],
+                    "inLanguage": "fr-FR",
+                    "isAccessibleForFree": true,
+                    "image": "https://epitime.epita.it/icons/app_logo.png",
+                    "author": { "@id": "https://epitime.epita.it/#author" },
+                    "publisher": { "@id": "https://epitime.epita.it/#author" },
+                    "license": "https://spdx.org/licenses/MIT.html",
+                    "audience": {
+                        "@type": "Audience",
+                        "audienceType": "Étudiants EPITA"
+                    },
+                    "offers": { "@id": "https://epitime.epita.it/#free-offer" },
+                    "mainEntityOfPage": { "@id": "https://epitime.epita.it/#webpage" },
+                    "sameAs": "https://github.com/alexistb2904/EpiTime",
+                    "workExample": [
+                        { "@id": "https://epitime.epita.it/#web-app" },
+                        { "@id": "https://epitime.epita.it/#android-app" },
+                        { "@id": "https://epitime.epita.it/#ios-app" }
+                    ]
+                },
+                {
+                    "@type": "WebApplication",
+                    "@id": "https://epitime.epita.it/#web-app",
+                    "name": "EpiTime Web et PWA",
+                    "url": "https://epitime.epita.it/",
+                    "description": "Consulte ton emploi du temps EPITA, tes groupes, tes enseignants et les salles depuis ton navigateur ou la PWA.",
+                    "applicationCategory": "EducationalApplication",
+                    "operatingSystem": "Tous les systèmes disposant d'un navigateur web compatible",
+                    "browserRequirements": "Navigateur moderne avec JavaScript activé. Installation PWA selon les capacités du navigateur.",
+                    "inLanguage": "fr-FR",
+                    "isAccessibleForFree": true,
+                    "image": "https://epitime.epita.it/icons/app_logo.png",
+                    "screenshot": [
+                        "https://epitime.epita.it/icons/webapp.png",
+                        "https://epitime.epita.it/icons/pwa.png"
+                    ],
+                    "featureList": [
+                        "Consultation de l'emploi du temps EPITA",
+                        "Filtres par groupe, salle et enseignant",
+                        "Recherche de salles disponibles",
+                        "Notifications et rappels de cours",
+                        "Installation sur l'écran d'accueil en PWA"
+                    ],
+                    "offers": { "@id": "https://epitime.epita.it/#free-offer" },
+                    "exampleOfWork": { "@id": "https://epitime.epita.it/#software" }
+                },
+                {
+                    "@type": "MobileApplication",
+                    "@id": "https://epitime.epita.it/#android-app",
+                    "name": "EpiTime pour Android",
+                    "url": "https://github.com/alexistb2904/EpiTime/releases",
+                    "installUrl": "https://github.com/alexistb2904/EpiTime/releases",
+                    "description": "Application Android EpiTime : planning EPITA, notes, syllabus, notifications et widgets. Installation par APK depuis les versions GitHub.",
+                    "applicationCategory": "EducationalApplication",
+                    "operatingSystem": "Android",
+                    "inLanguage": "fr-FR",
+                    "isAccessibleForFree": true,
+                    "image": "https://epitime.epita.it/icons/app_logo.png",
+                    "screenshot": "https://epitime.epita.it/icons/androidapp.png",
+                    "featureList": [
+                        "Consultation de l'emploi du temps EPITA",
+                        "Consultation des notes et des syllabus Auriga",
+                        "Notifications et rappels de cours",
+                        "Widgets de planning et de notes"
+                    ],
+                    "releaseNotes": "https://github.com/alexistb2904/EpiTime/releases",
+                    "offers": { "@id": "https://epitime.epita.it/#free-offer" },
+                    "exampleOfWork": { "@id": "https://epitime.epita.it/#software" }
+                },
+                {
+                    "@type": "MobileApplication",
+                    "@id": "https://epitime.epita.it/#ios-app",
+                    "name": "EpiTime pour iPhone et iPad",
+                    "url": "https://apps.apple.com/fr/app/epitime/id6822687222",
+                    "installUrl": "https://apps.apple.com/fr/app/epitime/id6822687222",
+                    "description": "Application iOS EpiTime pour iPhone et iPad : planning EPITA, notes, syllabus et notifications. Disponible sur l'App Store.",
+                    "applicationCategory": "EducationalApplication",
+                    "operatingSystem": ["iOS", "iPadOS"],
+                    "availableOnDevice": ["iPhone", "iPad"],
+                    "inLanguage": "fr-FR",
+                    "isAccessibleForFree": true,
+                    "image": "https://epitime.epita.it/icons/app_logo.png",
+                    "featureList": [
+                        "Consultation de l'emploi du temps EPITA",
+                        "Consultation des notes et des syllabus Auriga",
+                        "Notifications et rappels de cours"
+                    ],
+                    "offers": { "@id": "https://epitime.epita.it/#free-offer" },
+                    "exampleOfWork": { "@id": "https://epitime.epita.it/#software" }
+                }
+            ]
         }
     </script>
 
@@ -82,7 +200,7 @@
     <noscript>
         <main>
             <h1>EpiTime, l'emploi du temps pour les étudiants EPITA</h1>
-            <p>Consultez vos cours, salles et votre planning EPITA sur le web, en PWA ou sur Android.</p>
+            <p>Consultez vos cours, salles et votre planning EPITA sur le web, en PWA, sur Android, iPhone ou iPad.</p>
             <p>EpiTime est un projet étudiant indépendant, non affilié à EPITA, IONIS ou Zeus.</p>
             <p>Si vous voyez ce message, c'est que votre navigateur ne supporte pas JavaScript ou que JavaScript est désactivé. Veuillez activer JavaScript pour utiliser EpiTime.
             </p>

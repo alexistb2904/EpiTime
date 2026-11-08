@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar, Download, Palette } from "lucide-react";
+import { Calendar, Download, Palette, Smartphone } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useUniqueUsers } from "../hooks/useUniqueUsers";
 import { trackEvent } from "../utils/analyticsTracker";
-import { androidAppDownloadUrl } from "../utils/downloadLinks";
+import { androidAppDownloadUrl, iosAppDownloadUrl } from "../utils/downloadLinks";
 import "./Login.css";
 
 const Login = () => {
@@ -71,7 +71,7 @@ const Login = () => {
 							EpiTime
 						</h1>
 						<p className="login-subtitle">
-							Ton planning EPITA simple sur web, PWA et Android. Cours, salles et notifications tout a portée dans une interface soignée. Pour les notes et syllabus
+							Ton planning EPITA simple sur web, PWA, Android et iOS. Cours, salles et notifications tout a portée dans une interface soignée. Pour les notes et syllabus
 							c'est sur l'application.{" "}
 						</p>
 
@@ -106,6 +106,15 @@ const Login = () => {
 								<img className="btn-android-icon" src="/icons/android.svg" alt="" aria-hidden="true" />
 								<span>Télécharger l'application Android</span>
 							</button>
+							<a
+								className="btn-login-secondary"
+								href={iosAppDownloadUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								onClick={() => trackEvent("ios_download_clicked", { area: "login", channel: "app_store" })}>
+								<Smartphone size={20} aria-hidden="true" />
+								<span>Télécharger l'application iOS</span>
+							</a>
 						</div>
 
 						<p className="login-hint">Connexion réservée aux comptes EPITA en @epita.fr.</p>
@@ -179,10 +188,10 @@ const Login = () => {
 					</article>
 					<article className="feature-card feature-card-android">
 						<span className="feature-icon" aria-hidden="true">
-							<img src="/icons/android.svg" alt="" />
+							<Smartphone size={23} strokeWidth={2.5} />
 						</span>
-						<h2>Nouvelle app Android</h2>
-						<p>Notifications, accès rapide et interface pensée pour consulter ton planning ou t'es notes depuis n'importe où.</p>
+						<h2>Applications Android et iOS</h2>
+						<p>Sur Android, iPhone et iPad : notifications, accès rapide et interface pensée pour consulter ton planning et tes notes depuis n'importe où.</p>
 					</article>
 				</section>
 
@@ -211,7 +220,7 @@ const Login = () => {
 								<h3>Interface mobile</h3>
 								<p>
 									La nouvelle application Android EpiTime, avec planning, notes et syllabus.
-									<br /> <small>bientôt IOS qui sais..</small>
+									<br /> <small>Aussi disponible sur iPhone et iPad via l’App Store.</small>
 								</p>
 							</div>
 						</article>

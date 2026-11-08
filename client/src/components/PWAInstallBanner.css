@@ -64,6 +64,10 @@
 }
 
 .pwa-banner-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	text-decoration: none;
 	padding: 0.55rem 1rem;
 	border-radius: 10px;
 	border: none;

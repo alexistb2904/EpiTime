@@ -24,7 +24,7 @@ function AppContent() {
 	const { user, loading } = useAuth();
 	const isLegalPage = window.location.pathname.replace(/\/+$/, "") === "/legal";
 
-	const { showInstallBanner, isOnline, installMethod, isAndroid, androidApkUrl, handleInstall, handleAndroidBetaInstall, handleDismiss } = usePWA();
+	const { showInstallBanner, isOnline, installMethod, isAndroid, isIOS, androidApkUrl, handleInstall, handleAndroidBetaInstall, handleDismiss } = usePWA();
 
 	const [showCookieBanner, setShowCookieBanner] = React.useState(() => shouldShowAnalyticsBanner());
 
@@ -43,7 +43,7 @@ function AppContent() {
 			return;
 		}
 
-		document.title = "EpiTime - emploi du temps EPITA, PWA et Android";
+		document.title = "EpiTime - emploi du temps EPITA, PWA, Android et iOS";
 		canonical?.setAttribute("href", `${window.location.origin}/`);
 		robots?.setAttribute("content", "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1");
 	}, [isLegalPage]);
@@ -95,6 +95,7 @@ function AppContent() {
 				show={showInstallBanner}
 				installMethod={installMethod}
 				isAndroid={isAndroid}
+				isIOS={isIOS}
 				androidApkUrl={androidApkUrl}
 				onInstall={handleInstall}
 				onAndroidBetaInstall={handleAndroidBetaInstall}

@@ -1,7 +1,7 @@
 import "./PWAInstallBanner.css";
-import { androidAppDownloadUrl } from "../utils/downloadLinks";
+import { androidAppDownloadUrl, iosAppDownloadUrl } from "../utils/downloadLinks";
 
-export function PWAInstallBanner({ show, installMethod, onInstall, onDismiss, isAndroid = false, androidApkUrl = androidAppDownloadUrl, onAndroidBetaInstall }) {
+export function PWAInstallBanner({ show, installMethod, onInstall, onDismiss, isAndroid = false, isIOS = false, androidApkUrl = androidAppDownloadUrl, onAndroidBetaInstall }) {
 	if (!show) return null;
 
 	const isManualIOSInstall = installMethod === "ios";
@@ -23,8 +23,8 @@ export function PWAInstallBanner({ show, installMethod, onInstall, onDismiss, is
 				<div className="pwa-banner-title">📱 Installer EpiTime</div>
 
 				<div className="pwa-banner-text">
-					{isManualIOSInstall
-						? "Sur iPhone : Partager → 'Sur l'écran d'accueil' pour installer l'app"
+					{isIOS
+						? "EpiTime est disponible sur l'App Store pour iPhone et iPad."
 						: isAndroid
 							? "Installe EpiTime en PWA ou télécharge l'application Android beta."
 							: "Accède rapidement à ton emploi du temps depuis ton écran d'accueil"}
@@ -34,6 +34,11 @@ export function PWAInstallBanner({ show, installMethod, onInstall, onDismiss, is
 			</div>
 
 			<div className="pwa-banner-actions">
+				{isIOS && (
+					<a className="pwa-banner-btn install" href={iosAppDownloadUrl} target="_blank" rel="noopener noreferrer">
+						Télécharger sur l’App Store
+					</a>
+				)}
 				{isAndroid && (
 					<button className="pwa-banner-btn install" onClick={handleAndroidBetaClick}>
 						Télécharger APK
