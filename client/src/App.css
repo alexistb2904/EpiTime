@@ -115,6 +115,8 @@ body {
 }
 
 .loading-screen p {
+	padding: 0 24px;
+	text-align: center;
 	color: #5f6368;
 	font-size: 0.95rem;
 }

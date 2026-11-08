@@ -2,6 +2,7 @@ import React, { useState, useContext, createContext } from "react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi } from "../utils/api";
+import { readSavedSession } from "../utils/authSession";
 
 const AuthContext = createContext();
 const LOGIN_ANALYTICS_FLOW_KEY = "epitime_login_analytics_flow";
@@ -53,10 +54,14 @@ const isPopupIssue = (err) => {
 const AUTH_SCOPES = ["openid", "profile", "User.Read"];
 
 export const AuthProvider = ({ children }) => {
-	const [user, setUser] = useState(null);
-	const [zeusToken, setZeusToken] = useState(null);
-	const [loading, setLoading] = useState(false);
+	const [savedSession] = useState(readSavedSession);
+	const [user, setUser] = useState(savedSession?.user ?? null);
+	const [zeusToken, setZeusToken] = useState(savedSession?.token ?? null);
+	const [loading, setLoading] = useState(!savedSession);
+	const [loadingMessage, setLoadingMessage] = useState("Préparation de la connexion Microsoft…");
 	const [error, setError] = useState(null);
+	const loggingOut = React.useRef(false);
+	const startup = React.useRef(null);
 
 	const msalConfig = {
 		auth: {
@@ -69,7 +74,8 @@ export const AuthProvider = ({ children }) => {
 		cache: { cacheLocation: "localStorage", storeAuthStateInCookie: true },
 	};
 
-	const msalInstance = React.useRef(new PublicClientApplication(msalConfig));
+	const msalInstance = React.useRef(null);
+	if (!msalInstance.current) msalInstance.current = new PublicClientApplication(msalConfig);
 	const msalInitialization = React.useRef(null);
 	const initializeMsal = React.useCallback(() => {
 		if (!msalInitialization.current) {
@@ -80,28 +86,19 @@ export const AuthProvider = ({ children }) => {
 
 	const initMsal = React.useCallback(async () => {
 		try {
-			setLoading(true);
 			await initializeMsal();
+			if (!navigator.onLine || loggingOut.current) return;
 
-			if (!navigator.onLine) {
-				const savedToken = localStorage.getItem("zeus_token");
-				const savedUser = localStorage.getItem("zeus_user");
-				if (savedToken && savedUser) {
-					setZeusToken(savedToken);
-					setUser(JSON.parse(savedUser));
-					setLoading(false);
-					return;
-				}
-			}
-
+			setLoadingMessage("Vérification de ta connexion Microsoft…");
 			const response = await msalInstance.current.handleRedirectPromise();
 
 			if (response) {
 				await exchangeToken(response);
 			} else {
 				const accounts = msalInstance.current.getAllAccounts();
-				if (accounts.length > 0) {
-					const account = accounts[0];
+				const account = savedSession ? accounts.find((account) => account.username === savedSession.user.username) : accounts[0];
+				if (account) {
+					setLoadingMessage("Restauration de ta session Microsoft…");
 					const silentResp = await msalInstance.current
 						.acquireTokenSilent({
 							scopes: AUTH_SCOPES,
@@ -114,22 +111,16 @@ export const AuthProvider = ({ children }) => {
 					}
 				}
 			}
-			setLoading(false);
 		} catch (err) {
 			console.error("MSAL Init Error:", err);
-			if (!navigator.onLine) {
-				const savedToken = localStorage.getItem("zeus_token");
-				const savedUser = localStorage.getItem("zeus_user");
-				if (savedToken && savedUser) {
-					setZeusToken(savedToken);
-					setUser(JSON.parse(savedUser));
-				}
-			}
+		} finally {
 			setLoading(false);
 		}
-	}, [initializeMsal]);
+	}, [initializeMsal, savedSession]);
 
 	const exchangeToken = async (msResponse, analyticsContext = null) => {
+		if (loggingOut.current) return;
+		setLoadingMessage("Connexion à Zeus…");
 		try {
 			const res = await fetchApi("/api/auth", {
 				method: "POST",
@@ -138,19 +129,12 @@ export const AuthProvider = ({ children }) => {
 			});
 
 			if (!res.ok) {
-				if (navigator.onLine) throw new Error(`Le service de connexion est indisponible (HTTP ${res.status}).`);
-				console.log("Mode hors ligne détecté, conservation de la session");
-				const savedToken = localStorage.getItem("zeus_token");
-				const savedUser = localStorage.getItem("zeus_user");
-				if (savedToken && savedUser) {
-					setZeusToken(savedToken);
-					setUser(JSON.parse(savedUser));
-					return;
-				}
+				throw new Error(`Le service de connexion est indisponible (HTTP ${res.status}).`);
 			}
 
 			const data = await res.json();
 			if (!data.token) throw new Error(data.error || "Le service de connexion n’a pas renvoyé de session.");
+			if (loggingOut.current) return;
 			setZeusToken(data.token);
 			setUser(msResponse.account);
 			localStorage.setItem("zeus_token", data.token);
@@ -158,16 +142,6 @@ export const AuthProvider = ({ children }) => {
 			const completedContext = analyticsContext || consumeLoginAnalyticsFlow();
 			if (completedContext) trackEvent("login_completed", completedContext);
 		} catch (err) {
-			if (!navigator.onLine) {
-				console.log("Mode hors ligne détecté lors de l'erreur, tentative de récupération du cache");
-				const savedToken = localStorage.getItem("zeus_token");
-				const savedUser = localStorage.getItem("zeus_user");
-				if (savedToken && savedUser) {
-					setZeusToken(savedToken);
-					setUser(JSON.parse(savedUser));
-					return;
-				}
-			}
 			setError("Échec d'authentification Zeus: " + err.message);
 			trackEvent("auth_exchange_failed", {
 				mode: navigator.onLine ? "online" : "offline",
@@ -180,12 +154,16 @@ export const AuthProvider = ({ children }) => {
 	const login = async () => {
 		try {
 			setLoading(true);
+			setLoadingMessage("Préparation de la connexion Microsoft…");
 			setError(null);
+			loggingOut.current = false;
+			await initializeMsal();
 			trackEvent("login_started", {
 				flow: shouldUseRedirectAuth() ? "redirect" : "popup",
 			});
 
 			if (shouldUseRedirectAuth()) {
+				setLoadingMessage("Redirection vers Microsoft…");
 				saveLoginAnalyticsFlow("redirect");
 				await msalInstance.current.loginRedirect({
 					scopes: AUTH_SCOPES,
@@ -193,6 +171,7 @@ export const AuthProvider = ({ children }) => {
 				});
 				return;
 			} else {
+				setLoadingMessage("Connexion à Microsoft…");
 				const resp = await msalInstance.current.loginPopup({
 					scopes: AUTH_SCOPES,
 					prompt: "select_account",
@@ -204,6 +183,7 @@ export const AuthProvider = ({ children }) => {
 			if (isPopupIssue(err)) {
 				trackEvent("login_popup_issue_fallback_redirect");
 				try {
+					setLoadingMessage("Redirection vers Microsoft…");
 					saveLoginAnalyticsFlow("redirect_after_popup_issue");
 					await msalInstance.current.loginRedirect({
 						scopes: AUTH_SCOPES,
@@ -229,26 +209,37 @@ export const AuthProvider = ({ children }) => {
 		}
 	};
 
-	const logout = () => {
+	const logout = async () => {
 		trackEvent("logout_triggered", {
 			flow: shouldUseRedirectAuth() ? "redirect" : "popup",
 		});
-		if (shouldUseRedirectAuth()) {
-			msalInstance.current.logoutRedirect();
-		} else {
-			msalInstance.current.logoutPopup();
-		}
+		loggingOut.current = true;
 		setUser(null);
 		setZeusToken(null);
 		localStorage.removeItem("zeus_token");
 		localStorage.removeItem("zeus_user");
+		try {
+			await initializeMsal();
+			if (shouldUseRedirectAuth()) await msalInstance.current.logoutRedirect();
+			else await msalInstance.current.logoutPopup();
+		} catch (err) {
+			console.error("MSAL Logout Error:", err);
+		}
 	};
 
 	React.useEffect(() => {
-		initMsal();
-	}, [initMsal]);
+		// StrictMode replays effects; a redirect must only be exchanged once.
+		if (!startup.current) startup.current = initMsal();
+		if (savedSession) return;
+		const timeout = setTimeout(() => {
+			setLoading(false);
+			setError("La connexion prend plus de temps que prévu. Tu peux réessayer de te connecter.");
+		}, 10_000);
+		startup.current.finally(() => clearTimeout(timeout));
+		return () => clearTimeout(timeout);
+	}, [initMsal, savedSession]);
 
-	return <AuthContext.Provider value={{ user, zeusToken, loading, error, login, logout, initMsal }}>{children}</AuthContext.Provider>;
+	return <AuthContext.Provider value={{ user, zeusToken, loading, loadingMessage, error, login, logout, initMsal }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

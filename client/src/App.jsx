@@ -21,7 +21,7 @@ import LegalPage from "./components/LegalPage";
 import "./App.css";
 
 function AppContent() {
-	const { user, loading } = useAuth();
+	const { user, loading, loadingMessage } = useAuth();
 	const isLegalPage = window.location.pathname.replace(/\/+$/, "") === "/legal";
 
 	const { showInstallBanner, isOnline, installMethod, isAndroid, isIOS, androidApkUrl, handleInstall, handleAndroidBetaInstall, handleDismiss } = usePWA();
@@ -83,8 +83,10 @@ function AppContent() {
 	if (loading) {
 		return (
 			<div className="loading-screen">
-				<div className="spinner"></div>
-				<p>Chargement...</p>
+				<div className="spinner" aria-hidden="true"></div>
+				<p role="status" aria-live="polite" aria-atomic="true">
+					{loadingMessage}
+				</p>
 			</div>
 		);
 	}
