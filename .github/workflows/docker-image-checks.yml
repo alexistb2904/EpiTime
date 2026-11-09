@@ -27,6 +27,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Run web client unit tests
+        run: |
+          cd client
+          npm ci
+          npm test
+
       - name: Build patched Docker image
         run: docker build --pull -t epitime-security-check .
 
