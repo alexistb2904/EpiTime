@@ -2,7 +2,7 @@ import React, { useState, useContext, createContext } from "react";
 import { PublicClientApplication } from "@azure/msal-browser";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi } from "../utils/api";
-import { readSavedSession } from "../utils/authSession";
+import { clearSavedSession, getZeusTokenExpiresAt, readSavedSession } from "../utils/authSession";
 
 const AuthContext = createContext();
 const LOGIN_ANALYTICS_FLOW_KEY = "epitime_login_analytics_flow";
@@ -52,12 +52,35 @@ const isPopupIssue = (err) => {
 };
 
 const AUTH_SCOPES = ["openid", "profile", "User.Read"];
+const REDIRECT_TIMEOUT_MS = 6_000;
+const EXPIRY_LEEWAY_MS = 30_000;
+
+const hasMicrosoftRedirectResponse = () => {
+	const search = new URLSearchParams(window.location.search);
+	const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+	return [search, hash].some((params) => params.has("state") && (params.has("code") || params.has("error")));
+};
+
+const withDeadline = async (promise, timeoutMs) => {
+	let timeout;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise((_, reject) => {
+				timeout = setTimeout(() => reject(new Error("Délai de connexion dépassé")), timeoutMs);
+			}),
+		]);
+	} finally {
+		clearTimeout(timeout);
+	}
+};
 
 export const AuthProvider = ({ children }) => {
 	const [savedSession] = useState(readSavedSession);
+	const [redirectCallback] = useState(hasMicrosoftRedirectResponse);
 	const [user, setUser] = useState(savedSession?.user ?? null);
 	const [zeusToken, setZeusToken] = useState(savedSession?.token ?? null);
-	const [loading, setLoading] = useState(!savedSession);
+	const [loading, setLoading] = useState(redirectCallback);
 	const [loadingMessage, setLoadingMessage] = useState("Préparation de la connexion Microsoft…");
 	const [error, setError] = useState(null);
 	const loggingOut = React.useRef(false);
@@ -86,37 +109,23 @@ export const AuthProvider = ({ children }) => {
 
 	const initMsal = React.useCallback(async () => {
 		try {
-			await initializeMsal();
+			await withDeadline(initializeMsal(), REDIRECT_TIMEOUT_MS);
 			if (!navigator.onLine || loggingOut.current) return;
 
-			setLoadingMessage("Vérification de ta connexion Microsoft…");
-			const response = await msalInstance.current.handleRedirectPromise();
-
+			setLoadingMessage("Finalisation de la connexion Microsoft…");
+			const response = await withDeadline(msalInstance.current.handleRedirectPromise(), REDIRECT_TIMEOUT_MS);
 			if (response) {
 				await exchangeToken(response);
 			} else {
-				const accounts = msalInstance.current.getAllAccounts();
-				const account = savedSession ? accounts.find((account) => account.username === savedSession.user.username) : accounts[0];
-				if (account) {
-					setLoadingMessage("Restauration de ta session Microsoft…");
-					const silentResp = await msalInstance.current
-						.acquireTokenSilent({
-							scopes: AUTH_SCOPES,
-							account,
-						})
-						.catch(() => null);
-
-					if (silentResp) {
-						await exchangeToken(silentResp);
-					}
-				}
+				setError("La connexion Microsoft n’a pas abouti. Réessaie depuis cette page.");
 			}
 		} catch (err) {
-			console.error("MSAL Init Error:", err);
+			console.error("MSAL Redirect Error:", err);
+			setError("Connexion Microsoft indisponible. Réessaie depuis cette page.");
 		} finally {
 			setLoading(false);
 		}
-	}, [initializeMsal, savedSession]);
+	}, [initializeMsal]);
 
 	const exchangeToken = async (msResponse, analyticsContext = null) => {
 		if (loggingOut.current) return;
@@ -126,7 +135,7 @@ export const AuthProvider = ({ children }) => {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ accessToken: msResponse.accessToken }),
-			});
+			}, REDIRECT_TIMEOUT_MS);
 
 			if (!res.ok) {
 				throw new Error(`Le service de connexion est indisponible (HTTP ${res.status}).`);
@@ -135,6 +144,9 @@ export const AuthProvider = ({ children }) => {
 			const data = await res.json();
 			if (!data.token) throw new Error(data.error || "Le service de connexion n’a pas renvoyé de session.");
 			if (loggingOut.current) return;
+			if (!getZeusTokenExpiresAt(data.token)) {
+				throw new Error("La session Zeus ne fournit pas de date d’expiration vérifiable.");
+			}
 			setZeusToken(data.token);
 			setUser(msResponse.account);
 			localStorage.setItem("zeus_token", data.token);
@@ -216,8 +228,7 @@ export const AuthProvider = ({ children }) => {
 		loggingOut.current = true;
 		setUser(null);
 		setZeusToken(null);
-		localStorage.removeItem("zeus_token");
-		localStorage.removeItem("zeus_user");
+		clearSavedSession();
 		try {
 			await initializeMsal();
 			if (shouldUseRedirectAuth()) await msalInstance.current.logoutRedirect();
@@ -227,17 +238,46 @@ export const AuthProvider = ({ children }) => {
 		}
 	};
 
+	const expireSession = React.useCallback(() => {
+		clearSavedSession();
+		setUser(null);
+		setZeusToken(null);
+		setError(null);
+	}, []);
+
 	React.useEffect(() => {
-		// StrictMode replays effects; a redirect must only be exchanged once.
-		if (!startup.current) startup.current = initMsal();
-		if (savedSession) return;
-		const timeout = setTimeout(() => {
-			setLoading(false);
-			setError("La connexion prend plus de temps que prévu. Tu peux réessayer de te connecter.");
-		}, 10_000);
-		startup.current.finally(() => clearTimeout(timeout));
-		return () => clearTimeout(timeout);
-	}, [initMsal, savedSession]);
+		if (!zeusToken) return;
+		const expiresAt = getZeusTokenExpiresAt(zeusToken);
+		const checkExpiry = () => {
+			// Offline schedules remain accessible. Re-check when back online.
+			if (navigator.onLine && (!expiresAt || expiresAt <= Date.now() + EXPIRY_LEEWAY_MS)) expireSession();
+		};
+		const onVisibilityChange = () => {
+			if (!document.hidden) checkExpiry();
+		};
+		checkExpiry();
+		const delay = expiresAt ? Math.max(0, expiresAt - Date.now() - EXPIRY_LEEWAY_MS) : 0;
+		const timer = delay > 0 ? setTimeout(checkExpiry, delay) : null;
+		window.addEventListener("online", checkExpiry);
+		document.addEventListener("visibilitychange", onVisibilityChange);
+		return () => {
+			if (timer !== null) clearTimeout(timer);
+			window.removeEventListener("online", checkExpiry);
+			document.removeEventListener("visibilitychange", onVisibilityChange);
+		};
+	}, [zeusToken, expireSession]);
+
+	React.useEffect(() => {
+		window.addEventListener("epitime:session-expired", expireSession);
+		return () => window.removeEventListener("epitime:session-expired", expireSession);
+	}, [expireSession]);
+
+	React.useEffect(() => {
+		// Only process a real Microsoft redirect. Visiting the site must never
+		// initiate a silent Microsoft + Zeus login in the background.
+		if (!redirectCallback || startup.current) return;
+		startup.current = initMsal();
+	}, [initMsal, redirectCallback]);
 
 	return <AuthContext.Provider value={{ user, zeusToken, loading, loadingMessage, error, login, logout, initMsal }}>{children}</AuthContext.Provider>;
 };
