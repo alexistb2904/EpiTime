@@ -247,7 +247,7 @@ export const AuthProvider = ({ children }) => {
 		const expiresAt = getZeusTokenExpiresAt(zeusToken);
 		const checkExpiry = () => {
 			// Offline schedules remain accessible. Re-check when back online.
-			if (navigator.onLine && (!expiresAt || expiresAt <= Date.now() + EXPIRY_LEEWAY_MS)) expireSession();
+			if (navigator.onLine && expiresAt && expiresAt <= Date.now() + EXPIRY_LEEWAY_MS) expireSession();
 		};
 		const onVisibilityChange = () => {
 			if (!document.hidden) checkExpiry();
