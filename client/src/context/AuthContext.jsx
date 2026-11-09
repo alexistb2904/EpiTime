@@ -144,9 +144,6 @@ export const AuthProvider = ({ children }) => {
 			const data = await res.json();
 			if (!data.token) throw new Error(data.error || "Le service de connexion n’a pas renvoyé de session.");
 			if (loggingOut.current) return;
-			if (!getZeusTokenExpiresAt(data.token)) {
-				throw new Error("La session Zeus ne fournit pas de date d’expiration vérifiable.");
-			}
 			setZeusToken(data.token);
 			setUser(msResponse.account);
 			localStorage.setItem("zeus_token", data.token);
