@@ -11,7 +11,15 @@ export async function fetchApi(input, init = {}, timeoutMs = API_REQUEST_TIMEOUT
 	else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
 
 	try {
-		return await fetch(input, { ...init, signal: controller.signal });
+		const response = await fetch(input, { ...init, signal: controller.signal });
+		if (response.status === 401) {
+			const authorization = new Headers(init.headers).get("Authorization");
+			const currentToken = localStorage.getItem("zeus_token");
+			if (authorization && currentToken && authorization === `Bearer ${currentToken}`) {
+				window.dispatchEvent(new Event("epitime:session-expired"));
+			}
+		}
+		return response;
 	} catch (error) {
 		if (controller.signal.aborted && !callerSignal?.aborted) {
 			throw new Error("La connexion prend plus de temps que prévu. Vérifie ta connexion puis réessaie.", { cause: error });
