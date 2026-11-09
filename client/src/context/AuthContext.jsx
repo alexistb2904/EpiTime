@@ -166,7 +166,14 @@ export const AuthProvider = ({ children }) => {
 			setLoadingMessage("Préparation de la connexion Microsoft…");
 			setError(null);
 			loggingOut.current = false;
-			await initializeMsal();
+			await withDeadline(initializeMsal(), REDIRECT_TIMEOUT_MS);
+			// Drain a previously interrupted MSAL redirect before starting another one.
+			const pendingResponse = await withDeadline(msalInstance.current.handleRedirectPromise(), REDIRECT_TIMEOUT_MS);
+			if (pendingResponse) {
+				await exchangeToken(pendingResponse);
+				setLoading(false);
+				return;
+			}
 			trackEvent("login_started", {
 				flow: shouldUseRedirectAuth() ? "redirect" : "popup",
 			});
