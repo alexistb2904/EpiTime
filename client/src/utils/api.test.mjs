@@ -28,3 +28,28 @@ test("fetchApi preserves the caller abort signal", async () => {
 		globalThis.fetch = originalFetch;
 	}
 });
+
+test("fetchApi signals an expired active Zeus session on HTTP 401", async () => {
+	const previousFetch = globalThis.fetch;
+	const previousWindow = globalThis.window;
+	const previousStorage = globalThis.localStorage;
+	const events = [];
+	globalThis.fetch = async () => ({ status: 401 });
+	globalThis.window = { dispatchEvent: (event) => events.push(event.type) };
+	globalThis.localStorage = { getItem: (key) => (key === "zeus_token" ? "current" : null) };
+
+	try {
+		await fetchApi("/api/groups", { headers: { Authorization: "Bearer current" } });
+		assert.deepEqual(events, ["epitime:session-expired"]);
+
+		await fetchApi("/api/auth", { method: "POST" });
+		await fetchApi("/api/groups", { headers: { Authorization: "Bearer old" } });
+		assert.deepEqual(events, ["epitime:session-expired"]);
+	} finally {
+		globalThis.fetch = previousFetch;
+		if (previousWindow === undefined) delete globalThis.window;
+		else globalThis.window = previousWindow;
+		if (previousStorage === undefined) delete globalThis.localStorage;
+		else globalThis.localStorage = previousStorage;
+	}
+});
