@@ -1,10 +1,18 @@
-import React from "react";
+import React, { useRef } from "react";
 import { AlertTriangle, CalendarDays, Laptop, Link2, MapPin } from "lucide-react";
 import Modal from "./Modal";
 import { trackEvent } from "../utils/analyticsTracker";
+import { isExamEvent } from "../utils/courseType";
 
 const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitch }) => {
 	const isCancelled = Boolean(event.isCancelled || event.isCanceled);
+	// Placeholders reserve the space of fields that only arrive with /details, so the sheet doesn't jump.
+	const loading = Boolean(event.loadingDetails);
+	const skeleton = (className = "") => <span className={`skeleton ${className}`} aria-hidden="true" />;
+	// Only animate fields that replace a skeleton; cached details open already in place.
+	const hadSkeleton = useRef(false);
+	if (loading) hadSkeleton.current = true;
+	const reveal = (i) => (hadSkeleton.current && !loading ? { className: "reveal", style: { "--i": i } } : {});
 	const isSameDay = event.startObj.toDateString() === event.endObj.toDateString();
 
 	const getRoomMapUrl = (roomName = "") => {
@@ -74,7 +82,9 @@ const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitc
 		return `${minutes}min`;
 	};
 	const getTeacherName = (teacher) => [teacher.firstname, teacher.name].filter(Boolean).join(" ") || teacher.displayname || teacher.name || "Intervenant";
-	const courseTypeLabel = event.courseTypeName ? mappingCourseTypeToLabel[event.courseTypeName] || event.courseTypeName : null;
+	// Un examen est connu tout de suite (idType/typeName) : pas besoin d'attendre le type détaillé.
+	const isExam = isExamEvent(event);
+	const courseTypeLabel = !isExam && event.courseTypeName ? mappingCourseTypeToLabel[event.courseTypeName] || event.courseTypeName : null;
 	const title = event.name || event.typeName || "Cours";
 	const associatedGroups = (event.groups || []).filter((group) => group.id !== undefined && group.id !== null && selectedGroups.some((id) => String(id) === String(group.id)));
 
@@ -86,17 +96,12 @@ const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitc
 			className="event-sheet"
 			style={{ "--h": hue }}
 			onClose={onClose}
-			title={
-				<>
-					<span className="event-swatch" style={{ "--h": hue }} aria-hidden="true" />
-					<span className={isCancelled ? "is-struck" : ""}>{title}</span>
-				</>
-			}
+			title={<span className={isCancelled ? "is-struck" : ""}>{title}</span>}
 			titleAside={
-				(courseTypeLabel || isCancelled || event.isOnline || associatedGroups.length > 0) && (
+				(loading || isExam || courseTypeLabel || isCancelled || event.isOnline || associatedGroups.length > 0) && (
 					<p className="event-tags">
 						{isCancelled && <span className="hand event-cancelled">annulé</span>}
-						{courseTypeLabel && <span>{courseTypeLabel}</span>}
+						{isExam ? <span className="exam-tag">Examen</span> : courseTypeLabel ? <span {...reveal(0)}>{courseTypeLabel}</span> : loading && skeleton("skeleton-chip")}
 						{event.isOnline && (
 							<span>
 								<Laptop size={14} strokeWidth={2.2} aria-hidden="true" />
@@ -116,13 +121,15 @@ const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitc
 				</p>
 			)}
 
-			<dl className="facts">
+			<dl className="facts" aria-busy={loading}>
 				<div>
 					<dt>Quand</dt>
 					<dd>
 						<strong>{isSameDay ? formatDate(event.startObj) : `${formatDate(event.startObj)} – ${formatDate(event.endObj)}`}</strong>
 						<span className="facts-sub">
-							{isSameDay ? `${formatTime(event.startObj)} – ${formatTime(event.endObj)}` : `${formatShortDateTime(event.startObj)} – ${formatShortDateTime(event.endObj)}`}
+							{isSameDay
+								? `${formatTime(event.startObj)} – ${formatTime(event.endObj)}`
+								: `${formatShortDateTime(event.startObj)} – ${formatShortDateTime(event.endObj)}`}
 							{" · "}
 							{formatDuration(event.startObj, event.endObj)}
 						</span>
@@ -184,7 +191,11 @@ const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitc
 						<dt>Groupes</dt>
 						<dd className="facts-chips">
 							{event.groups.map((group) => (
-								<button type="button" key={group.id || group.name} onClick={() => onContextSwitch("group", group.id, group.name)} title={`Voir le planning de ${group.name}`}>
+								<button
+									type="button"
+									key={group.id || group.name}
+									onClick={() => onContextSwitch("group", group.id, group.name)}
+									title={`Voir le planning de ${group.name}`}>
 									{group.name}
 								</button>
 							))}
@@ -209,16 +220,26 @@ const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitc
 					</div>
 				)}
 
-				{event.code && (
+				{(event.code || loading) && (
 					<div>
 						<dt>Code</dt>
-						<dd>{event.code}</dd>
+						<dd>{event.code ? <span {...reveal(1)}>{event.code}</span> : skeleton("skeleton-line")}</dd>
 					</div>
 				)}
 			</dl>
 
-			{event.loadingDetails && <p className="modal-hint">Chargement des détails…</p>}
-			{event.creationDate && <p className="modal-hint">Créé le {new Date(event.creationDate).toLocaleString("fr-FR")}</p>}
+			{event.creationDate ? (
+				<p className="modal-hint">
+					<span {...reveal(2)}>Créé le {new Date(event.creationDate).toLocaleString("fr-FR")}</span>
+				</p>
+			) : (
+				loading && (
+					<p className="modal-hint">
+						{skeleton("skeleton-line skeleton-wide")}
+						<span className="visually-hidden">Chargement des détails…</span>
+					</p>
+				)
+			)}
 		</Modal>
 	);
 };

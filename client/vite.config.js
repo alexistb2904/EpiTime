@@ -17,8 +17,8 @@ export default defineConfig({
 				name: "EpiTime - Emploi du Temps",
 				short_name: "EpiTime",
 				description: "Emploi du temps, salles et cours pour les étudiants EPITA sur web, PWA, Android et iOS.",
-				theme_color: "#121211",
-				background_color: "#121211",
+				theme_color: "#151a22",
+				background_color: "#151a22",
 				display: "standalone",
 				scope: "/",
 				start_url: "/",
@@ -65,7 +65,7 @@ export default defineConfig({
 		},
 		proxy: {
 			"/api": {
-				target: "http://localhost:3001",
+				target: "http://localhost:3005",
 				changeOrigin: true,
 			},
 		},

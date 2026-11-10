@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertCircle, Check, Minus, Moon, Sun } from "lucide-react";
+import { AlertCircle, ArrowRight, ArrowUpRight, Check, Minus, Moon, Sun } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { trackEvent } from "../utils/analyticsTracker";
@@ -12,7 +12,6 @@ const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 const NEXT_DAY = 2;
 
-// Planning d'exemple affiché sur la feuille (pas de vraies données).
 const SAMPLE = [
 	[
 		{ start: 9, end: 11, title: "Algorithmique", room: "Amphi 1" },
@@ -52,11 +51,13 @@ const FEATURES = [
 	{ label: "Sans installation", on: ["web"] },
 ];
 
-const weekLabel = () => {
+const weekDates = () => {
 	const monday = new Date();
 	monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-	return `Semaine du ${monday.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
+	return DAYS.map((_, index) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index));
 };
+
+const hhmm = (hour) => `${String(hour).padStart(2, "0")}:00`;
 
 const detectPlatform = () => {
 	if (typeof navigator === "undefined") return "web";
@@ -76,16 +77,23 @@ const MicrosoftMark = () => (
 
 const Pin = ({ className }) => (
 	<svg className={`pin ${className || ""}`} viewBox="0 0 20 20" aria-hidden="true">
-		<circle cx="10" cy="10" r="7" />
-		<circle cx="7.6" cy="7.4" r="2" className="pin-shine" />
+		<circle cx="10" cy="10" r="7.5" className="pin-body" />
+		<circle cx="9.2" cy="9.2" r="6" className="pin-top" />
+		<ellipse cx="7.4" cy="6.9" rx="2.3" ry="1.5" transform="rotate(-35 7.4 6.9)" className="pin-shine" />
 	</svg>
 );
+
+const Tape = ({ className }) => <span className={`tape ${className || ""}`} aria-hidden="true"></span>;
 
 const Login = () => {
 	const { login, loading, error } = useAuth();
 	const { theme, toggleTheme } = useTheme();
 	const platform = React.useMemo(detectPlatform, []);
-	const week = React.useMemo(weekLabel, []);
+	const dates = React.useMemo(weekDates, []);
+	const first = dates[0];
+	const last = dates[dates.length - 1];
+	const weekTitle = `${first.getDate()}${first.getMonth() !== last.getMonth() ? ` ${first.toLocaleDateString("fr-FR", { month: "long" })}` : ""} – ${last.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
+	const nextCourse = SAMPLE[NEXT_DAY].find((course) => course.next);
 
 	const handleThemeToggle = () => {
 		trackEvent("theme_toggle_clicked", { area: "login", to_theme: theme === "light" ? "dark" : "light" });
@@ -98,8 +106,9 @@ const Login = () => {
 				<span className="ticket-stub">{loading ? <span className="ticket-spinner" aria-hidden="true"></span> : <MicrosoftMark />}</span>
 				<span className="ticket-text">
 					<strong>{loading ? "Connexion en cours…" : "Se connecter avec Microsoft"}</strong>
-					<small>Version web, compte @epita.fr</small>
+					<small>Compte @epita.fr</small>
 				</span>
+				<ArrowRight className="ticket-go" size={18} strokeWidth={2.4} aria-hidden="true" />
 			</button>
 		),
 		android: (
@@ -117,6 +126,7 @@ const Login = () => {
 					<strong>App Android</strong>
 					<small>APK sur GitHub</small>
 				</span>
+				<ArrowUpRight className="ticket-go" size={18} strokeWidth={2.4} aria-hidden="true" />
 			</a>
 		),
 		ios: (
@@ -136,11 +146,11 @@ const Login = () => {
 					<strong>App iPhone et iPad</strong>
 					<small>Sur l'App Store</small>
 				</span>
+				<ArrowUpRight className="ticket-go" size={18} strokeWidth={2.4} aria-hidden="true" />
 			</a>
 		),
 	};
 
-	// Le ticket principal dépend de l'appareil : l'app native sur mobile, la connexion web ailleurs.
 	const order = [platform, ...["web", "android", "ios"].filter((key) => key !== platform)];
 	const ticketRow = (
 		<div className="tickets" data-primary={platform}>
@@ -172,7 +182,9 @@ const Login = () => {
 					<article className="sheet notice paper-pink">
 						<Pin className="pin-a" />
 						<h1 id="hero-title">Ton emploi du temps EPITA, enfin lisible.</h1>
-						<p className="notice-lede">Tes cours, tes salles et des rappels avant chaque cours, sur le web, Android et iPhone. Gratuit, open source, fait par un étudiant.</p>
+						<p className="notice-lede">
+							Tes cours, tes salles et des rappels avant chaque cours, sur le web, Android et iPhone. Gratuit, open source, fait par des étudiants.
+						</p>
 
 						{error && (
 							<p className="notice-error" role="alert">
@@ -185,17 +197,27 @@ const Login = () => {
 					</article>
 
 					<figure className="sheet timetable" aria-label="Exemple d'emploi du temps EpiTime">
-						<span className="tape" aria-hidden="true"></span>
+						<Tape />
 						<Pin className="pin-b" />
 						<header className="timetable-head">
-							<strong>Emploi du temps</strong>
-							<span>{week}</span>
+							<strong>
+								{weekTitle} <span>{last.getFullYear()}</span>
+							</strong>
 						</header>
+						<p className="tt-next paper-sky">
+							<span className="tt-next-time">{hhmm(nextCourse.start)}</span>
+							<span className="tt-next-label">Prochain cours</span>
+							<span className="tt-next-main">
+								<strong>{nextCourse.title}</strong>
+								<span>{nextCourse.room}</span>
+							</span>
+							<span className="hand tt-next-when">← dans 12 min</span>
+						</p>
 						<div className="timetable-grid" style={{ "--rows": HOURS.length }}>
 							<span className="tt-corner" aria-hidden="true"></span>
 							{DAYS.map((day, index) => (
 								<span key={day} className={`tt-day ${index === NEXT_DAY ? "is-today" : ""}`} style={{ gridColumn: index + 2 }}>
-									{day}
+									{day} <strong>{dates[index].getDate()}</strong>
 								</span>
 							))}
 							{HOURS.map((hour, index) => (
@@ -204,13 +226,18 @@ const Login = () => {
 								</span>
 							))}
 							{SAMPLE.map((courses, day) =>
-								courses.map((course) => (
+								courses.map((course, courseIndex) => (
 									<div
 										key={`${day}-${course.start}`}
 										className={`tt-course ${course.next ? "is-next" : ""} ${day === NEXT_DAY ? "is-today" : ""}`}
-										style={{ gridColumn: day + 2, gridRow: `${course.start - 6} / ${course.end - 6}`, "--h": courseHue(course.title) }}>
+										style={{
+											gridColumn: day + 2,
+											gridRow: `${course.start - 6} / ${course.end - 6}`,
+											"--h": courseHue(course.title),
+											"--i": day + courseIndex,
+										}}>
 										<span className="tt-time">
-											{course.start}h–{course.end}h
+											{hhmm(course.start)}–{hhmm(course.end)}
 										</span>
 										<strong>{course.next ? <mark className="marker">{course.title}</mark> : course.title}</strong>
 										{course.oldRoom ? (
@@ -220,10 +247,10 @@ const Login = () => {
 										) : (
 											<span className="tt-room">{course.room}</span>
 										)}
-										{course.next && <span className="scribble">← toi, dans 12 min</span>}
 									</div>
 								))
 							)}
+							<span className="tt-now" style={{ gridColumn: NEXT_DAY + 2, gridRow: 13 - 6 }} aria-hidden="true"></span>
 						</div>
 						<figcaption className="timetable-sample">Exemple</figcaption>
 					</figure>
@@ -237,21 +264,42 @@ const Login = () => {
 					</header>
 
 					<figure className="shot shot-web">
-						<span className="tape" aria-hidden="true"></span>
-						<img src="/showcase/web.webp" alt="EpiTime dans le navigateur : la semaine en grille, le prochain cours en haut, les groupes et filtres à gauche." width="1600" height="1000" loading="lazy" decoding="async" />
+						<Tape />
+						<img
+							src="/showcase/web.webp"
+							alt="EpiTime dans le navigateur : la semaine en grille, le prochain cours en haut, les groupes et filtres à gauche."
+							width="1600"
+							height="1000"
+							loading="lazy"
+							decoding="async"
+						/>
 						<figcaption className="hand">le site, sur ordi</figcaption>
 					</figure>
 
 					<figure className="shot shot-pwa">
 						<Pin className="pin-b" />
 						<div className="phone">
-							<img src="/showcase/pwa.webp" alt="EpiTime installé en PWA sur téléphone : la journée en cours et le prochain cours." width="780" height="1688" loading="lazy" decoding="async" />
+							<img
+								src="/showcase/pwa.webp"
+								alt="EpiTime installé en PWA sur téléphone : la journée en cours et le prochain cours."
+								width="780"
+								height="1688"
+								loading="lazy"
+								decoding="async"
+							/>
 						</div>
 						<figcaption className="hand">la PWA, sans installer d'app</figcaption>
 					</figure>
 
 					<figure className="shot shot-native">
-						<img src="/showcase/native.webp" alt="L'application mobile EpiTime : recherche de salle, détails d'un cours et agenda de la semaine." width="1440" height="1533" loading="lazy" decoding="async" />
+						<img
+							src="/showcase/native.webp"
+							alt="L'application mobile EpiTime : recherche de salle, détails d'un cours et agenda de la semaine."
+							width="1440"
+							height="1533"
+							loading="lazy"
+							decoding="async"
+						/>
 						<figcaption className="hand">l'app Android et iPhone, avec tes notes</figcaption>
 					</figure>
 				</section>
@@ -266,7 +314,7 @@ const Login = () => {
 									<td></td>
 									{PLATFORMS.map((item) => (
 										<th key={item.key} scope="col" className={item.key === platform ? "is-yours" : ""}>
-											{item.label}
+											<span>{item.label}</span>
 										</th>
 									))}
 								</tr>
@@ -291,9 +339,12 @@ const Login = () => {
 					</article>
 
 					<article className="sheet memo paper-orange">
-						<span className="tape tape-memo" aria-hidden="true"></span>
-						<h2>Pas EPITA, pas Zeus : un projet étudiant.</h2>
-						<p>Les mêmes données que Zeus et Auriga, rangées pour être lues d'un coup d'œil. Pas de pub, et une mesure d'audience seulement si tu l'acceptes.</p>
+						<Tape className="tape-memo" />
+						<h2>Pas EPITA, pas Zeus un projet étudiant.</h2>
+						<p>
+							Les mêmes données que Zeus et Auriga, rangées pour être lues d'un coup d'œil. Aucune donnée personnelle collectée et une mesure d'audience seulement si
+							tu l'acceptes.
+						</p>
 						{tickets[platform]}
 					</article>
 				</section>

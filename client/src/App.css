@@ -15,32 +15,47 @@
 	src: url("/fonts/gochi-hand-latin.woff2") format("woff2");
 }
 
-/* Panneau du hall : tokens partagés par l'accueil et l'app. Sombre par défaut. */
+/* Panneau du hall : tokens partagés par l'accueil et l'app. Gris-bleu foncé par défaut, accents pastel. */
 :root {
-	--board: #121211;
-	--sheet: #252421;
-	--sheet-edge: #33322e;
-	--ink: #efeee7;
-	--ink-soft: #b1afa5;
-	--rule: rgba(239, 238, 231, 0.14);
-	--rule-strong: rgba(239, 238, 231, 0.42);
+	--board: #151a22;
+	--board-glow-a: rgba(120, 150, 220, 0.12);
+	--board-glow-b: rgba(170, 150, 255, 0.07);
+	--board-glow-c: rgba(100, 200, 210, 0.06);
+	--sheet: #212a37;
+	--sheet-edge: rgba(190, 210, 240, 0.1);
+	--ink: #e7ecf4;
+	--ink-soft: #9ba7b9;
+	--rule: rgba(190, 210, 240, 0.09);
+	--rule-strong: rgba(190, 210, 240, 0.22);
 	--fluo: #e6ff3d;
 	--fluo-ink: #161614;
-	--pen: #ff7ab6;
-	--pin-a: #ff7ab6;
-	--pin-b: #4dd7c8;
-	--tape: rgba(239, 238, 231, 0.16);
-	--lift: 0 1px 0 rgba(0, 0, 0, 0.5), 0 10px 22px -12px rgba(0, 0, 0, 0.7);
+	--pen: #ff8fc1;
+	--pin-a: #ff8fc1;
+	--pin-b: #6fe0d2;
+	--tape: rgba(255, 200, 230, 0.2);
+	--accent: #aebcff;
+	--accent-ink: #141a2e;
+	--accent-soft: rgba(174, 188, 255, 0.14);
+	--accent-line: rgba(174, 188, 255, 0.5);
+	--fill: rgba(190, 210, 240, 0.06);
+	--fill-strong: rgba(190, 210, 240, 0.11);
+	--lift: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -14px rgba(0, 0, 0, 0.65);
+	--lift-hover: 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 36px -14px rgba(0, 0, 0, 0.75);
+	--r-xs: 8px;
+	--r-sm: 12px;
+	--r-md: 16px;
+	--r-lg: 22px;
+	--r-pill: 999px;
 	--print: "Archivo", "Arial Narrow", system-ui, sans-serif;
 	--hand: "Gochi Hand", "Comic Sans MS", cursive;
 	--ease: cubic-bezier(0.16, 1, 0.3, 1);
+	--spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 	--danger: var(--pen);
-	/* Papiers de couleur : version « photocopie négative » en sombre */
-	--paper-pink: oklch(0.4 0.11 352);
-	--paper-sky: oklch(0.4 0.095 240);
-	--paper-mint: oklch(0.4 0.085 172);
-	--paper-orange: oklch(0.45 0.13 38);
-	--paper-lilac: oklch(0.4 0.11 292);
+	/* Examen : un rouge tampon, distinct du rose du stylo. --exam remplit les étiquettes (sur cartes pastel,
+	   identique dans les deux thèmes) ; --exam-line trace bordures et icônes sur le papier du thème. */
+	--exam: #c8323a;
+	--exam-ink: #ffffff;
+	--exam-line: #ff6b5e;
 	color-scheme: dark;
 
 	/* Alias de l'ancien système (bannières, notifications) */
@@ -49,56 +64,69 @@
 	--text-primary: var(--ink);
 	--text-secondary: var(--ink-soft);
 	--border-color: var(--rule-strong);
-	--accent-color: var(--ink);
+	--accent-color: var(--accent);
 	--card-shadow: var(--lift);
 }
 
 :root[data-theme="light"] {
-	--board: #c4c7c6;
-	--sheet: #f8f9f9;
-	--sheet-edge: #e3e3dd;
-	--ink: #191917;
-	--ink-soft: #55544e;
-	--rule: rgba(25, 25, 23, 0.14);
-	--rule-strong: rgba(25, 25, 23, 0.5);
+	--board: #f6f3fc;
+	--board-glow-a: rgba(196, 181, 253, 0.38);
+	--board-glow-b: rgba(253, 186, 215, 0.32);
+	--board-glow-c: rgba(167, 230, 215, 0.3);
+	--sheet: #ffffff;
+	--sheet-edge: rgba(92, 78, 150, 0.08);
+	--ink: #2a2640;
+	--ink-soft: #6c6788;
+	--rule: rgba(92, 78, 150, 0.1);
+	--rule-strong: rgba(92, 78, 150, 0.24);
 	--fluo: #eaff2a;
 	--fluo-ink: #191917;
-	--pen: #c8195f;
-	--pin-a: #e8337f;
-	--pin-b: #0f9f8f;
-	--tape: rgba(255, 255, 255, 0.55);
-	--lift: 0 1px 0 rgba(0, 0, 0, 0.12), 0 12px 20px -14px rgba(20, 20, 18, 0.45);
-	--paper-pink: oklch(0.91 0.06 352);
-	--paper-sky: oklch(0.91 0.05 238);
-	--paper-mint: oklch(0.92 0.055 168);
-	--paper-orange: oklch(0.92 0.065 62);
-	--paper-lilac: oklch(0.91 0.055 292);
+	--pen: #e0559a;
+	--pin-a: #f07ab0;
+	--pin-b: #3cc4b2;
+	--tape: rgba(255, 214, 232, 0.75);
+	--accent: #c9bfff;
+	--accent-ink: #2f2670;
+	--accent-soft: #efebff;
+	--accent-line: #b3a6f5;
+	--fill: rgba(120, 100, 200, 0.06);
+	--fill-strong: rgba(120, 100, 200, 0.1);
+	--lift: 0 1px 3px rgba(80, 60, 150, 0.06), 0 14px 34px -16px rgba(80, 60, 150, 0.22);
+	--lift-hover: 0 2px 6px rgba(80, 60, 150, 0.08), 0 20px 40px -16px rgba(80, 60, 150, 0.3);
+	--exam-line: #c8323a;
 	color-scheme: light;
 }
 
-/* Une feuille de couleur : tout ce qui lit --sheet / --ink-soft suit. */
-.paper-pink,
-.paper-sky,
-.paper-mint,
-.paper-orange,
-.paper-lilac {
-	--ink-soft: color-mix(in oklab, var(--ink) 74%, var(--sheet));
-}
-
+/* Feuilles teintées : la feuille de l'app, avec un voile pastel pris dans les teintes
+   des cours du planning (--ph, voir COURSE_HUES dans utils/courseColor.js). */
 .paper-pink {
-	--sheet: var(--paper-pink);
+	--ph: 344;
 }
 .paper-sky {
-	--sheet: var(--paper-sky);
+	--ph: 242;
 }
 .paper-mint {
-	--sheet: var(--paper-mint);
+	--ph: 170;
 }
 .paper-orange {
-	--sheet: var(--paper-orange);
+	--ph: 42;
 }
 .paper-lilac {
-	--sheet: var(--paper-lilac);
+	--ph: 294;
+}
+
+:root :is(.paper-pink, .paper-sky, .paper-mint, .paper-orange, .paper-lilac) {
+	--paper-wash: oklch(0.8 0.09 var(--ph) / 0.2);
+	--paper-edge: oklch(0.8 0.09 var(--ph) / 0.36);
+	--paper-tone: oklch(0.84 0.1 var(--ph));
+	background: radial-gradient(130% 100% at 0% 0%, var(--paper-wash), transparent 70%), var(--sheet);
+	border-color: var(--paper-edge);
+}
+
+:root[data-theme="light"] :is(.paper-pink, .paper-sky, .paper-mint, .paper-orange, .paper-lilac) {
+	--paper-wash: oklch(0.93 0.055 var(--ph));
+	--paper-edge: oklch(0.88 0.05 var(--ph));
+	--paper-tone: oklch(0.52 0.13 var(--ph));
 }
 
 * {
@@ -109,6 +137,10 @@
 
 body {
 	background-color: var(--board);
+	background-image:
+		radial-gradient(60rem 40rem at 0% 0%, var(--board-glow-a), transparent 70%), radial-gradient(50rem 36rem at 100% 10%, var(--board-glow-b), transparent 70%),
+		radial-gradient(56rem 40rem at 50% 110%, var(--board-glow-c), transparent 70%);
+	background-attachment: fixed;
 	color: var(--ink);
 	font-family: var(--print);
 	-webkit-font-smoothing: antialiased;
@@ -121,7 +153,7 @@ body {
 }
 
 :focus-visible {
-	outline: 3px solid var(--pen);
+	outline: 3px solid var(--accent-line);
 	outline-offset: 3px;
 }
 
@@ -135,7 +167,7 @@ button {
 
 input[type="checkbox"],
 input[type="radio"] {
-	accent-color: var(--ink);
+	accent-color: var(--accent-line);
 }
 
 * {
@@ -143,16 +175,15 @@ input[type="radio"] {
 	scrollbar-color: var(--rule-strong) transparent;
 }
 
-
-
 /* Feuilles */
 .sheet {
 	position: relative;
 	background: var(--sheet);
+	border: 1px solid var(--sheet-edge);
+	border-radius: var(--r-lg);
 	box-shadow: var(--lift);
 	color: var(--ink);
 }
-
 
 .pin {
 	position: absolute;
@@ -193,7 +224,6 @@ input[type="radio"] {
 	z-index: 3;
 }
 
-
 .ticket {
 	--ticket-bg: transparent;
 	--ticket-fg: var(--ink);
@@ -204,8 +234,8 @@ input[type="radio"] {
 	grid-template-columns: var(--stub) minmax(0, 1fr);
 	align-items: center;
 	min-height: 3.6rem;
-	border: 1.5px solid var(--ink);
-	border-radius: 4px;
+	border: 1.5px solid var(--ticket-line, var(--rule-strong));
+	border-radius: var(--r-md);
 	background: var(--ticket-bg);
 	color: var(--ticket-fg);
 	font: inherit;
@@ -224,7 +254,7 @@ input[type="radio"] {
 }
 
 .ticket:hover:not(:disabled) {
-	transform: translateY(-2px) rotate(-0.5deg);
+	transform: translateY(-2px);
 }
 
 .ticket:active:not(:disabled) {
@@ -248,6 +278,14 @@ input[type="radio"] {
 	display: grid;
 	place-items: center;
 	border-right: 1.5px dashed color-mix(in srgb, var(--ticket-fg) 45%, transparent);
+}
+
+.ticket-stub > * {
+	transition: transform 320ms var(--spring);
+}
+
+.ticket:hover:not(:disabled) .ticket-stub > * {
+	transform: scale(1.14) rotate(-6deg);
 }
 
 .ticket-stub img {
@@ -306,7 +344,6 @@ input[type="radio"] {
 	animation: spin 0.8s linear infinite;
 }
 
-
 /* Outils de l'app (vocabulaire commun à toutes les vues connectées) */
 .tool {
 	width: 40px;
@@ -314,27 +351,36 @@ input[type="radio"] {
 	flex: none;
 	display: inline-grid;
 	place-items: center;
-	border-radius: 50%;
-	border: 1.5px solid var(--rule-strong);
-	background: transparent;
+	border-radius: var(--r-sm);
+	border: 0;
+	background: var(--fill);
 	color: var(--ink);
 	cursor: pointer;
 	transition:
 		background-color 160ms ease-out,
-		border-color 160ms ease-out;
+		color 160ms ease-out,
+		transform 200ms var(--ease);
 }
 
 .tool:hover {
-	background: var(--sheet);
-	border-color: var(--ink);
+	background: var(--accent-soft);
+	color: var(--accent-ink);
+}
+
+:root:not([data-theme="light"]) .tool:hover {
+	color: var(--accent);
+}
+
+.tool:active {
+	transform: scale(0.94);
 }
 
 .tool.is-bare {
-	border-color: transparent;
+	background: transparent;
 }
 
 .tool.is-bare:hover {
-	border-color: var(--rule-strong);
+	background: var(--fill-strong);
 }
 
 .btn {
@@ -343,10 +389,10 @@ input[type="radio"] {
 	justify-content: center;
 	gap: 0.45rem;
 	min-height: 40px;
-	padding: 0.45rem 0.9rem;
-	border: 1.5px solid var(--rule-strong);
-	border-radius: 4px;
-	background: transparent;
+	padding: 0.5rem 1.1rem;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: var(--fill);
 	color: var(--ink);
 	font-weight: 700;
 	font-stretch: 85%;
@@ -362,8 +408,7 @@ input[type="radio"] {
 }
 
 .btn:hover:not(:disabled) {
-	border-color: var(--ink);
-	background: color-mix(in srgb, var(--ink) 6%, transparent);
+	background: var(--fill-strong);
 }
 
 .btn:disabled {
@@ -372,26 +417,26 @@ input[type="radio"] {
 }
 
 .btn.is-ink {
-	background: var(--ink);
-	border-color: var(--ink);
-	color: var(--sheet);
+	background: var(--accent);
+	color: var(--accent-ink);
 }
 
 .btn.is-ink:hover:not(:disabled) {
-	background: color-mix(in srgb, var(--ink) 86%, var(--sheet));
+	background: color-mix(in srgb, var(--accent) 85%, var(--accent-ink));
 }
 
 .btn.is-small {
 	min-height: 32px;
-	padding: 0.3rem 0.65rem;
+	padding: 0.3rem 0.8rem;
 	font-size: 0.85rem;
 }
 
 /* Ticket compact : actions principales des fenêtres */
 .ticket.is-ink {
-	--ticket-bg: var(--ink);
-	--ticket-fg: var(--sheet);
-	--ticket-sub: color-mix(in srgb, var(--sheet) 72%, var(--ink));
+	--ticket-bg: var(--accent);
+	--ticket-fg: var(--accent-ink);
+	--ticket-sub: color-mix(in srgb, var(--accent-ink) 72%, var(--accent));
+	--ticket-line: var(--accent);
 }
 
 .ticket.is-compact {
@@ -416,9 +461,9 @@ input[type="radio"] {
 	position: relative;
 	width: 44px;
 	height: 24px;
-	border-radius: 12px;
-	border: 1.5px solid var(--rule-strong);
-	background: transparent;
+	border-radius: var(--r-pill);
+	border: 0;
+	background: var(--fill-strong);
 	cursor: pointer;
 	transition:
 		background-color 180ms ease-out,
@@ -430,29 +475,38 @@ input[type="radio"] {
 	position: absolute;
 	top: 3px;
 	left: 3px;
-	width: 15px;
-	height: 15px;
-	border-radius: 50%;
-	background: var(--ink-soft);
+	width: 18px;
+	height: 18px;
+	border-radius: 9px;
+	background: var(--sheet);
+	box-shadow: 0 1px 3px rgba(40, 30, 80, 0.3);
 	transition:
-		transform 220ms var(--ease),
+		transform 280ms var(--spring),
+		width 160ms ease-out,
 		background-color 180ms ease-out;
 }
 
+/* Le pouce s'étire quand on appuie, comme un vrai interrupteur souple. */
+.switch:active::after {
+	width: 22px;
+}
+
+.switch:checked:active::after {
+	transform: translateX(16px);
+}
+
 .switch:checked {
-	background: var(--ink);
-	border-color: var(--ink);
+	background: var(--accent-line);
 }
 
 .switch:checked::after {
 	transform: translateX(20px);
-	background: var(--sheet);
 }
 
 /* Champs */
 .field {
 	display: grid;
-	gap: 0.35rem;
+	gap: 0.45rem;
 	min-width: 0;
 }
 
@@ -469,11 +523,11 @@ input[type="radio"] {
 .field input,
 .field select {
 	width: 100%;
-	min-height: 40px;
-	padding: 0.45rem 0.7rem;
-	border: 1.5px solid var(--rule-strong);
-	border-radius: 4px;
-	background: color-mix(in srgb, var(--board) 35%, var(--sheet));
+	min-height: 44px;
+	padding: 0.5rem 0.9rem;
+	border: 1.5px solid transparent;
+	border-radius: var(--r-sm);
+	background: var(--fill);
 	color: var(--ink);
 	font-size: 0.95rem;
 	transition: border-color 160ms ease-out;
@@ -487,15 +541,16 @@ input[type="radio"] {
 .input:hover,
 .field input:hover,
 .field select:hover {
-	border-color: var(--ink-soft);
+	border-color: var(--rule-strong);
 }
 
 .input:focus-visible,
 .field input:focus-visible,
 .field select:focus-visible {
 	outline: none;
-	border-color: var(--ink);
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--pen) 55%, transparent);
+	border-color: var(--accent-line);
+	background: var(--sheet);
+	box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
 /* Le surligneur : un seul trait de fluo par écran, sur le nom du prochain cours. */
@@ -545,8 +600,8 @@ input[type="radio"] {
 .spinner {
 	width: 28px;
 	height: 28px;
-	border: 2px solid var(--rule-strong);
-	border-top-color: var(--ink);
+	border: 3px solid var(--accent-soft);
+	border-top-color: var(--accent-line);
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
 }
@@ -555,6 +610,101 @@ input[type="radio"] {
 	to {
 		transform: rotate(360deg);
 	}
+}
+
+/* ------------------------------------------------------------------
+   Micro-interactions communes : courtes, uniquement transform/opacity
+   (rien qui force un recalcul de mise en page), et coupées par
+   prefers-reduced-motion (règle juste en dessous).
+   ------------------------------------------------------------------ */
+
+/* Un léger enfoncement à l'appui sur tout ce qui se clique. */
+:root
+	:is(
+		.btn,
+		.board-tool,
+		.seg > button,
+		.seg > label,
+		.day-chip,
+		.facts-chips button,
+		.drawer-actions button,
+		.day-strip button,
+		.month button,
+		.drawer-remove,
+		.tree-toggle,
+		.pwa-banner-btn,
+		.cookie-banner__btn
+	) {
+	transition:
+		background-color 160ms ease-out,
+		color 160ms ease-out,
+		border-color 160ms ease-out,
+		box-shadow 200ms ease-out,
+		transform 260ms var(--spring);
+}
+
+:root
+	:is(
+		.btn,
+		.board-tool,
+		.seg > button,
+		.seg > label,
+		.day-chip,
+		.facts-chips button,
+		.drawer-actions button,
+		.day-strip button,
+		.month button,
+		.drawer-remove,
+		.tree-toggle,
+		.pwa-banner-btn,
+		.cookie-banner__btn
+	):active:not(:disabled) {
+	transform: scale(0.95);
+	transition-duration: 160ms, 160ms, 160ms, 200ms, 90ms;
+}
+
+/* Le stylo qui s'écrit : utilisé pour les petites notes manuscrites. */
+@keyframes hand-write {
+	from {
+		clip-path: inset(-30% 100% -30% -10%);
+	}
+	to {
+		clip-path: inset(-30% -10%);
+	}
+}
+
+/* Une carte qui arrive : petit glissement vers le haut. Propriété `translate` (pas `transform`)
+   pour ne jamais écraser les survols ou rotations existants. */
+@keyframes card-in {
+	from {
+		opacity: 0;
+		translate: 0 8px;
+		scale: 0.98;
+	}
+}
+
+@keyframes pop-in {
+	from {
+		opacity: 0;
+		scale: 0.5;
+		rotate: -12deg;
+	}
+}
+
+/* Un bout de scotch qui se colle. */
+@keyframes tape-stick {
+	from {
+		opacity: 0;
+		translate: 0 -8px;
+		scale: 1.08;
+	}
+}
+
+/* Changement de thème : fondu enchaîné (View Transitions, voir ThemeContext). */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 320ms;
+	animation-timing-function: ease;
 }
 
 @media (prefers-reduced-motion: reduce) {

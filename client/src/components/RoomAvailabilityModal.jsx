@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CalendarDays, Check, MapPin, Minus, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, Building2, CalendarDays, Check, MapPin, Minus, Plus, Search, X } from "lucide-react";
 import Modal from "./Modal";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi } from "../utils/api";
@@ -321,17 +321,33 @@ const RoomAvailabilityModal = ({ onClose, zeusToken, selectedGroups = [], onAppl
 	const until = new Date(Date.now() + (Math.max(5, Number(durationMinutes)) || 30) * 60000);
 
 	return (
-		<Modal className="rooms-sheet paper-mint" title="Salles libres" onClose={onClose}>
+		<Modal className="rooms-sheet" hue={160} icon={<Building2 size={18} strokeWidth={2.2} />} title="Salles libres" onClose={onClose}>
 			<form className="rooms-form" onSubmit={submitSearch}>
 				<div className="rooms-fields">
 					<div className="field">
 						<span id="rf-duration">Libre pendant</span>
 						<div className="stepper" role="group" aria-labelledby="rf-duration">
-							<button type="button" className="tool" onClick={() => setDurationMinutes((prev) => Math.max(5, Number(prev || 30) - 5))} aria-label="5 minutes de moins">
+							<button
+								type="button"
+								className="tool"
+								onClick={() => setDurationMinutes((prev) => Math.max(5, Number(prev || 30) - 5))}
+								aria-label="5 minutes de moins">
 								<Minus size={16} strokeWidth={2.4} aria-hidden="true" />
 							</button>
-							<input type="number" className="input" min="5" step="5" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} aria-label="Durée en minutes" />
-							<button type="button" className="tool" onClick={() => setDurationMinutes((prev) => Math.min(24 * 60, Number(prev || 30) + 5))} aria-label="5 minutes de plus">
+							<input
+								type="number"
+								className="input"
+								min="5"
+								step="5"
+								value={durationMinutes}
+								onChange={(e) => setDurationMinutes(e.target.value)}
+								aria-label="Durée en minutes"
+							/>
+							<button
+								type="button"
+								className="tool"
+								onClick={() => setDurationMinutes((prev) => Math.min(24 * 60, Number(prev || 30) + 5))}
+								aria-label="5 minutes de plus">
 								<Plus size={16} strokeWidth={2.4} aria-hidden="true" />
 							</button>
 							<span>min, jusqu'à {until.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
@@ -421,7 +437,9 @@ const RoomAvailabilityModal = ({ onClose, zeusToken, selectedGroups = [], onAppl
 								<tr>
 									<th scope="col">Salle</th>
 									<th scope="col">Places</th>
-									<th scope="col" className="rooms-type">Type</th>
+									<th scope="col" className="rooms-type">
+										Type
+									</th>
 									<th scope="col">
 										<span className="visually-hidden">Actions</span>
 									</th>

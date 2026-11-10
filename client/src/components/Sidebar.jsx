@@ -78,7 +78,6 @@ const Sidebar = ({
 	setShowNotificationsModal,
 	logout,
 }) => {
-	// Le mini-calendrier suit la semaine affichée, et le clic sur « Mois Année » ouvre le choix du mois puis de l'année.
 	const monthOf = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 	const [activeStart, setActiveStart] = useState(() => monthOf(currentDate));
 	useEffect(() => setActiveStart(monthOf(currentDate)), [currentDate]);

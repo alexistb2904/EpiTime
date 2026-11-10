@@ -32,8 +32,9 @@
 .legal-brand img {
 	width: 40px;
 	height: 40px;
-	border-radius: 10px;
+	border-radius: var(--r-sm);
 	background: #fff;
+	box-shadow: var(--lift);
 }
 
 .legal-sheet {
@@ -50,11 +51,11 @@
 }
 
 .legal-hero h1 {
-	font-size: clamp(2.4rem, 1.4rem + 4vw, 4.4rem);
-	font-weight: 850;
-	font-stretch: 68%;
-	line-height: 0.92;
-	text-transform: uppercase;
+	font-size: clamp(2.2rem, 1.3rem + 3.4vw, 3.8rem);
+	font-weight: 800;
+	font-stretch: 82%;
+	line-height: 1;
+	letter-spacing: -0.02em;
 	text-wrap: balance;
 }
 
@@ -75,14 +76,10 @@
 .legal-nav {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.4rem 1.4rem;
-	padding: 0.8rem 0;
-	border-top: 2px solid var(--ink);
-	border-bottom: 1px solid var(--rule-strong);
-	font-size: 0.85rem;
+	gap: 0.5rem;
+	padding: 0.4rem 0;
+	font-size: 0.88rem;
 	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
 }
 
 .legal-nav a,
@@ -93,11 +90,15 @@
 }
 
 .legal-nav a {
+	padding: 0.4rem 0.9rem;
+	border-radius: var(--r-pill);
+	background: var(--fill);
 	text-decoration: none;
+	transition: background-color 160ms ease-out;
 }
 
 .legal-nav a:hover {
-	text-decoration: underline;
+	background: var(--accent-soft);
 }
 
 .legal-section {
@@ -119,11 +120,11 @@
 }
 
 .legal-section h2 {
-	font-size: clamp(1.7rem, 1.2rem + 1.6vw, 2.5rem);
-	font-weight: 850;
-	font-stretch: 70%;
-	line-height: 0.95;
-	text-transform: uppercase;
+	font-size: clamp(1.6rem, 1.15rem + 1.4vw, 2.25rem);
+	font-weight: 800;
+	font-stretch: 84%;
+	line-height: 1.05;
+	letter-spacing: -0.015em;
 	text-wrap: balance;
 }
 
@@ -160,7 +161,7 @@
 
 .legal-table th {
 	padding: 0 0.9rem 0.6rem 0;
-	border-bottom: 2px solid var(--ink);
+	border-bottom: 1px solid var(--rule-strong);
 	font-size: 0.75rem;
 	font-weight: 700;
 	text-transform: uppercase;
@@ -178,9 +179,9 @@
 
 .legal-note {
 	margin-top: 1.25rem;
-	padding: 0.8rem 1rem;
-	border: 1.5px solid var(--pen);
-	border-radius: 2px;
+	padding: 0.9rem 1.1rem;
+	border-radius: var(--r-md);
+	background: color-mix(in srgb, var(--pen) 12%, transparent);
 	font-size: 0.92rem;
 	line-height: 1.5;
 }
@@ -191,9 +192,9 @@
 	justify-content: space-between;
 	gap: 1rem 1.5rem;
 	margin-top: 1.5rem;
-	padding: 1rem 1.1rem;
-	border: 1.5px solid var(--rule-strong);
-	border-radius: 2px;
+	padding: 1.1rem 1.25rem;
+	border-radius: var(--r-md);
+	background: var(--fill);
 }
 
 .legal-consent strong,

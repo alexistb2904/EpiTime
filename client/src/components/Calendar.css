@@ -9,21 +9,32 @@
 	overflow: hidden;
 }
 
-/* Les couleurs de cours se recalculent sur chaque élément qui porte --h. */
+/* Les couleurs de cours se recalculent sur chaque élément qui porte --h.
+   Carte pastel claire, bordure du même pastel en plus soutenu, texte foncé : identique dans les deux thèmes. */
 .course,
 .allday-course,
-.agenda-row,
-.event-swatch,
-.event-sheet {
-	--course-bg: oklch(0.37 0.075 var(--h));
-	--course-line: oklch(0.7 0.12 var(--h));
-	--course-soft: oklch(0.86 0.04 var(--h));
+.agenda-row {
+	--course-bg: oklch(0.92 0.055 var(--h));
+	--course-line: oklch(0.74 0.11 var(--h));
+	--course-soft: oklch(0.44 0.07 var(--h));
+	--course-ink: oklch(0.26 0.05 var(--h));
+	/* Surligneur du prochain cours : la couleur de la carte, en plus soutenu. */
+	--fluo: oklch(0.82 0.13 var(--h));
+	--fluo-ink: var(--course-ink);
+	--pen: #cf3f80;
+	color: var(--course-ink);
 }
 
-:root[data-theme="light"] :is(.course, .allday-course, .agenda-row, .event-swatch, .event-sheet) {
-	--course-bg: oklch(0.92 0.065 var(--h));
-	--course-line: oklch(0.58 0.12 var(--h));
-	--course-soft: oklch(0.4 0.06 var(--h));
+/* Fenêtre de détails : un papier teinté par la matière, adapté au thème. */
+.event-sheet {
+	--course-bg: oklch(0.29 0.04 var(--h));
+	--course-line: oklch(0.74 0.11 var(--h));
+	--course-soft: oklch(0.84 0.04 var(--h));
+}
+
+:root[data-theme="light"] .event-sheet {
+	--course-bg: oklch(0.955 0.035 var(--h));
+	--course-soft: oklch(0.44 0.07 var(--h));
 }
 
 body.has-modal {
@@ -43,8 +54,8 @@ body.has-modal {
 .app-bar {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem 1rem;
-	padding: 0.75rem 1rem;
+	gap: 0.6rem 1.25rem;
+	padding: 1rem 1.5rem;
 	min-width: 0;
 }
 
@@ -53,10 +64,10 @@ body.has-modal {
 }
 
 .app-brand {
-	flex: 0 0 calc(var(--drawer-w) - 1rem);
+	flex: 0 0 calc(var(--drawer-w) - 1.25rem);
 	display: flex;
 	align-items: center;
-	gap: 0.6rem;
+	gap: 0.7rem;
 	font-weight: 800;
 	font-stretch: 85%;
 	font-size: 1.15rem;
@@ -64,25 +75,26 @@ body.has-modal {
 }
 
 .app-brand img {
-	width: 34px;
-	height: 34px;
-	border-radius: 8px;
+	width: 36px;
+	height: 36px;
+	border-radius: var(--r-sm);
 	background: #fff;
+	box-shadow: var(--lift);
 }
 
 .app-nav {
 	display: flex;
 	align-items: center;
-	gap: 0.15rem;
+	gap: 0.35rem;
 }
 
 .app-title {
 	min-width: 0;
-	font-size: 1.65rem;
-	font-weight: 850;
-	font-stretch: 70%;
-	line-height: 1;
-	text-transform: uppercase;
+	font-size: 1.6rem;
+	font-weight: 800;
+	font-stretch: 88%;
+	line-height: 1.1;
+	letter-spacing: -0.01em;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -96,14 +108,15 @@ body.has-modal {
 	margin-left: auto;
 	display: flex;
 	align-items: center;
-	gap: 0.6rem;
+	gap: 0.75rem;
 }
 
 .seg {
 	display: inline-flex;
-	padding: 2px;
-	border: 1.5px solid var(--rule-strong);
-	border-radius: 4px;
+	gap: 2px;
+	padding: 4px;
+	border-radius: var(--r-pill);
+	background: var(--fill);
 }
 
 .seg > button,
@@ -113,9 +126,9 @@ body.has-modal {
 	align-items: center;
 	gap: 0.4rem;
 	min-height: 32px;
-	padding: 0.3rem 0.75rem;
+	padding: 0.3rem 0.95rem;
 	border: 0;
-	border-radius: 2px;
+	border-radius: var(--r-pill);
 	background: transparent;
 	color: var(--ink-soft);
 	font-weight: 700;
@@ -134,8 +147,9 @@ body.has-modal {
 
 .seg > .is-on,
 .seg > .is-on:hover {
-	background: var(--ink);
-	color: var(--sheet);
+	background: var(--accent);
+	color: var(--accent-ink);
+	box-shadow: 0 2px 8px -2px rgba(80, 60, 150, 0.3);
 }
 
 .seg input {
@@ -145,7 +159,7 @@ body.has-modal {
 }
 
 .seg label:has(input:focus-visible) {
-	outline: 3px solid var(--pen);
+	outline: 3px solid var(--accent-line);
 	outline-offset: 2px;
 }
 
@@ -153,40 +167,61 @@ body.has-modal {
 .app-body {
 	display: grid;
 	grid-template-columns: var(--drawer-w) minmax(0, 1fr);
-	gap: 1rem;
-	padding: 0 1rem 1rem;
+	gap: 1.25rem;
+	padding: 0 1.5rem 1.5rem;
 	min-height: 0;
 }
 
 .app-main {
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
+	gap: 1rem;
 	min-width: 0;
 	min-height: 0;
 }
 
 /* Classeur (tiroir) */
+/* Le classeur : une feuille teintée d'accent, sur toute la hauteur. */
 .drawer {
 	display: flex;
 	flex-direction: column;
 	min-height: 0;
 	overflow: hidden;
+	background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 9%, transparent), transparent 22rem), var(--sheet);
+	border-color: color-mix(in oklab, var(--accent) 22%, var(--sheet-edge));
+}
+
+/* Mini-calendrier dans son propre encart */
+.drawer-section.drawer-month {
+	margin: 0.6rem;
+	padding: 0.6rem 0.5rem 0.4rem;
+	border-top: 0;
+	border-radius: var(--r-md);
+	background: var(--fill);
+}
+
+.drawer-month + .drawer-section {
+	border-top: 0;
+	padding-top: 0.5rem;
 }
 
 .drawer-head {
 	display: none;
 }
 
+/* Colonne flexible : les actions prennent la place restante pour poser la déconnexion tout en bas. */
 .drawer-scroll {
 	flex: 1;
 	min-height: 0;
+	display: flex;
+	flex-direction: column;
 	overflow-y: auto;
 	overscroll-behavior: contain;
 }
 
 .drawer-section {
-	padding: 1rem 1.1rem;
+	margin: 0 0.6rem;
+	padding: 0.9rem 0.75rem;
 	border-top: 1px solid var(--rule);
 }
 
@@ -198,7 +233,8 @@ body.has-modal {
 	font-size: 0.78rem;
 	font-weight: 750;
 	text-transform: uppercase;
-	letter-spacing: 0.05em;
+	letter-spacing: 0.06em;
+	color: var(--ink-soft);
 }
 
 .drawer-section-head {
@@ -206,7 +242,7 @@ body.has-modal {
 	align-items: center;
 	justify-content: space-between;
 	gap: 0.5rem;
-	margin-bottom: 0.5rem;
+	margin-bottom: 0.7rem;
 }
 
 .drawer-section-toggle {
@@ -232,11 +268,11 @@ body.has-modal {
 }
 
 .drawer-count {
-	min-width: 1.4rem;
-	padding: 0.05rem 0.35rem;
-	border-radius: 2px;
-	background: var(--ink);
-	color: var(--sheet);
+	min-width: 1.5rem;
+	padding: 0.1rem 0.5rem;
+	border-radius: var(--r-pill);
+	background: var(--accent-soft);
+	color: var(--accent-ink);
 	font-size: 0.75rem;
 	font-weight: 750;
 	text-align: center;
@@ -254,18 +290,21 @@ body.has-modal {
 	list-style: none;
 }
 
+.drawer-groups {
+	display: grid;
+	gap: 0.35rem;
+}
+
 .drawer-groups li {
 	display: flex;
 	align-items: center;
-	gap: 0.6rem;
-	min-height: 40px;
-	border-bottom: 1px solid var(--rule);
+	gap: 0.65rem;
+	min-height: 42px;
+	padding: 0 0.3rem 0 0.75rem;
+	border-radius: var(--r-sm);
+	background: var(--fill);
 	font-size: 0.95rem;
 	font-weight: 600;
-}
-
-.drawer-groups li:last-child {
-	border-bottom: 0;
 }
 
 .drawer-group-name {
@@ -297,8 +336,8 @@ body.has-modal {
 	width: 12px;
 	height: 12px;
 	flex: none;
-	border-radius: 2px;
-	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+	border-radius: 50%;
+	box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
 .drawer-checks {
@@ -309,10 +348,17 @@ body.has-modal {
 .drawer-checks label {
 	display: flex;
 	align-items: center;
-	gap: 0.6rem;
-	min-height: 36px;
+	gap: 0.65rem;
+	min-height: 38px;
+	padding: 0 0.5rem;
+	border-radius: var(--r-xs);
 	font-size: 0.92rem;
 	cursor: pointer;
+	transition: background-color 160ms ease-out;
+}
+
+.drawer-checks label:hover {
+	background: var(--fill);
 }
 
 .drawer-checks input {
@@ -328,8 +374,11 @@ body.has-modal {
 }
 
 .drawer-actions {
-	display: grid;
-	padding: 0.6rem 0.6rem 1rem;
+	flex: 1 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.1rem;
+	padding: 0.6rem 0.75rem 0.75rem;
 	border-top: 1px solid var(--rule);
 }
 
@@ -337,10 +386,10 @@ body.has-modal {
 	display: flex;
 	align-items: center;
 	gap: 0.75rem;
-	min-height: 42px;
-	padding: 0 0.5rem;
+	min-height: 40px;
+	padding: 0 0.6rem;
 	border: 0;
-	border-radius: 4px;
+	border-radius: var(--r-sm);
 	background: transparent;
 	font-size: 0.95rem;
 	font-weight: 600;
@@ -350,17 +399,63 @@ body.has-modal {
 }
 
 .drawer-actions button:hover {
-	background: color-mix(in srgb, var(--ink) 7%, transparent);
+	background: var(--accent-soft);
 }
 
+/* Chaque action a sa pastille de couleur. */
 .drawer-actions button > :is(svg, img) {
 	flex: none;
-	color: var(--ink-soft);
+	box-sizing: content-box;
+	padding: 6px;
+	border-radius: 10px;
+	background: oklch(0.78 0.09 var(--ic, 260) / 0.16);
+	color: oklch(0.82 0.1 var(--ic, 260));
+}
+
+:root[data-theme="light"] .drawer-actions button > :is(svg, img) {
+	background: oklch(0.94 0.045 var(--ic, 260));
+	color: oklch(0.52 0.13 var(--ic, 260));
+}
+
+.drawer-actions button:nth-child(1) {
+	--ic: 350;
+}
+.drawer-actions button:nth-child(2) {
+	--ic: 285;
+}
+.drawer-actions button:nth-child(3) {
+	--ic: 75;
+}
+.drawer-actions button:nth-child(4) {
+	--ic: 150;
+}
+.drawer-actions button:nth-child(5) {
+	--ic: 235;
+}
+
+/* Écart minimal avant la déconnexion quand le classeur est plein (sinon margin-top: auto la pousse en bas). */
+.drawer-actions > :nth-last-child(2) {
+	margin-bottom: 0.75rem;
+}
+
+.drawer-scroll > * {
+	flex-shrink: 0;
 }
 
 .drawer-actions .is-logout {
-	margin-top: 0.35rem;
+	margin-top: auto;
 	color: var(--ink-soft);
+}
+
+.drawer-actions .is-logout > svg,
+:root[data-theme="light"] .drawer-actions .is-logout > svg {
+	background: var(--fill);
+	color: var(--ink-soft);
+}
+
+.drawer-actions .is-logout:hover {
+	background: color-mix(in srgb, var(--pen) 12%, transparent);
+	color: var(--ink);
 }
 
 /* Mini-calendrier (react-calendar sans sa feuille de style) */
@@ -388,17 +483,16 @@ body.has-modal {
 }
 
 .month .react-calendar__navigation__label {
-	border-radius: 4px !important;
-	font-size: 0.95rem !important;
-	font-weight: 850;
-	font-stretch: 78%;
-	text-transform: uppercase;
-	letter-spacing: 0.01em;
+	border-radius: var(--r-pill) !important;
+	font-size: 1rem !important;
+	font-weight: 800;
+	font-stretch: 90%;
+	text-transform: capitalize;
 }
 
 .month .react-calendar__navigation button:hover:not(:disabled),
 .month .react-calendar__tile:hover {
-	background: color-mix(in srgb, var(--ink) 8%, transparent);
+	background: var(--fill-strong);
 }
 
 .month .react-calendar__month-view__weekdays {
@@ -417,8 +511,8 @@ body.has-modal {
 
 .month .react-calendar__tile {
 	position: relative;
-	height: 34px;
-	border-radius: 4px;
+	height: 33px;
+	border-radius: var(--r-pill);
 	font-size: 0.85rem;
 	font-variant-numeric: tabular-nums;
 }
@@ -431,8 +525,7 @@ body.has-modal {
 	font-weight: 850;
 }
 
-.month .react-calendar__month-view__days .react-calendar__tile--now::after,
-.planner-day.is-today strong::after,
+.month .react-calendar__month-view__days .react-calendar__tile--now:not(.react-calendar__tile--active)::after,
 .day-strip .is-today strong::after {
 	content: "";
 	position: absolute;
@@ -449,14 +542,18 @@ body.has-modal {
 /* Choix rapide du mois puis de l'année (clic sur le titre du mini-calendrier) */
 .month .react-calendar__year-view .react-calendar__tile,
 .month .react-calendar__decade-view .react-calendar__tile {
-	height: 44px;
-	font-size: 0.9rem;
+	height: 40px;
+	padding: 0 2px;
+	border-radius: var(--r-sm);
+	font-size: 0.85rem;
 	font-weight: 650;
 	text-transform: capitalize;
 }
 
-.month .react-calendar__tile--now:not(.react-calendar__month-view__days__day) {
-	box-shadow: inset 0 0 0 1.5px var(--pen);
+/* Mois / année en cours (pas sélectionné) : texte au stylo, sans cadre qui se superpose au survol. */
+.month .react-calendar__tile--now:not(.react-calendar__month-view__days__day):not(.react-calendar__tile--hasActive):not(.react-calendar__tile--active) {
+	color: var(--pen);
+	font-weight: 800;
 }
 
 .month .react-calendar__navigation__label:not(:disabled)::after {
@@ -470,11 +567,17 @@ body.has-modal {
 	transform: rotate(45deg);
 }
 
-.month .react-calendar__tile--hasActive,
-.month .react-calendar__tile--active,
-.month .react-calendar__tile--active:hover {
-	background: var(--ink);
-	color: var(--sheet);
+/* Sélection : reste pervenche au survol (le survol neutre ne doit pas l'écraser). */
+.month .react-calendar__tile.react-calendar__tile--hasActive,
+.month .react-calendar__tile.react-calendar__tile--active {
+	background: var(--accent);
+	color: var(--accent-ink);
+	font-weight: 800;
+}
+
+.month .react-calendar__tile.react-calendar__tile--hasActive:hover,
+.month .react-calendar__tile.react-calendar__tile--active:hover {
+	background: color-mix(in oklab, var(--accent) 85%, var(--ink));
 }
 
 /* Bandeaux au-dessus du planning */
@@ -482,7 +585,7 @@ body.has-modal {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: stretch;
-	gap: 0.75rem;
+	gap: 1rem;
 }
 
 .next-up {
@@ -492,8 +595,9 @@ body.has-modal {
 	align-items: center;
 	gap: 0.15rem 1rem;
 	min-width: min(100%, 30rem);
-	padding: 0.55rem 1.1rem;
-	border: 0;
+	padding: 0.75rem 1.35rem;
+	border: 1px solid var(--sheet-edge);
+	border-radius: var(--r-lg);
 	background: var(--sheet);
 	box-shadow: var(--lift);
 	text-align: left;
@@ -503,6 +607,7 @@ body.has-modal {
 
 .next-up:hover {
 	transform: translateY(-2px);
+	box-shadow: var(--lift-hover);
 }
 
 .next-up-label {
@@ -517,9 +622,9 @@ body.has-modal {
 
 .next-up-time {
 	grid-row: 1 / 3;
-	font-size: 2rem;
-	font-weight: 850;
-	font-stretch: 68%;
+	font-size: 1.9rem;
+	font-weight: 800;
+	font-stretch: 80%;
 	line-height: 1;
 	font-variant-numeric: tabular-nums;
 }
@@ -560,8 +665,9 @@ body.has-modal {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 0.4rem 0.75rem;
-	padding: 0.55rem 0.6rem 0.55rem 1rem;
+	gap: 0.5rem 0.9rem;
+	padding: 0.65rem 0.75rem 0.65rem 1.25rem;
+	border-radius: var(--r-lg);
 	background: var(--sheet);
 	box-shadow: var(--lift);
 	font-size: 0.92rem;
@@ -573,14 +679,16 @@ body.has-modal {
 
 .context-note strong {
 	font-size: 1.1rem;
-	font-weight: 850;
-	font-stretch: 75%;
-	text-transform: uppercase;
+	font-weight: 800;
+	font-stretch: 88%;
 }
 
 .error-note {
 	flex: 1 1 22rem;
-	box-shadow: inset 0 0 0 1.5px var(--pen), var(--lift);
+	background: color-mix(in srgb, var(--pen) 10%, var(--sheet));
+	box-shadow:
+		inset 0 0 0 1.5px color-mix(in srgb, var(--pen) 45%, transparent),
+		var(--lift);
 }
 
 .error-note > svg {
@@ -609,7 +717,8 @@ body.has-modal {
 	z-index: 6;
 	width: 35%;
 	height: 3px;
-	background: var(--ink);
+	border-radius: var(--r-pill);
+	background: var(--accent-line);
 	animation: sweep 1.1s var(--ease) infinite;
 }
 
@@ -631,7 +740,7 @@ body.has-modal {
 	display: flex;
 	flex-direction: column;
 	overflow: auto;
-	padding: 0 1rem 1rem 0;
+	padding: 0 1.25rem 1.25rem 0.25rem;
 }
 
 .planner-head,
@@ -645,8 +754,8 @@ body.has-modal {
 	position: sticky;
 	top: 0;
 	z-index: 5;
-	padding: 1rem 0 0.6rem;
-	border-bottom: 2px solid var(--ink);
+	padding: 1.1rem 0 0.75rem;
+	border-bottom: 1px solid var(--rule-strong);
 }
 
 /* En-têtes collants : même papier que la feuille qu'ils recouvrent. */
@@ -673,50 +782,116 @@ body.has-modal {
 
 .planner-day strong {
 	position: relative;
-	font-size: 1.4rem;
-	font-weight: 850;
-	font-stretch: 72%;
+	font-size: 1.35rem;
+	font-weight: 800;
+	font-stretch: 82%;
 	line-height: 1;
 	font-variant-numeric: tabular-nums;
 }
 
 .planner-day.is-today span {
-	color: var(--ink);
+	color: var(--pen);
 }
 
+.planner-day.is-today strong {
+	padding: 0.2rem 0.5rem;
+	border-radius: var(--r-pill);
+	background: var(--accent);
+	color: var(--accent-ink);
+}
+
+/* Rangée « Journée » : une ligne par barre qui se chevauche, les barres posées sur les colonnes des jours. */
 .planner-allday {
-	padding: 0.4rem 0;
-	border-bottom: 1px solid var(--rule-strong);
+	grid-template-rows: repeat(var(--lanes, 1), auto);
+	row-gap: 4px;
+	padding: 0.5rem 0;
+	border-bottom: 1px solid var(--rule);
 }
 
+/* Aligné sur les heures (même retrait, même style que « 07h ») et assez étroit pour tenir dans la gouttière. */
 .planner-allday-label {
+	grid-column: 1;
+	grid-row: 1 / -1;
 	align-self: center;
+	min-width: 0;
+	padding: 0 0.3rem 0 0.6rem;
 	font-size: 0.68rem;
-	font-weight: 700;
-	text-transform: uppercase;
+	font-weight: 600;
+	font-stretch: 75%;
 	color: var(--ink-soft);
 }
 
-.planner-allday-col {
-	display: grid;
-	gap: 3px;
-	padding: 0 3px;
-	align-content: start;
-}
-
+/* Une barre continue sur toute la période couverte, avec ses dates à droite. */
 .allday-course {
-	padding: 0.25rem 0.45rem;
-	border: 1.5px solid var(--course-line);
-	border-radius: 2px;
+	container-type: inline-size;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-width: 0;
+	margin: 0 4px;
+	padding: 0.35rem 0.7rem;
+	border: 1px solid var(--course-line);
+	border-radius: var(--r-xs);
 	background: var(--course-bg);
-	font-size: 0.8rem;
+	font-size: 0.82rem;
 	font-weight: 700;
 	font-stretch: 85%;
 	text-align: left;
-	overflow: hidden;
-	text-overflow: ellipsis;
 	white-space: nowrap;
 	cursor: pointer;
+	transition:
+		transform 200ms var(--ease),
+		box-shadow 200ms ease-out;
+}
+
+.allday-course:hover {
+	transform: translateY(-1px);
+	box-shadow: var(--lift-hover);
+}
+
+.allday-course > svg {
+	flex: none;
+	color: var(--course-soft);
+}
+
+.allday-title {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.allday-dates {
+	flex: none;
+	margin-left: auto;
+	font-weight: 600;
+	color: var(--course-soft);
+	font-variant-numeric: tabular-nums;
+}
+
+@container (max-width: 15rem) {
+	.allday-dates {
+		display: none;
+	}
+}
+
+/* Commence avant / continue après la semaine affichée : le bord coupé en pointillés. */
+.allday-course.goes-before {
+	border-left-style: dashed;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	padding-left: 0.35rem;
+}
+
+.allday-course.goes-after {
+	border-right-style: dashed;
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	padding-right: 0.35rem;
+}
+
+/* Jour entièrement pris (stage, entreprise…) sans cours : la colonne hachurée dans la teinte de l'événement. */
+.planner-col.is-blocked {
+	background: repeating-linear-gradient(-45deg, oklch(0.74 0.11 var(--h) / 0.1) 0 8px, transparent 8px 16px);
 }
 
 .planner-body {
@@ -760,12 +935,13 @@ body.has-modal {
 	container-type: size;
 	display: flex;
 	flex-direction: column;
-	gap: 0.1rem;
-	padding: 0.35rem 0.5rem;
-	border: 1.5px solid var(--course-line);
-	border-radius: 2px;
+	gap: 0.15rem;
+	padding: 0.4rem 0.6rem;
+	border: 1px solid var(--course-line);
+	border-left-width: 4px;
+	border-radius: var(--r-sm);
 	background: var(--course-bg);
-	color: var(--ink);
+	color: var(--course-ink);
 	text-align: left;
 	line-height: 1.15;
 	overflow: hidden;
@@ -778,7 +954,7 @@ body.has-modal {
 .course:hover {
 	z-index: 3;
 	transform: translateY(-1px);
-	box-shadow: var(--lift);
+	box-shadow: var(--lift-hover);
 }
 
 .course-time {
@@ -795,7 +971,7 @@ body.has-modal {
 .course-name {
 	font-size: 0.88rem;
 	font-weight: 750;
-	font-stretch: 80%;
+	font-stretch: 88%;
 	overflow-wrap: anywhere;
 	text-wrap: balance;
 }
@@ -825,15 +1001,170 @@ body.has-modal {
 	}
 }
 
+/* Cours annulé : la même carte, délavée et hachurée. */
 .is-cancelled {
+	--course-soft: oklch(0.5 0.02 var(--h));
 	border-style: dashed;
-	border-color: var(--rule-strong);
-	background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--rule) 6px 7px);
-	color: var(--ink-soft);
+	border-color: oklch(0.72 0.03 var(--h));
+	background: repeating-linear-gradient(-45deg, transparent 0 6px, rgba(40, 50, 70, 0.08) 6px 7px), oklch(0.9 0.012 var(--h));
+	color: oklch(0.42 0.02 var(--h));
+	opacity: 0.8;
 }
 
 .is-cancelled :is(.course-name, .agenda-main strong) {
 	text-decoration: line-through 2px var(--pen);
+}
+
+/* Examen : un tampon rouge en tête de carte et un contour rouge, repérables d'un coup d'œil. */
+.exam-tag {
+	flex: none;
+	align-self: flex-start;
+	display: inline-flex;
+	align-items: center;
+	padding: 0.12rem 0.4rem;
+	border-radius: 4px;
+	background: var(--exam);
+	color: var(--exam-ink);
+	font-size: 0.62rem;
+	font-weight: 800;
+	font-stretch: 90%;
+	letter-spacing: 0.07em;
+	line-height: 1.25;
+	text-transform: uppercase;
+	rotate: -2deg;
+}
+
+.is-exam:not(.is-cancelled):is(.course, .agenda-row, .allday-course) {
+	border-width: 2px;
+	border-color: var(--exam);
+}
+
+.course.is-exam:not(.is-cancelled) {
+	border-left-width: 5px;
+}
+
+.agenda-row.is-exam:not(.is-cancelled) {
+	border-left-width: 6px;
+}
+
+.agenda-main .exam-tag {
+	justify-self: start;
+	margin-bottom: 0.15rem;
+	font-size: 0.64rem;
+	color: var(--exam-ink);
+}
+
+.allday-course .exam-tag {
+	align-self: center;
+	rotate: 0deg;
+}
+
+.event-tags > .exam-tag {
+	padding: 0.3rem 0.7rem;
+	border-radius: var(--r-pill);
+	background: var(--exam);
+	color: var(--exam-ink);
+	font-size: 0.75rem;
+	rotate: 0deg;
+}
+
+/* Bandeau « Prochain examen » : le même bandeau, cerclé de rouge. */
+.next-up.is-exam {
+	box-shadow:
+		inset 0 0 0 1.5px var(--exam-line),
+		var(--lift);
+}
+
+.next-up.is-exam:hover {
+	box-shadow:
+		inset 0 0 0 1.5px var(--exam-line),
+		var(--lift-hover);
+}
+
+.next-up.is-exam .next-up-label {
+	color: var(--exam-line);
+}
+
+/* Rappel des examens de la semaine, au-dessus du planning. */
+.exam-note {
+	flex: 1 1 22rem;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem 0.9rem;
+	padding: 0.65rem 0.75rem 0.65rem 1.1rem;
+	border-radius: var(--r-lg);
+	background: color-mix(in srgb, var(--exam-line) 9%, var(--sheet));
+	box-shadow:
+		inset 0 0 0 1.5px color-mix(in srgb, var(--exam-line) 55%, transparent),
+		var(--lift);
+	font-size: 0.92rem;
+}
+
+.exam-note > svg {
+	flex: none;
+	color: var(--exam-line);
+}
+
+.exam-note > strong {
+	font-size: 1.05rem;
+	font-weight: 800;
+	font-stretch: 88%;
+}
+
+.exam-note-list {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.4rem;
+	min-width: 0;
+}
+
+.exam-chip {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.45rem;
+	max-width: 100%;
+	min-height: 32px;
+	padding: 0.35rem 0.8rem;
+	border: 1px solid color-mix(in srgb, var(--exam-line) 40%, transparent);
+	border-radius: var(--r-pill);
+	background: var(--sheet);
+	color: var(--ink);
+	font-size: 0.85rem;
+	font-weight: 700;
+	font-stretch: 88%;
+	cursor: pointer;
+	transition:
+		background-color 160ms ease-out,
+		border-color 160ms ease-out,
+		transform 200ms var(--ease);
+}
+
+.exam-chip > span {
+	min-width: 0;
+	max-width: 16rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.exam-chip time {
+	flex: none;
+	font-weight: 600;
+	color: var(--ink-soft);
+	font-variant-numeric: tabular-nums;
+}
+
+.exam-chip:hover {
+	border-color: var(--exam-line);
+	background: color-mix(in srgb, var(--exam-line) 12%, var(--sheet));
+	transform: translateY(-1px);
+}
+
+.exam-note-more {
+	font-weight: 700;
+	color: var(--ink-soft);
 }
 
 .now-line {
@@ -842,6 +1173,7 @@ body.has-modal {
 	right: 0;
 	z-index: 4;
 	height: 2px;
+	border-radius: var(--r-pill);
 	background: var(--pen);
 	pointer-events: none;
 }
@@ -864,20 +1196,21 @@ body.has-modal {
 	z-index: 5;
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-	gap: 2px;
-	padding: 0.6rem 0.5rem 0.5rem;
-	border-bottom: 2px solid var(--ink);
+	gap: 4px;
+	padding: 0.7rem 0.6rem 0.6rem;
+	border-bottom: 1px solid var(--rule-strong);
 }
 
 .day-strip button {
 	display: grid;
 	justify-items: center;
 	gap: 0.3rem;
-	padding: 0.35rem 0 0.4rem;
+	padding: 0.45rem 0 0.5rem;
 	border: 0;
-	border-radius: 4px;
+	border-radius: var(--r-md);
 	background: transparent;
 	cursor: pointer;
+	transition: background-color 160ms ease-out;
 }
 
 .day-strip span {
@@ -891,8 +1224,8 @@ body.has-modal {
 .day-strip strong {
 	position: relative;
 	font-size: 1.3rem;
-	font-weight: 850;
-	font-stretch: 72%;
+	font-weight: 800;
+	font-stretch: 82%;
 	line-height: 1;
 	font-variant-numeric: tabular-nums;
 }
@@ -908,15 +1241,19 @@ body.has-modal {
 }
 
 .day-strip .is-on {
-	background: var(--ink);
+	background: var(--accent);
 }
 
 .day-strip .is-on :is(span, strong) {
-	color: var(--sheet);
+	color: var(--accent-ink);
 }
 
 .day-strip .is-on i.has-courses {
-	background: var(--sheet);
+	background: var(--accent-ink);
+}
+
+.day-strip .is-on strong::after {
+	display: none;
 }
 
 /* Vue liste */
@@ -938,17 +1275,18 @@ body.has-modal {
 	display: flex;
 	align-items: baseline;
 	flex-wrap: wrap;
-	gap: 0.2rem 0.7rem;
-	padding: 1.25rem 0 0.5rem;
-	border-bottom: 2px solid var(--ink);
-	font-size: 1.55rem;
-	font-weight: 850;
-	font-stretch: 70%;
-	line-height: 1;
-	text-transform: uppercase;
+	gap: 0.2rem 0.75rem;
+	padding: 1.5rem 0 0.65rem;
+	border-bottom: 1px solid var(--rule-strong);
+	font-size: 1.45rem;
+	font-weight: 800;
+	font-stretch: 86%;
+	line-height: 1.1;
+	text-transform: capitalize;
 }
 
 .agenda-date span {
+	text-transform: none;
 	font-size: 0.85rem;
 	font-weight: 600;
 	font-stretch: 90%;
@@ -967,8 +1305,8 @@ body.has-modal {
 .agenda ol {
 	list-style: none;
 	display: grid;
-	gap: 0.45rem;
-	padding-top: 0.7rem;
+	gap: 0.6rem;
+	padding-top: 0.9rem;
 }
 
 .agenda-row {
@@ -978,9 +1316,10 @@ body.has-modal {
 	grid-template-columns: 3.6rem minmax(0, 1fr) auto;
 	align-items: center;
 	gap: 1rem;
-	padding: 0.65rem 0.9rem;
-	border: 1.5px solid var(--course-line);
-	border-radius: 2px;
+	padding: 0.85rem 1.1rem;
+	border: 1px solid var(--course-line);
+	border-left-width: 5px;
+	border-radius: var(--r-md);
 	background: var(--course-bg);
 	text-align: left;
 	cursor: pointer;
@@ -991,7 +1330,7 @@ body.has-modal {
 
 .agenda-row:hover {
 	transform: translateY(-1px);
-	box-shadow: var(--lift);
+	box-shadow: var(--lift-hover);
 }
 
 .agenda-time {
@@ -1057,12 +1396,13 @@ body.has-modal {
 	display: grid;
 	place-items: center;
 	padding: 1.5rem;
-	background: rgba(8, 8, 7, 0.6);
+	background: rgba(8, 12, 20, 0.55);
+	backdrop-filter: blur(4px);
 	animation: fade 180ms ease-out;
 }
 
 :root[data-theme="light"] .modal-overlay {
-	background: rgba(40, 41, 38, 0.38);
+	background: rgba(60, 45, 110, 0.22);
 }
 
 .modal-sheet {
@@ -1083,9 +1423,9 @@ body.has-modal {
 	display: flex;
 	align-items: flex-start;
 	gap: 1rem;
-	margin: 0 1.5rem;
-	padding: 1.75rem 0 0.9rem;
-	border-bottom: 2px solid var(--ink);
+	margin: 0 1.75rem;
+	padding: 2rem 0 1rem;
+	border-bottom: 1px solid var(--rule-strong);
 }
 
 .modal-title {
@@ -1093,15 +1433,66 @@ body.has-modal {
 	min-width: 0;
 }
 
+/* Fenêtres d'outils (groupes, salles, rappels, paramètres) : même gabarit et même hauteur,
+   teintées par la couleur du bouton qui les ouvre (--ic). Les accents internes suivent cette teinte. */
+.tool-sheet {
+	--accent: oklch(0.83 0.09 var(--ic));
+	--accent-ink: oklch(0.24 0.05 var(--ic));
+	--accent-soft: oklch(0.8 0.09 var(--ic) / 0.14);
+	--accent-line: oklch(0.76 0.1 var(--ic));
+	height: min(86dvh, 620px);
+	max-height: none;
+	border-color: oklch(0.8 0.09 var(--ic) / 0.28);
+	background: linear-gradient(180deg, oklch(0.8 0.09 var(--ic) / 0.1), transparent 14rem), var(--sheet);
+}
+
+:root[data-theme="light"] .tool-sheet {
+	--accent: oklch(0.86 0.075 var(--ic));
+	--accent-ink: oklch(0.3 0.09 var(--ic));
+	--accent-soft: oklch(0.95 0.035 var(--ic));
+	--accent-line: oklch(0.7 0.11 var(--ic));
+	border-color: oklch(0.88 0.05 var(--ic));
+	background: linear-gradient(180deg, oklch(0.95 0.04 var(--ic)), transparent 14rem), var(--sheet);
+}
+
+.tool-sheet .modal-body {
+	flex: 1;
+}
+
+.modal-icon {
+	flex: none;
+	display: inline-grid;
+	place-items: center;
+	width: 38px;
+	height: 38px;
+	border-radius: var(--r-sm);
+	background: oklch(0.78 0.09 var(--ic) / 0.18);
+	color: oklch(0.82 0.1 var(--ic));
+}
+
+:root[data-theme="light"] .modal-icon {
+	background: oklch(0.93 0.045 var(--ic));
+	color: oklch(0.52 0.13 var(--ic));
+}
+
+/* Le bouton « Salles libres » porte la même teinte que sa fenêtre. */
+.app-rooms-btn svg {
+	color: oklch(0.82 0.1 160);
+}
+
+:root[data-theme="light"] .app-rooms-btn svg {
+	color: oklch(0.52 0.13 160);
+}
+
 .modal-title h2 {
 	display: flex;
-	align-items: baseline;
-	gap: 0.6rem;
-	font-size: 1.85rem;
-	font-weight: 850;
-	font-stretch: 68%;
-	line-height: 0.95;
-	text-transform: uppercase;
+	align-items: center;
+	gap: 0.75rem;
+	font-size: 1.65rem;
+	font-weight: 800;
+	font-stretch: 86%;
+	line-height: 1.1;
+	letter-spacing: -0.01em;
 	text-wrap: balance;
 }
 
@@ -1113,8 +1504,8 @@ body.has-modal {
 	overscroll-behavior: contain;
 	display: grid;
 	align-content: start;
-	gap: 1rem;
-	padding: 1.1rem 1.5rem 1.5rem;
+	gap: 1.25rem;
+	padding: 1.35rem 1.75rem 1.75rem;
 }
 
 .modal-foot {
@@ -1122,7 +1513,7 @@ body.has-modal {
 	align-items: center;
 	justify-content: space-between;
 	gap: 1rem;
-	padding: 0.9rem 1.5rem 1.25rem;
+	padding: 1rem 1.75rem 1.5rem;
 	border-top: 1px solid var(--rule);
 }
 
@@ -1141,9 +1532,10 @@ body.has-modal {
 	display: flex;
 	align-items: flex-start;
 	gap: 0.6rem;
-	padding: 0.7rem 0.85rem;
-	border: 1.5px solid var(--pen);
-	border-radius: 2px;
+	padding: 0.85rem 1rem;
+	border: 0;
+	border-radius: var(--r-md);
+	background: color-mix(in srgb, var(--pen) 12%, transparent);
 	font-size: 0.92rem;
 	line-height: 1.4;
 }
@@ -1172,16 +1564,6 @@ body.has-modal {
 	--ink-soft: var(--course-soft);
 }
 
-
-.event-swatch {
-	flex: none;
-	width: 0.7em;
-	height: 0.7em;
-	border: 1.5px solid var(--course-line);
-	border-radius: 2px;
-	background: var(--course-bg);
-}
-
 .is-struck {
 	text-decoration: line-through 3px var(--pen);
 }
@@ -1198,9 +1580,10 @@ body.has-modal {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.3rem;
-	padding: 0.2rem 0.5rem;
-	border: 1.5px solid var(--rule-strong);
-	border-radius: 2px;
+	padding: 0.3rem 0.7rem;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: var(--fill-strong);
 	font-size: 0.75rem;
 	font-weight: 700;
 	text-transform: uppercase;
@@ -1209,11 +1592,74 @@ body.has-modal {
 
 .event-tags > .event-cancelled {
 	border: 0;
+	background: transparent;
 	padding: 0 0.3rem 0 0;
 	font-size: 1.3rem;
 	text-transform: none;
 	letter-spacing: 0;
 	transform: rotate(-4deg);
+}
+
+/* Squelette : le nbsp donne exactement la hauteur de ligne du contexte, donc rien ne bouge à l'arrivée des détails. */
+.skeleton {
+	display: inline-block;
+	border-radius: var(--r-pill);
+	background: var(--fill-strong);
+	animation: skeleton-pulse 1.2s ease-in-out infinite alternate;
+}
+
+.skeleton::before {
+	content: "\00a0";
+}
+
+.skeleton-chip {
+	width: 6.5rem;
+}
+
+.skeleton-line {
+	width: 4.5rem;
+}
+
+.skeleton-wide {
+	width: 11rem;
+}
+
+@keyframes skeleton-pulse {
+	to {
+		opacity: 0.45;
+	}
+}
+
+/* Rideau : un masque à bord doux balaie de gauche à droite, le texte se pose en se défloutant. */
+.reveal {
+	display: inline-block;
+	-webkit-mask-image: linear-gradient(90deg, #000 42%, transparent 58%);
+	mask-image: linear-gradient(90deg, #000 42%, transparent 58%);
+	-webkit-mask-size: 260% 100%;
+	mask-size: 260% 100%;
+	animation: curtain-reveal 620ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--i, 0) * 70ms) both;
+}
+
+/* .event-tags > span est inline-flex : on garde son display. */
+.event-tags > .reveal {
+	display: inline-flex;
+}
+
+@keyframes curtain-reveal {
+	from {
+		-webkit-mask-position: 100% 0;
+		mask-position: 100% 0;
+		translate: -6px 0;
+		filter: blur(3px);
+		opacity: 0.6;
+	}
+	to {
+		-webkit-mask-position: 0 0;
+		mask-position: 0 0;
+		translate: 0 0;
+		filter: blur(0);
+		opacity: 1;
+	}
 }
 
 .facts > div {
@@ -1299,18 +1745,18 @@ body.has-modal {
 }
 
 .facts-chips button {
-	padding: 0.25rem 0.6rem;
-	border: 1.5px solid var(--rule-strong);
-	border-radius: 2px;
-	background: transparent;
+	padding: 0.35rem 0.85rem;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: var(--fill-strong);
 	font-size: 0.88rem;
 	font-weight: 650;
 	cursor: pointer;
-	transition: border-color 160ms ease-out;
+	transition: background-color 160ms ease-out;
 }
 
 .facts-chips button:hover {
-	border-color: var(--ink);
+	background: var(--accent-soft);
 }
 
 .facts-url {
@@ -1352,15 +1798,15 @@ label.tree-row {
 	align-items: center;
 	gap: 0.55rem;
 	min-height: 36px;
-	padding: 0.25rem 0.45rem;
-	border-radius: 2px;
+	padding: 0.3rem 0.6rem;
+	border-radius: var(--r-xs);
 	font-size: 0.95rem;
 	cursor: pointer;
 }
 
 .tree-row label:hover,
 label.tree-row:hover {
-	background: color-mix(in srgb, var(--ink) 6%, transparent);
+	background: var(--fill-strong);
 }
 
 .tree-row.is-selected label {
@@ -1402,7 +1848,7 @@ button.tree-toggle:hover {
 /* Salles libres */
 .rooms-form {
 	display: grid;
-	gap: 1rem;
+	gap: 1.25rem;
 }
 
 .rooms-fields {
@@ -1436,9 +1882,10 @@ button.tree-toggle:hover {
 .rooms-where {
 	max-height: 13rem;
 	overflow-y: auto;
-	padding: 0.5rem 0.8rem 0.7rem;
-	border: 1.5px solid var(--rule);
-	border-radius: 2px;
+	padding: 0.6rem 0.9rem 0.8rem;
+	border: 0;
+	border-radius: var(--r-md);
+	background: var(--fill);
 }
 
 .rooms-where legend {
@@ -1454,14 +1901,15 @@ button.tree-toggle:hover {
 	display: flex;
 	align-items: center;
 	gap: 0.55rem;
-	padding: 0.65rem 0.85rem;
-	border: 1.5px solid var(--ink);
-	border-radius: 2px;
+	padding: 0.8rem 1rem;
+	border: 0;
+	border-radius: var(--r-md);
+	background: oklch(0.72 0.12 160 / 0.18);
 	font-weight: 650;
 }
 
 .room-status.busy {
-	border-color: var(--pen);
+	background: color-mix(in srgb, var(--pen) 14%, transparent);
 }
 
 .room-status.busy svg {
@@ -1469,12 +1917,11 @@ button.tree-toggle:hover {
 }
 
 .rooms-results h3 {
-	padding-bottom: 0.45rem;
-	border-bottom: 2px solid var(--ink);
-	font-size: 1.3rem;
-	font-weight: 850;
-	font-stretch: 72%;
-	text-transform: uppercase;
+	padding-bottom: 0.55rem;
+	border-bottom: 1px solid var(--rule-strong);
+	font-size: 1.25rem;
+	font-weight: 800;
+	font-stretch: 86%;
 }
 
 .rooms-table {
@@ -1514,7 +1961,7 @@ button.tree-toggle:hover {
 
 /* Paramètres et rappels */
 .settings-block {
-	padding-bottom: 1rem;
+	padding-bottom: 1.25rem;
 	border-bottom: 1px solid var(--rule);
 }
 
@@ -1566,9 +2013,9 @@ button.tree-toggle:hover {
 }
 
 .settings-row .settings-kpi {
-	font-size: 2.2rem;
-	font-weight: 850;
-	font-stretch: 70%;
+	font-size: 2.1rem;
+	font-weight: 800;
+	font-stretch: 82%;
 	line-height: 1.1;
 	color: var(--ink);
 	font-variant-numeric: tabular-nums;
@@ -1597,16 +2044,16 @@ button.tree-toggle:hover {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.35rem;
+	gap: 0.4rem;
 }
 
 .day-chip {
-	min-width: 46px;
-	height: 36px;
-	padding: 0 0.5rem;
-	border: 1.5px solid var(--rule-strong);
-	border-radius: 2px;
-	background: transparent;
+	min-width: 48px;
+	height: 38px;
+	padding: 0 0.7rem;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: var(--fill-strong);
 	font-size: 0.85rem;
 	font-weight: 700;
 	text-transform: uppercase;
@@ -1617,9 +2064,8 @@ button.tree-toggle:hover {
 }
 
 .day-chip.is-on {
-	border-color: var(--ink);
-	background: var(--ink);
-	color: var(--sheet);
+	background: var(--accent);
+	color: var(--accent-ink);
 }
 
 .notif-summary {
@@ -1658,6 +2104,7 @@ button.tree-toggle:hover {
 		left: 0;
 		z-index: 60;
 		width: min(340px, 88vw);
+		border-radius: 0 var(--r-lg) var(--r-lg) 0;
 		transform: translateX(-105%);
 		visibility: hidden;
 		transition:
@@ -1675,22 +2122,22 @@ button.tree-toggle:hover {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.9rem 1rem 0.9rem 1.1rem;
-		border-bottom: 2px solid var(--ink);
+		padding: 1rem 1rem 1rem 1.35rem;
+		border-bottom: 1px solid var(--rule);
 	}
 
 	.drawer-head strong {
-		font-size: 1.35rem;
-		font-weight: 850;
-		font-stretch: 70%;
-		text-transform: uppercase;
+		font-size: 1.3rem;
+		font-weight: 800;
+		font-stretch: 88%;
 	}
 
 	.drawer-scrim {
 		position: fixed;
 		inset: 0;
 		z-index: 55;
-		background: rgba(8, 8, 7, 0.5);
+		background: rgba(8, 12, 20, 0.4);
+		backdrop-filter: blur(3px);
 		animation: fade 200ms ease-out;
 	}
 }
@@ -1720,27 +2167,23 @@ button.tree-toggle:hover {
 
 /* Téléphone */
 @media (max-width: 720px) {
+	/* Flex qui passe à la ligne : sur les écrans étroits, Semaine/Liste descend
+	   sous la navigation au lieu de la recouvrir. */
 	.app-bar {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) auto;
-		grid-template-areas:
-			"menu title rooms"
-			"nav nav seg";
-		gap: 0.5rem;
-		padding: 0.6rem 0.75rem 0.65rem;
-	}
-
-	.app-menu-btn {
-		grid-area: menu;
+		flex-wrap: wrap;
+		gap: 0.6rem;
+		padding: 0.75rem 1rem 0.8rem;
 	}
 
 	.app-brand {
 		display: none;
 	}
 
+	/* Base < 100% - menu - salles - 2 gaps : force le retour à la ligne après les salles. */
 	.app-title {
-		grid-area: title;
-		font-size: 1.35rem;
+		order: 1;
+		flex: 1 1 calc(100% - 140px);
+		font-size: clamp(1.1rem, 5.5vw, 1.35rem);
 	}
 
 	.app-title-year {
@@ -1748,7 +2191,7 @@ button.tree-toggle:hover {
 	}
 
 	.app-nav {
-		grid-area: nav;
+		order: 3;
 	}
 
 	.app-actions {
@@ -1756,8 +2199,8 @@ button.tree-toggle:hover {
 	}
 
 	.seg {
-		grid-area: seg;
-		justify-self: end;
+		order: 4;
+		margin-left: auto;
 	}
 
 	.seg svg {
@@ -1765,20 +2208,19 @@ button.tree-toggle:hover {
 	}
 
 	.app-rooms-btn {
-		grid-area: rooms;
-		justify-self: end;
+		order: 2;
 		width: 40px;
 		height: 40px;
 		padding: 0;
-		border-radius: 50%;
+		border-radius: var(--r-sm);
 	}
 
 	.app-body {
-		padding: 0 0.75rem 0.75rem;
+		padding: 0 1rem 1rem;
 	}
 
 	.app-main {
-		gap: 0.6rem;
+		gap: 0.75rem;
 	}
 
 	.next-up {
@@ -1789,7 +2231,7 @@ button.tree-toggle:hover {
 		gap: 0 0.9rem;
 		min-width: 0;
 		width: 100%;
-		padding: 0.55rem 0.9rem;
+		padding: 0.75rem 1.1rem;
 	}
 
 	.next-up-label {
@@ -1803,6 +2245,8 @@ button.tree-toggle:hover {
 
 	.next-up-main {
 		grid-area: main;
+		flex-wrap: wrap;
+		row-gap: 0;
 	}
 
 	.next-up-when {
@@ -1826,6 +2270,13 @@ button.tree-toggle:hover {
 		left: 0.45rem;
 	}
 
+	/* Gouttière plus étroite : le libellé suit le retrait des heures et se resserre pour tenir. */
+	.planner-allday-label {
+		padding-left: 0.45rem;
+		font-size: 0.66rem;
+		font-stretch: 68%;
+	}
+
 	.course {
 		padding: 0.45rem 0.65rem;
 	}
@@ -1840,13 +2291,13 @@ button.tree-toggle:hover {
 	}
 
 	.agenda {
-		padding-inline: 0.8rem;
+		padding-inline: 1rem;
 	}
 
 	.agenda-row {
 		grid-template-columns: 3.2rem minmax(0, 1fr) auto;
-		gap: 0.75rem;
-		padding: 0.6rem 0.75rem;
+		gap: 0.8rem;
+		padding: 0.75rem 0.9rem;
 	}
 
 	.modal-overlay {
@@ -1857,25 +2308,26 @@ button.tree-toggle:hover {
 	.modal-sheet {
 		width: 100%;
 		max-height: 92dvh;
+		border-radius: var(--r-lg) var(--r-lg) 0 0;
 		padding-bottom: env(safe-area-inset-bottom);
 		animation-name: rise;
 	}
 
 	.modal-head {
-		margin: 0 1.1rem;
-		padding-top: 1.5rem;
+		margin: 0 1.25rem;
+		padding-top: 1.6rem;
 	}
 
 	.modal-title h2 {
-		font-size: 1.6rem;
+		font-size: 1.45rem;
 	}
 
 	.modal-body {
-		padding: 1rem 1.1rem 1.25rem;
+		padding: 1.1rem 1.25rem 1.4rem;
 	}
 
 	.modal-foot {
-		padding: 0.8rem 1.1rem 1rem;
+		padding: 0.9rem 1.25rem 1.1rem;
 	}
 
 	.facts > div {
@@ -1900,4 +2352,153 @@ button.tree-toggle:hover {
 	from {
 		transform: translateY(24px);
 	}
+}
+
+/* ------------------------------------------------------------------
+   Micro-interactions de l'app (keyframes communes dans App.css).
+   Uniquement à l'arrivée d'un élément, au survol ou à l'appui :
+   rien ne bouge tout seul, sauf le point « maintenant ».
+   ------------------------------------------------------------------ */
+
+/* Titre de la semaine : glisse en place quand on change de semaine. */
+.app-title-text {
+	display: inline-block;
+	/* inline-block : l'ellipsis du parent ne s'applique pas, il faut la porter ici. */
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	vertical-align: bottom;
+	animation: card-in 300ms var(--ease) backwards;
+}
+
+/* Cours : arrivent en cascade de gauche à droite (une colonne = 35 ms). */
+.course,
+.allday-course {
+	animation: card-in 340ms var(--ease) backwards;
+	animation-delay: calc(var(--col, 0) * 35ms);
+}
+
+/* Vue liste : cascade de haut en bas, plafonnée pour ne pas traîner. */
+.agenda-row {
+	animation: card-in 320ms var(--ease) backwards;
+	animation-delay: calc(min(var(--i, 0), 8) * 30ms);
+}
+
+.course:active,
+.agenda-row:active {
+	transform: scale(0.98);
+	transition-duration: 90ms;
+}
+
+/* Prochain cours : la note arrive, puis la mention au stylo s'écrit. */
+.next-up {
+	animation: card-in 420ms var(--ease) backwards;
+}
+
+.next-up-when,
+.agenda-date .agenda-today {
+	animation: hand-write 650ms 250ms steps(18, end) both;
+}
+
+/* Le point « maintenant » respire doucement : le seul mouvement continu de l'app. */
+.now-line::after {
+	content: "";
+	position: absolute;
+	left: -5px;
+	top: -4px;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--pen);
+	animation: now-pulse 2.8s ease-out infinite;
+	pointer-events: none;
+}
+
+@keyframes now-pulse {
+	0% {
+		opacity: 0.55;
+		scale: 1;
+	}
+	70%,
+	100% {
+		opacity: 0;
+		scale: 2.6;
+	}
+}
+
+/* Classeur : chaque pastille d'action réagit à sa façon au survol. */
+.drawer-actions button > :is(svg, img) {
+	transition:
+		transform 320ms var(--spring),
+		background-color 160ms ease-out;
+}
+
+.drawer-actions button:hover > :is(svg, img) {
+	transform: translateY(-1px) scale(1.08);
+}
+
+.drawer-actions button:nth-child(1):hover > svg {
+	transform-origin: 50% 25%;
+	animation: bell-ring 650ms ease-in-out;
+}
+
+.drawer-actions button:nth-child(2):hover > svg {
+	transform: rotate(75deg) scale(1.05);
+}
+
+.drawer-actions button:nth-child(3):hover > svg {
+	transform: rotate(-24deg) scale(1.08);
+}
+
+.drawer-actions .is-logout:hover > svg {
+	transform: translateX(2px);
+}
+
+@keyframes bell-ring {
+	0%,
+	100% {
+		rotate: 0deg;
+	}
+	20% {
+		rotate: 14deg;
+	}
+	40% {
+		rotate: -12deg;
+	}
+	60% {
+		rotate: 7deg;
+	}
+	80% {
+		rotate: -3deg;
+	}
+}
+
+.drawer-remove:hover svg {
+	transform: rotate(90deg);
+}
+
+.drawer-remove svg,
+.tree-toggle svg {
+	transition: transform 260ms var(--spring);
+}
+
+/* Un groupe ajouté, une liste de filtres dépliée : arrivée en douceur. */
+.drawer-groups li,
+.drawer-filter {
+	animation: card-in 260ms var(--ease) backwards;
+}
+
+/* Fenêtres : l'icône se pose avec un petit rebond, le scotch se colle juste après. */
+.modal-icon {
+	animation: pop-in 460ms var(--spring) 90ms backwards;
+}
+
+.modal-tape {
+	animation: tape-stick 380ms var(--ease) 150ms backwards;
+}
+
+/* Résultats de recherche de salle : apparaissent au lieu de surgir. */
+.room-status,
+.rooms-results {
+	animation: card-in 300ms var(--ease) backwards;
 }

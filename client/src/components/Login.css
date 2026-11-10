@@ -1,8 +1,8 @@
-/* Panneau du hall : sombre par défaut (photocopie négative), clair en variante. */
+/* Accueil : le panneau du hall. Des feuilles posées de travers, tenues par une punaise
+   ou un bout de scotch, sur le même fond et avec les mêmes cours que le planning. */
 .board {
 	min-height: 100vh;
 	min-height: 100svh;
-	background-color: var(--board);
 	color: var(--ink);
 	font-family: var(--print);
 	font-stretch: 100%;
@@ -23,11 +23,117 @@
 }
 
 .board :focus-visible {
-	outline: 3px solid var(--pen);
+	outline: 3px solid var(--accent-line);
 	outline-offset: 3px;
 }
 
-/* Barre du haut */
+/* ------------------------------------------------------------------
+   Matériel du panneau : papier, punaises, scotch, inclinaison
+   ------------------------------------------------------------------ */
+
+/* Papier de couleur : une teinte unie prise dans les couleurs de cours, sans voile dégradé. */
+:root .board [class*="paper-"] {
+	background: color-mix(in oklab, var(--sheet) 88%, oklch(0.74 0.11 var(--ph)));
+	border-color: color-mix(in oklab, var(--sheet) 72%, oklch(0.74 0.11 var(--ph)));
+}
+
+:root[data-theme="light"] .board [class*="paper-"] {
+	background: oklch(0.972 0.024 var(--ph));
+	border-color: oklch(0.9 0.045 var(--ph));
+}
+
+/* Chaque feuille garde son angle (--tilt) ; elle pivote autour de ce qui la retient. */
+.board .sheet,
+.board .shot {
+	rotate: var(--tilt, 0deg);
+	transform-origin: 50% 0;
+	transition:
+		rotate 600ms var(--ease),
+		transform 400ms var(--ease),
+		box-shadow 300ms ease-out;
+}
+
+/* Les feuilles sans bouton se redressent un peu et se soulèvent au survol. */
+.board :is(.timetable, .showcase-label, .matrix):hover {
+	rotate: calc(var(--tilt, 0deg) * 0.3);
+	transform: translateY(-3px);
+	box-shadow: var(--lift-hover);
+}
+
+.board .pin {
+	width: 22px;
+	height: 22px;
+	top: -8px;
+	margin-left: -11px;
+	color: var(--pin-a);
+	filter: drop-shadow(1px 3px 1.5px rgba(0, 0, 0, 0.4));
+	transition:
+		translate 280ms var(--spring),
+		filter 280ms ease-out;
+}
+
+.board .pin-b {
+	color: var(--pin-b);
+	margin-left: 0;
+}
+
+.board .pin-c {
+	margin-left: 0;
+}
+
+.board .pin .pin-body {
+	fill: color-mix(in oklab, currentColor 62%, #000);
+}
+
+.board .pin .pin-top {
+	fill: currentColor;
+}
+
+.board .pin .pin-shine {
+	fill: rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme="light"] .board .pin {
+	filter: drop-shadow(1px 3px 1.5px rgba(60, 40, 110, 0.3));
+}
+
+/* Une punaise prend la couleur de son papier. */
+.board .sheet[class*="paper-"] > .pin {
+	color: var(--paper-tone);
+}
+
+/* Au survol, la punaise se soulève : elle monte et son ombre s'étale. */
+.board :is(.sheet, .shot):hover > .pin {
+	translate: 0 -3px;
+	filter: drop-shadow(2px 7px 3px rgba(0, 0, 0, 0.32));
+}
+
+:root[data-theme="light"] .board :is(.sheet, .shot):hover > .pin {
+	filter: drop-shadow(2px 7px 3px rgba(60, 40, 110, 0.22));
+}
+
+/* Scotch : bords déchirés en dents de scie, rose translucide. */
+.board .tape {
+	top: -13px;
+	left: 1.75rem;
+	width: 96px;
+	height: 28px;
+	background-color: rgba(255, 175, 212, 0.34);
+	box-shadow:
+		inset 0 1px rgba(255, 255, 255, 0.22),
+		inset 0 -1px rgba(0, 0, 0, 0.12);
+	transform: rotate(-4deg);
+	clip-path: polygon(3% 0, 97% 0, 100% 14%, 96.5% 28%, 100% 43%, 97% 57%, 100% 71%, 96.5% 86%, 98.5% 100%, 2% 100%, 0 86%, 3.5% 72%, 0 57%, 3% 43%, 0 28%, 3.5% 14%);
+}
+
+:root[data-theme="light"] .board .tape {
+	background-color: rgba(255, 210, 230, 0.7);
+	box-shadow: inset 0 1px rgba(255, 255, 255, 0.6);
+}
+
+/* ------------------------------------------------------------------
+   Barre du haut
+   ------------------------------------------------------------------ */
 .board-bar {
 	width: min(1320px, 100% - 2rem);
 	margin: 0 auto;
@@ -52,8 +158,9 @@
 .board-brand img {
 	width: 40px;
 	height: 40px;
-	border-radius: 10px;
+	border-radius: var(--r-sm);
 	background: #fff;
+	box-shadow: var(--lift);
 }
 
 .board-tools {
@@ -61,52 +168,66 @@
 	gap: 0.5rem;
 }
 
+/* Petits carrés de papier : ils se soulèvent au survol. */
 .board-tool {
 	width: 44px;
 	height: 44px;
 	display: grid;
 	place-items: center;
-	border-radius: 50%;
-	border: 1.5px solid var(--rule-strong);
-	background: transparent;
-	color: var(--ink);
+	border-radius: var(--r-sm);
+	border: 1px solid var(--sheet-edge);
+	background: var(--sheet);
+	color: var(--ink-soft);
+	box-shadow: var(--lift);
 	cursor: pointer;
 	transition:
-		background-color 160ms ease-out,
-		border-color 160ms ease-out;
+		color 160ms ease-out,
+		box-shadow 260ms ease-out,
+		translate 260ms var(--ease);
 }
 
 .board-tool:hover {
-	background: var(--sheet);
-	border-color: var(--ink);
+	color: var(--ink);
+	translate: 0 -2px;
+	box-shadow: var(--lift-hover);
 }
 
-/* Hero */
+.board-tool svg {
+	transition: transform 360ms var(--spring);
+}
+
+.board-tool:hover svg {
+	transform: rotate(-12deg);
+}
+
+/* ------------------------------------------------------------------
+   Hero
+   ------------------------------------------------------------------ */
 .board-hero {
 	width: min(1320px, 100% - 2rem);
 	margin: 0 auto;
-	padding: clamp(1rem, 3vh, 2.5rem) 0 clamp(2.5rem, 6vh, 4.5rem);
+	padding: clamp(1.5rem, 3.5vh, 3rem) 0 clamp(2.5rem, 6vh, 4.5rem);
 	display: grid;
 	grid-template-columns: repeat(12, minmax(0, 1fr));
 	align-items: start;
 }
 
 .notice {
+	--tilt: -0.7deg;
+	--overlap: 3.5rem;
 	grid-column: 1 / 7;
 	grid-row: 1;
 	z-index: 2;
 	margin-top: clamp(0.5rem, 3.5vh, 3rem);
-	padding: clamp(2rem, 3.4vw, 3.25rem) 4.5rem clamp(2rem, 3vw, 2.75rem) clamp(1.5rem, 3.4vw, 3.25rem);
-	transform: rotate(-0.7deg);
+	padding: clamp(2rem, 3.4vw, 3.25rem) calc(clamp(1.5rem, 3.4vw, 3.25rem) + var(--overlap)) clamp(2rem, 3vw, 2.75rem) clamp(1.5rem, 3.4vw, 3.25rem);
 }
 
 .notice h1 {
-	font-weight: 850;
-	font-stretch: 68%;
-	font-size: min(clamp(2.75rem, 1.4rem + 4.6vw, 5.4rem), 8.6vh);
-	line-height: 0.9;
-	letter-spacing: -0.015em;
-	text-transform: uppercase;
+	font-weight: 800;
+	font-stretch: 82%;
+	font-size: min(clamp(2.5rem, 1.3rem + 4vw, 4.6rem), 8vh);
+	line-height: 1;
+	letter-spacing: -0.02em;
 	text-wrap: balance;
 	max-width: 12ch;
 }
@@ -125,8 +246,10 @@
 	display: flex;
 	gap: 0.6rem;
 	align-items: flex-start;
-	padding: 0.75rem 0.9rem;
-	border: 1.5px solid var(--pen);
+	padding: 0.85rem 1rem;
+	border: 1.5px solid color-mix(in srgb, var(--pen) 45%, transparent);
+	border-radius: var(--r-md);
+	background: var(--sheet);
 	color: var(--ink);
 	font-size: 0.95rem;
 	line-height: 1.4;
@@ -138,20 +261,86 @@
 	color: var(--pen);
 }
 
-/* Tickets détachables */
+/* ------------------------------------------------------------------
+   Tickets : un talon perforé, le texte, une flèche qui avance au survol.
+   (Le masque des encoches coupe toute ombre portée : l'état se lit dans la couleur.)
+   ------------------------------------------------------------------ */
 .tickets {
-	margin-top: 1.75rem;
+	margin-top: 2rem;
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 0.75rem;
 	max-width: 34rem;
 }
 
+.board .ticket {
+	--ticket-bg: color-mix(in srgb, var(--sheet) 70%, transparent);
+	--ticket-line: var(--rule-strong);
+	--stub-bg: var(--fill);
+	grid-template-columns: var(--stub) minmax(0, 1fr) auto;
+	overflow: hidden;
+	transition:
+		transform 260ms var(--ease),
+		background-color 180ms ease-out,
+		border-color 180ms ease-out;
+}
+
+.board .ticket-stub {
+	background: var(--stub-bg);
+	transition: background-color 180ms ease-out;
+}
+
+.board .ticket-go {
+	margin-right: 1rem;
+	color: var(--ticket-sub);
+	transition:
+		translate 300ms var(--ease),
+		color 180ms ease-out;
+}
+
+.board .ticket:hover:not(:disabled) {
+	--ticket-bg: var(--accent-soft);
+	--ticket-line: var(--accent-line);
+	--stub-bg: color-mix(in srgb, var(--accent) 24%, transparent);
+	transform: translateY(-2px);
+}
+
+.board .ticket:hover:not(:disabled) .ticket-stub > * {
+	transform: scale(1.1);
+}
+
+.board .ticket:hover:not(:disabled) .ticket-go {
+	color: var(--ticket-fg);
+	translate: 3px 0;
+}
+
+.board a.ticket:hover .ticket-go {
+	translate: 2px -2px;
+}
+
+.board .ticket:active:not(:disabled) {
+	transform: translateY(0) scale(0.985);
+	transition-duration: 90ms;
+}
+
+/* Le focus clavier reste visible malgré le masque : un liseré au stylo, à l'intérieur. */
+.board .ticket:focus-visible {
+	border-color: var(--pen);
+	box-shadow: inset 0 0 0 2px var(--pen);
+}
+
+/* Ticket principal : papier d'accent, talon un ton plus soutenu. */
+.tickets > .ticket:first-child,
+.memo .ticket {
+	--ticket-bg: var(--accent);
+	--ticket-fg: var(--accent-ink);
+	--ticket-sub: color-mix(in srgb, var(--accent-ink) 70%, var(--accent));
+	--ticket-line: var(--accent);
+	--stub-bg: color-mix(in oklab, var(--accent) 88%, var(--accent-ink));
+}
+
 .tickets > .ticket:first-child {
 	grid-column: 1 / -1;
-	--ticket-bg: var(--ink);
-	--ticket-fg: var(--sheet);
-	--ticket-sub: color-mix(in srgb, var(--sheet) 72%, var(--ink));
 	min-height: 4rem;
 }
 
@@ -159,49 +348,106 @@
 	font-size: 1.12rem;
 }
 
-/* Feuille d'emploi du temps */
+.tickets > .ticket:first-child:hover:not(:disabled),
+.memo .ticket:hover:not(:disabled) {
+	--ticket-bg: color-mix(in oklab, var(--accent) 86%, var(--ink));
+	--ticket-line: var(--ticket-bg);
+	--stub-bg: color-mix(in oklab, var(--accent) 80%, var(--accent-ink));
+}
+
+/* ------------------------------------------------------------------
+   Miniature du planning : même titre, même bandeau « Prochain cours », même grille.
+   ------------------------------------------------------------------ */
 .timetable {
+	--tilt: 1deg;
 	grid-column: 7 / 13;
 	grid-row: 1;
 	z-index: 3;
-	margin: 0 0 0 -2.5rem;
-	padding: 1.5rem clamp(1rem, 1.8vw, 1.75rem) 1.75rem;
-	transform: rotate(1deg);
-}
-
-.timetable-head {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 1rem;
-	padding-bottom: 0.7rem;
-	border-bottom: 2px solid var(--ink);
-	text-transform: uppercase;
-	font-stretch: 75%;
+	margin: 0 0 0 -3.5rem;
+	padding: 1.5rem clamp(1rem, 1.8vw, 1.5rem) 1.75rem;
+	transform-origin: 2.75rem 0;
 }
 
 .timetable-head strong {
-	font-size: 1.35rem;
+	font-size: 1.5rem;
 	font-weight: 850;
-	letter-spacing: 0.01em;
+	font-stretch: 72%;
+	line-height: 1;
+	letter-spacing: -0.01em;
 }
 
-.timetable-head span {
-	font-size: 0.85rem;
-	font-weight: 600;
+.timetable-head strong span {
 	color: var(--ink-soft);
-	letter-spacing: 0.02em;
+}
+
+.tt-next {
+	margin: 0.9rem 0 1rem;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.1rem 0.9rem;
+	padding: 0.5rem 1rem;
+	border: 1px solid;
+	border-radius: var(--r-md);
+}
+
+.tt-next-time {
+	grid-row: 1 / 3;
+	font-size: 1.7rem;
+	font-weight: 850;
+	font-stretch: 68%;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+}
+
+.tt-next-label {
+	font-size: 0.68rem;
+	font-weight: 750;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--ink-soft);
+}
+
+.tt-next-main {
+	grid-column: 2;
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
+.tt-next-main strong {
+	font-size: 0.98rem;
+	font-weight: 750;
+	font-stretch: 85%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.tt-next-main span {
+	flex: none;
+	font-size: 0.82rem;
+	color: var(--ink-soft);
+}
+
+.tt-next-when {
+	grid-column: 3;
+	grid-row: 1 / 3;
+	font-size: 1.2rem;
+	transform: rotate(-3deg);
+	white-space: nowrap;
 }
 
 .timetable-grid {
 	--slot: clamp(2.6rem, 4.8vh, 3rem);
 	display: grid;
 	grid-template-columns: 2.4rem repeat(5, minmax(0, 1fr));
-	grid-template-rows: 2rem repeat(var(--rows), var(--slot));
+	grid-template-rows: 2.6rem repeat(var(--rows), var(--slot));
 	column-gap: 4px;
 	background-image: linear-gradient(var(--rule) 1px, transparent 1px);
 	background-size: 100% var(--slot);
-	background-position: 0 2rem;
+	background-position: 0 2.6rem;
 	background-repeat: repeat-y;
 	font-variant-numeric: tabular-nums;
 }
@@ -209,18 +455,64 @@
 .tt-day {
 	grid-row: 1;
 	align-self: center;
-	text-align: center;
-	font-size: 0.78rem;
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.3rem;
+	font-size: 0.72rem;
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	color: var(--ink-soft);
 }
 
-.tt-day.is-today {
+.tt-day strong {
+	font-size: 1.15rem;
+	font-weight: 850;
+	font-stretch: 72%;
+	line-height: 1;
+	letter-spacing: 0;
 	color: var(--ink);
-	text-decoration: underline 2px;
-	text-underline-offset: 0.3em;
+}
+
+/* Aujourd'hui : le jour au stylo, la date dans la pastille d'accent, comme dans le planning. */
+.tt-day.is-today {
+	color: var(--pen);
+}
+
+.tt-day.is-today strong {
+	padding: 0.12rem 0.4rem;
+	border-radius: var(--r-pill);
+	background: var(--accent);
+	color: var(--accent-ink);
+}
+
+/* La ligne rose de l'heure actuelle. */
+.tt-now {
+	position: relative;
+	z-index: 2;
+	pointer-events: none;
+}
+
+.tt-now::before {
+	content: "";
+	position: absolute;
+	top: 80%;
+	left: 0;
+	right: 0;
+	height: 2px;
+	background: var(--pen);
+}
+
+.tt-now::after {
+	content: "";
+	position: absolute;
+	top: calc(80% - 4px);
+	left: -5px;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--pen);
 }
 
 .tt-hour {
@@ -231,15 +523,19 @@
 }
 
 .tt-course {
-	--course-bg: oklch(0.37 0.075 var(--h));
-	--course-line: oklch(0.7 0.12 var(--h));
-	--course-soft: oklch(0.86 0.04 var(--h));
+	--course-bg: oklch(0.92 0.055 var(--h));
+	--course-line: oklch(0.74 0.11 var(--h));
+	--course-soft: oklch(0.44 0.07 var(--h));
+	--fluo: oklch(0.82 0.13 var(--h));
+	--fluo-ink: oklch(0.26 0.05 var(--h));
 	position: relative;
+	color: oklch(0.26 0.05 var(--h));
 	isolation: isolate;
 	margin: 3px 0;
-	padding: 0.35rem 0.45rem;
-	border: 1.5px solid var(--course-line);
-	border-radius: 2px;
+	padding: 0.4rem 0.55rem;
+	border: 1px solid var(--course-line);
+	border-left-width: 4px;
+	border-radius: var(--r-sm);
 	background: var(--course-bg);
 	display: flex;
 	flex-direction: column;
@@ -247,12 +543,20 @@
 	min-width: 0;
 	font-stretch: 90%;
 	line-height: 1.15;
+	transition:
+		transform 220ms var(--ease),
+		box-shadow 220ms ease-out;
 }
 
-:root[data-theme="light"] .tt-course {
-	--course-bg: oklch(0.92 0.065 var(--h));
-	--course-line: oklch(0.58 0.12 var(--h));
-	--course-soft: oklch(0.4 0.06 var(--h));
+.tt-course:hover {
+	z-index: 3;
+	transform: translateY(-2px);
+	box-shadow: 0 8px 16px -10px oklch(0.35 0.1 var(--h) / 0.7);
+}
+
+/* Le stylo rose foncé sur les cartes claires. */
+.tt-room {
+	--pen: #cf3f80;
 }
 
 .tt-course strong {
@@ -265,8 +569,16 @@
 
 .tt-time,
 .tt-room {
-	font-size: 0.8rem;
+	font-size: 0.76rem;
 	color: var(--course-soft);
+}
+
+.tt-time {
+	font-weight: 600;
+}
+
+.tt-room :is(s, .pen) {
+	white-space: nowrap;
 }
 
 .tt-room s {
@@ -281,22 +593,9 @@
 	line-height: 1;
 }
 
-/* Le prochain cours : cerné d'encre, son nom passé au surligneur (.marker, App.css). */
+/* Le prochain cours : son nom passé au surligneur (.marker, App.css). */
 .tt-course.is-next .marker {
-	animation-delay: 0.5s;
-}
-
-.tt-course .scribble {
-	position: absolute;
-	left: calc(100% + 0.6rem);
-	top: 0.4rem;
-	width: max-content;
-	font-family: var(--hand);
-	font-size: 1.3rem;
-	line-height: 1;
-	color: var(--pen);
-	transform: rotate(-4deg);
-	animation: write 0.6s 1.15s steps(18, end) both;
+	animation-delay: 1s;
 }
 
 .timetable-sample {
@@ -309,20 +608,10 @@
 	color: var(--ink-soft);
 }
 
-
-
-@keyframes write {
-	from {
-		clip-path: inset(-20% 100% -20% 0);
-	}
-	to {
-		clip-path: inset(-20% 0 -20% 0);
-	}
-}
-
-/* Captures : des tirages photo épinglés au panneau */
+/* ------------------------------------------------------------------
+   Captures de l'app, épinglées ou scotchées au panneau
+   ------------------------------------------------------------------ */
 .showcase {
-	--print-edge: #f4f3ee;
 	width: min(1320px, 100% - 2rem);
 	margin: 0 auto;
 	padding: 0 0 clamp(1rem, 4vh, 3rem);
@@ -333,21 +622,21 @@
 }
 
 .showcase-label {
+	--tilt: -0.8deg;
 	grid-column: 1 / 5;
 	grid-row: 1;
 	z-index: 2;
 	align-self: start;
 	margin-top: clamp(2rem, 8vh, 5rem);
 	padding: clamp(1.5rem, 2.6vw, 2.25rem);
-	transform: rotate(-0.8deg);
 }
 
 .showcase-label h2 {
-	font-weight: 850;
-	font-stretch: 70%;
-	font-size: clamp(1.9rem, 1.3rem + 1.8vw, 2.75rem);
-	line-height: 0.95;
-	text-transform: uppercase;
+	font-weight: 800;
+	font-stretch: 84%;
+	font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);
+	line-height: 1.05;
+	letter-spacing: -0.015em;
 	text-wrap: balance;
 }
 
@@ -375,6 +664,53 @@
 	transform: rotate(-2deg);
 }
 
+.shot-web {
+	--tilt: 0.6deg;
+	grid-column: 5 / 13;
+	grid-row: 1;
+	margin-left: -3rem;
+	transform-origin: 45% 0;
+}
+
+.shot-web .tape {
+	left: calc(45% - 48px);
+	z-index: 4;
+}
+
+.shot-web img {
+	padding: clamp(0.4rem, 0.8vw, 0.7rem);
+	border: 1px solid var(--sheet-edge);
+	border-radius: var(--r-lg);
+	background: var(--sheet);
+	box-shadow: var(--lift);
+}
+
+.shot-pwa {
+	--tilt: -2.5deg;
+	grid-column: 2 / 5;
+	grid-row: 2;
+	align-self: start;
+	z-index: 2;
+	margin-top: -1.5rem;
+}
+
+.shot-pwa .pin {
+	top: -10px;
+	left: 50%;
+	margin-left: -11px;
+	z-index: 4;
+}
+
+.phone {
+	overflow: hidden;
+	border: clamp(6px, 0.7vw, 10px) solid #0c0c0b;
+	border-radius: clamp(1.4rem, 2.6vw, 2.4rem);
+	background: #0c0c0b;
+	box-shadow:
+		0 0 0 1px rgba(255, 255, 255, 0.14),
+		var(--lift);
+}
+
 .shot-native {
 	grid-column: 6 / 11;
 	grid-row: 2;
@@ -389,49 +725,33 @@
 	text-align: center;
 }
 
-.shot-web {
-	grid-column: 5 / 13;
-	grid-row: 1;
-	margin-left: -3rem;
-	transform: rotate(0.6deg);
+/* Survol des captures : le tirage se soulève, son ombre s'allonge. */
+.shot-web img,
+.shot-pwa .phone,
+.shot-native img {
+	transition:
+		translate 360ms var(--ease),
+		box-shadow 300ms ease-out,
+		filter 300ms ease-out;
 }
 
-.shot-web img {
-	padding: clamp(0.4rem, 0.8vw, 0.7rem);
-	background: var(--print-edge);
-	box-shadow: var(--lift);
+.shot-web:hover img,
+.shot-pwa:hover .phone,
+.shot-native:hover img {
+	translate: 0 -5px;
 }
 
-.shot-web .tape {
-	left: 45%;
-	z-index: 2;
+.shot-web:hover img {
+	box-shadow: var(--lift-hover);
 }
 
-.shot-pwa {
-	grid-column: 2 / 5;
-	grid-row: 2;
-	align-self: start;
-	z-index: 2;
-	margin-top: -1.5rem;
-	transform: rotate(-2.5deg);
+.shot-native:hover img {
+	filter: drop-shadow(0 24px 28px rgba(0, 0, 0, 0.5));
 }
 
-.shot-pwa .pin {
-	top: -10px;
-	left: calc(50% - 10px);
-}
-
-.phone {
-	overflow: hidden;
-	border: clamp(6px, 0.7vw, 10px) solid #0c0c0b;
-	border-radius: clamp(1.4rem, 2.6vw, 2.4rem);
-	background: #0c0c0b;
-	box-shadow:
-		0 0 0 1px rgba(255, 255, 255, 0.14),
-		var(--lift);
-}
-
-/* Deuxième rangée */
+/* ------------------------------------------------------------------
+   Deuxième rangée
+   ------------------------------------------------------------------ */
 .board-row {
 	width: min(1320px, 100% - 2rem);
 	margin: 0 auto;
@@ -443,19 +763,20 @@
 }
 
 .board-row h2 {
-	font-weight: 850;
-	font-stretch: 70%;
-	font-size: clamp(1.9rem, 1.3rem + 1.8vw, 2.75rem);
-	line-height: 0.95;
-	text-transform: uppercase;
+	font-weight: 800;
+	font-stretch: 84%;
+	font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);
+	line-height: 1.05;
+	letter-spacing: -0.015em;
 	text-wrap: balance;
 	margin-bottom: 1.5rem;
 }
 
 .matrix {
+	--tilt: 0.4deg;
 	grid-column: 1 / 8;
 	padding: clamp(1.75rem, 3vw, 2.75rem);
-	transform: rotate(0.4deg);
+	transform-origin: 2.75rem 0;
 }
 
 .matrix table {
@@ -473,11 +794,16 @@
 	letter-spacing: 0.03em;
 	font-size: 0.85rem;
 	text-align: center;
-	border-bottom: 2px solid var(--ink);
+	border-bottom: 1px solid var(--rule-strong);
 }
 
 .matrix thead td {
-	border-bottom: 2px solid var(--ink);
+	border-bottom: 1px solid var(--rule-strong);
+}
+
+/* Ta plateforme : entourée au stylo. */
+.matrix thead th.is-yours {
+	color: var(--pen);
 }
 
 .matrix thead th.is-yours::after {
@@ -511,16 +837,30 @@
 	vertical-align: middle;
 }
 
+/* Les coches reprennent la teinte de la feuille (--paper-tone, App.css). */
+.matrix tbody svg:not(.is-off) {
+	color: var(--paper-tone);
+}
+
 .matrix .is-off {
 	color: var(--ink-soft);
 	opacity: 0.6;
 }
 
+.matrix tbody tr {
+	transition: background-color 160ms ease-out;
+}
+
+.matrix tbody tr:hover {
+	background: color-mix(in oklab, var(--paper-tone) 10%, transparent);
+}
+
 .memo {
+	--tilt: -1.2deg;
 	grid-column: 8 / 13;
 	margin-top: clamp(1rem, 6vh, 4rem);
 	padding: clamp(1.75rem, 3vw, 2.5rem);
-	transform: rotate(-1.2deg);
+	transform-origin: calc(100% - 4rem) 0;
 }
 
 .memo h2 {
@@ -536,34 +876,18 @@
 }
 
 .memo .ticket {
-	--ticket-bg: var(--ink);
-	--ticket-fg: var(--sheet);
-	--ticket-sub: color-mix(in srgb, var(--sheet) 72%, var(--ink));
 	width: 100%;
 }
 
-.tape-memo {
+.board .tape-memo {
 	left: auto;
 	right: 1.5rem;
 	transform: rotate(6deg);
 }
 
-/* Sur la page d'accueil, la bannière de consentement devient une feuille du panneau. */
+/* Sur la page d'accueil, la bannière de consentement prend la typo du panneau. */
 :root:has(.board) .cookie-banner {
-	--bg-secondary: #252421;
-	--text-primary: #efeee7;
-	--text-secondary: #b1afa5;
-	--border-color: rgba(239, 238, 231, 0.42);
-	--accent-color: #ff7ab6;
 	font-family: "Archivo", system-ui, sans-serif;
-}
-
-:root[data-theme="light"]:has(.board) .cookie-banner {
-	--bg-secondary: #f8f9f9;
-	--text-primary: #191917;
-	--text-secondary: #55544e;
-	--border-color: rgba(25, 25, 23, 0.5);
-	--accent-color: #c8195f;
 }
 
 /* Pied de page */
@@ -572,7 +896,7 @@
 	width: min(1320px, 100% - 2rem);
 	margin-inline: auto;
 	padding: 1.5rem 0 2rem;
-	border-top: 1px solid var(--rule-strong);
+	border-top: 1px solid var(--rule);
 	display: grid;
 	gap: 0.35rem;
 	font-size: 0.85rem;
@@ -584,7 +908,14 @@
 	color: var(--ink);
 }
 
-/* Tablette : les feuilles s'empilent */
+/* Colonnes du planning étroites : la nouvelle salle seule, sans l'ancienne barrée. */
+@media (min-width: 1081px) and (max-width: 1280px) {
+	.tt-room s {
+		display: none;
+	}
+}
+
+/* Tablette : les feuilles s'empilent en se chevauchant un peu. */
 @media (max-width: 1080px) {
 	.notice,
 	.timetable,
@@ -594,9 +925,9 @@
 	}
 
 	.notice {
+		--overlap: 0rem;
 		grid-row: 1;
 		margin-top: 0.5rem;
-		padding-right: clamp(1.5rem, 3.4vw, 3.25rem);
 	}
 
 	.timetable {
@@ -640,7 +971,7 @@
 	}
 }
 
-/* Téléphone : uniquement la journée en cours */
+/* Téléphone : uniquement la journée en cours, des angles plus discrets. */
 @media (max-width: 640px) {
 	.board-bar,
 	.board-hero,
@@ -650,21 +981,26 @@
 	}
 
 	.notice {
-		transform: rotate(-0.5deg);
+		--tilt: -0.5deg;
+	}
+
+	.timetable {
+		--tilt: 0.8deg;
+		margin-top: 1.75rem;
 	}
 
 	.tickets {
 		grid-template-columns: minmax(0, 1fr);
 	}
 
-	.timetable {
-		margin-top: 1.75rem;
-		transform: rotate(0.8deg);
+	.tt-next {
+		grid-template-columns: auto minmax(0, 1fr);
 	}
 
-	.timetable-head {
-		flex-wrap: wrap;
-		gap: 0.25rem 1rem;
+	.tt-next-when {
+		grid-column: 2;
+		grid-row: auto;
+		font-size: 1.1rem;
 	}
 
 	.timetable-grid {
@@ -678,13 +1014,14 @@
 	}
 
 	.tt-day.is-today,
-	.tt-course.is-today {
+	.tt-course.is-today,
+	.tt-now {
 		grid-column: 2 !important;
 	}
 
 	.tt-day.is-today {
-		text-align: left;
-		padding-left: 0.45rem;
+		justify-self: start;
+		margin-left: 0.3rem;
 	}
 
 	.tt-course strong {
@@ -696,14 +1033,13 @@
 		font-size: 0.88rem;
 	}
 
-	.tt-course .scribble {
-		left: auto;
-		right: 0.25rem;
-		top: -1.55rem;
-	}
-
 	.matrix table {
 		font-size: 0.9rem;
+	}
+
+	.matrix thead th {
+		font-size: 0.72rem;
+		padding-inline: 0.2rem;
 	}
 
 	.showcase {
@@ -722,20 +1058,84 @@
 	.shot figcaption {
 		font-size: 1.15rem;
 	}
+}
 
-	.matrix thead th {
-		font-size: 0.72rem;
-		padding-inline: 0.2rem;
+/* ------------------------------------------------------------------
+   Arrivée : les feuilles se posent en tournant légèrement, puis les
+   punaises et le scotch, puis les cours de l'exemple en cascade.
+   ------------------------------------------------------------------ */
+.notice {
+	animation: sheet-in 650ms var(--ease) backwards;
+}
+
+.timetable {
+	animation: sheet-in 650ms var(--ease) 120ms backwards;
+}
+
+@keyframes sheet-in {
+	from {
+		opacity: 0;
+		translate: 0 18px;
+		rotate: calc(var(--tilt) * 2.2);
+	}
+}
+
+.board-hero .pin {
+	animation: pin-in 460ms var(--spring) 560ms backwards;
+}
+
+@keyframes pin-in {
+	from {
+		opacity: 0;
+		translate: 0 -10px;
+		scale: 1.4;
+	}
+}
+
+.timetable > .tape {
+	animation: tape-stick 380ms var(--ease) 640ms backwards;
+}
+
+.tt-course {
+	animation: card-in 380ms var(--ease) backwards;
+	animation-delay: calc(350ms + var(--i, 0) * 60ms);
+}
+
+.tt-day.is-today strong {
+	animation: pop-in 420ms var(--spring) 300ms backwards;
+}
+
+.tt-now {
+	animation: card-in 380ms var(--ease) 900ms backwards;
+}
+
+/* Les sections plus bas apparaissent en défilant (navigateurs compatibles uniquement, sans JS). */
+@supports (animation-timeline: view()) {
+	@media (prefers-reduced-motion: no-preference) {
+		.showcase > *,
+		.board-row > * {
+			animation: reveal linear both;
+			animation-timeline: view();
+			animation-range: entry 5% cover 25%;
+		}
+	}
+}
+
+@keyframes reveal {
+	from {
+		opacity: 0;
+		translate: 0 32px;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.tt-course .marker,
-	.tt-course .scribble {
+	.tt-course .marker {
 		animation: none;
 	}
 
-	.ticket,
+	.board .sheet,
+	.board .shot,
+	.board .ticket,
 	.board-tool {
 		transition: none;
 	}

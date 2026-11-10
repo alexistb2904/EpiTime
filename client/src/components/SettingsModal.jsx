@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowUpRight, RefreshCw } from "lucide-react";
+import { ArrowUpRight, RefreshCw, Settings } from "lucide-react";
 import Modal from "./Modal";
 import { useUniqueUsers } from "../hooks/useUniqueUsers";
 import {
@@ -33,21 +33,17 @@ const SettingsModal = ({ onClose }) => {
 	};
 
 	return (
-		<Modal className="settings-sheet paper-lilac" title="Paramètres" onClose={onClose}>
+		<Modal className="settings-sheet" hue={285} icon={<Settings size={18} strokeWidth={2.2} />} title="Paramètres" onClose={onClose}>
 			<section className="settings-block">
 				<div className="settings-row">
 					<div>
 						<h3>Mesure d'audience auto-hébergée</h3>
-						<p>Mesure d'usage limitée, après ton accord : un identifiant aléatoire local par navigateur. Aucun nom, e-mail, identifiant de compte ou jeton n'est transmis à Rybbit.</p>
+						<p>
+							Mesure d'usage limitée, après ton accord : un identifiant aléatoire local par navigateur. Aucun nom, e-mail, identifiant de compte ou jeton n'est
+							transmis à Rybbit.
+						</p>
 					</div>
-					<input
-						type="checkbox"
-						role="switch"
-						className="switch"
-						checked={analyticsEnabled}
-						onChange={handleToggleAnalytics}
-						aria-label="Mesure d'audience"
-					/>
+					<input type="checkbox" role="switch" className="switch" checked={analyticsEnabled} onChange={handleToggleAnalytics} aria-label="Mesure d'audience" />
 				</div>
 				<ul className="settings-facts">
 					<li>Authentification via Microsoft (EPITA).</li>
@@ -93,7 +89,7 @@ const SettingsModal = ({ onClose }) => {
 			<section className="settings-block settings-disclaimer">
 				<h3>Projet étudiant indépendant</h3>
 				<p>
-					Développé par un étudiant d'EPITA dans un cadre personnel. <strong>Non affilié</strong> à Zeus (plateforme officielle), IONIS Education Group ni EPITA.
+					Développé par des étudiants d'EPITA dans un cadre personnel. <strong>Non affilié</strong> à Zeus (plateforme officielle), IONIS Education Group ni EPITA.
 				</p>
 			</section>
 
@@ -101,6 +97,12 @@ const SettingsModal = ({ onClose }) => {
 				Version 1.5.0 · Code source sur{" "}
 				<a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">
 					GitHub
+				</a>
+			</p>
+			<p className="modal-hint">
+				Conçu et développé par{" "}
+				<a href="https://alexistb.com" target="_blank" rel="noopener noreferrer">
+					Alexis Thierry-Bellefond
 				</a>
 			</p>
 		</Modal>

@@ -1,4 +1,3 @@
-/* Bannière d'installation : une feuille posée en bas du panneau, comme la bannière cookies. */
 .pwa-install-banner {
 	position: fixed;
 	left: 16px;
@@ -11,12 +10,12 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: 1rem 1.5rem;
-	padding: 1rem 1.1rem;
-	border: 1.5px solid var(--rule-strong);
-	border-radius: 6px;
+	padding: 1.1rem 1.35rem;
+	border: 0;
+	border-radius: var(--r-lg);
 	background: var(--sheet);
 	color: var(--ink);
-	box-shadow: var(--lift);
+	box-shadow: var(--lift-hover);
 	animation: pwa-rise 0.32s var(--ease);
 }
 
@@ -35,9 +34,8 @@
 .pwa-banner-title {
 	margin-bottom: 0.2rem;
 	font-size: 1.1rem;
-	font-weight: 850;
-	font-stretch: 75%;
-	text-transform: uppercase;
+	font-weight: 800;
+	font-stretch: 88%;
 }
 
 .pwa-banner-text {
@@ -64,10 +62,10 @@
 	align-items: center;
 	justify-content: center;
 	min-height: 40px;
-	padding: 0.45rem 0.9rem;
-	border: 1.5px solid var(--ink);
-	border-radius: 4px;
-	background: transparent;
+	padding: 0.5rem 1.1rem;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: var(--fill);
 	color: var(--ink);
 	font-size: 0.92rem;
 	font-weight: 700;
@@ -79,16 +77,12 @@
 }
 
 .pwa-banner-btn.install {
-	background: var(--ink);
-	color: var(--sheet);
-}
-
-.pwa-banner-btn.dismiss {
-	border-color: var(--rule-strong);
+	background: var(--accent);
+	color: var(--accent-ink);
 }
 
 .pwa-banner-btn.dismiss:hover {
-	background: color-mix(in srgb, var(--ink) 7%, transparent);
+	background: var(--fill-strong);
 }
 
 @media (max-width: 640px) {
@@ -109,9 +103,9 @@ body.offline::after {
 	top: 8px;
 	left: 50%;
 	z-index: 9999;
-	padding: 0.3rem 0.8rem;
-	border: 1.5px solid var(--pen);
-	border-radius: 2px;
+	padding: 0.35rem 0.95rem;
+	border: 1.5px solid color-mix(in srgb, var(--pen) 50%, transparent);
+	border-radius: var(--r-pill);
 	background: var(--sheet);
 	color: var(--ink);
 	box-shadow: var(--lift);

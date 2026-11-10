@@ -2,7 +2,7 @@ import React from "react";
 import { useNotification } from "../context/NotificationContext";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import { trackEvent } from "../utils/analyticsTracker";
-import { AlertTriangle, Minus, Plus, RotateCcw, Send } from "lucide-react";
+import { AlertTriangle, Bell, Minus, Plus, RotateCcw, Send } from "lucide-react";
 import Modal from "./Modal";
 
 export const NotificationSettings = ({ onClose, userEmail, userGroups = [] }) => {
@@ -27,7 +27,6 @@ export const NotificationSettings = ({ onClose, userEmail, userGroups = [] }) =>
 
 		setProblem("");
 		if (!notificationSettings.enabled) {
-			// Activer : demander permission d'abord
 			if (!("Notification" in window)) {
 				trackEvent("notification_permission_result", { result: "unsupported", source: "notification_settings" });
 				setProblem("Ton navigateur ne gère pas les notifications. Installe l'app Android ou iPhone pour recevoir les rappels.");
@@ -102,7 +101,7 @@ export const NotificationSettings = ({ onClose, userEmail, userGroups = [] }) =>
 	const dayCount = notificationSettings.selectedDays.length;
 
 	return (
-		<Modal className="notif-sheet paper-orange" title="Rappels de cours" onClose={onClose}>
+		<Modal className="notif-sheet" hue={350} icon={<Bell size={18} strokeWidth={2.2} />} title="Rappels de cours" onClose={onClose}>
 			<div className="settings-row">
 				<div>
 					<h3>Notifications avant chaque cours</h3>

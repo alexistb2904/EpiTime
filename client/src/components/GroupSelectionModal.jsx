@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, Users } from "lucide-react";
 import Modal from "./Modal";
 
 const getExpandableIdsFromTree = (nodes) => {
@@ -92,13 +92,17 @@ const GroupSelectionModal = ({ onClose, filteredGroupTree, selectedGroups, onTog
 
 	return (
 		<Modal
-			className="groups-sheet paper-sky"
+			className="groups-sheet"
+			hue={265}
+			icon={<Users size={18} strokeWidth={2.2} />}
 			title="Mes groupes"
 			onClose={onClose}
 			footer={
 				<>
 					<span className="modal-foot-note">
-						{selectedGroups.length === 0 ? "Aucun groupe coché" : `${selectedGroups.length} groupe${selectedGroups.length > 1 ? "s" : ""} coché${selectedGroups.length > 1 ? "s" : ""}`}
+						{selectedGroups.length === 0
+							? "Aucun groupe coché"
+							: `${selectedGroups.length} groupe${selectedGroups.length > 1 ? "s" : ""} coché${selectedGroups.length > 1 ? "s" : ""}`}
 					</span>
 					<button type="button" className="ticket is-ink is-compact" onClick={onValidate}>
 						<span className="ticket-stub">
@@ -110,7 +114,14 @@ const GroupSelectionModal = ({ onClose, filteredGroupTree, selectedGroups, onTog
 					</button>
 				</>
 			}>
-			<input className="input" type="search" placeholder="Rechercher un groupe (ex. ING1, SCIA…)" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} aria-label="Rechercher un groupe" />
+			<input
+				className="input"
+				type="search"
+				placeholder="Rechercher un groupe (ex. ING1, SCIA…)"
+				value={groupSearch}
+				onChange={(e) => setGroupSearch(e.target.value)}
+				aria-label="Rechercher un groupe"
+			/>
 			{filteredGroupTree.length > 0 ? (
 				<ul className="tree tree-root">
 					{filteredGroupTree.map((root) => (

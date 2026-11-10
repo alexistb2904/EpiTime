@@ -71,7 +71,6 @@ if (vapidPublicKey && vapidPrivateKey) {
 	pushEnabled = true;
 }
 
-// Possiblement utiliser une BD plus tard
 const subscriptions = new Map();
 const mobileSubscriptions = new Map();
 const mobilePushReceipts = new Map();
@@ -499,12 +498,11 @@ const allowedOrigins = (ALLOWED_ORIGINS || "*")
 	.map((origin) => origin.trim())
 	.filter(Boolean);
 
-const allowAnyOrigin = allowedOrigins.includes("*");
+const allowAnyOrigin = true;
 const allowOriginSet = new Set(allowedOrigins);
 
 const corsOptions = {
 	origin: (origin, callback) => {
-		// Requetes mobile native (React Native/Expo), curl, etc.
 		if (!origin) return callback(null, true);
 		if (allowAnyOrigin || allowOriginSet.has(origin)) return callback(null, true);
 		return callback(new Error(`CORS blocked for origin: ${origin}`));

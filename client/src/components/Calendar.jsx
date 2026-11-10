@@ -15,7 +15,8 @@ import { fetchApi } from "../utils/api";
 import { getDisplayedGroupNames } from "../utils/calendarGroups";
 import { courseHue } from "../utils/courseColor";
 import { buildCalendarFilterParams, buildEffectiveCalendarFilters } from "../utils/calendarFilters";
-import { AlertTriangle, ArrowLeft, ChevronRight, Laptop, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, ClipboardCheck, Laptop, Users } from "lucide-react";
+import { isExamEvent } from "../utils/courseType";
 import "./Calendar.css";
 
 const formatTime = (date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -148,12 +149,8 @@ const Calendar = () => {
 	}, [selectedGroups]);
 
 	const calendarFilters = useMemo(
-		() =>
-			buildEffectiveCalendarFilters(
-				{ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers },
-				scheduleContext,
-			),
-		[scheduleContext, selectedGroups, selectedRooms, selectedTeachers],
+		() => buildEffectiveCalendarFilters({ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers }, scheduleContext),
+		[scheduleContext, selectedGroups, selectedRooms, selectedTeachers]
 	);
 
 	const hasCalendarFilter = calendarFilters.groups.length > 0 || calendarFilters.rooms.length > 0 || calendarFilters.teachers.length > 0;
@@ -425,13 +422,13 @@ const Calendar = () => {
 	}, [groups, groupSearch]);
 
 	const { processedEvents, gridStart, gridEnd } = useMemo(() => {
-		let minHour = 8;
-		let maxHour = 19;
+		let minHour = 7;
+		const maxHour = 24;
 		const items = events.map((ev) => {
 			const start = new Date(ev.startDate);
 			const end = new Date(ev.endDate);
 			const startDay = new Date(start).setHours(0, 0, 0, 0);
-			const endDay = new Date(end).setHours(0, 0, 0, 0);
+			const endDay = new Date(end.getTime() - 1).setHours(0, 0, 0, 0);
 			const isMultiDay = endDay > startDay;
 			const item = {
 				...ev,
@@ -444,15 +441,14 @@ const Calendar = () => {
 				isMultiDay,
 			};
 			if (!isMultiDay) {
+				const endsAtMidnight = new Date(end).setHours(0, 0, 0, 0) > startDay;
 				item.startHour = start.getHours() + start.getMinutes() / 60;
-				item.endHour = end.getHours() + end.getMinutes() / 60;
+				item.endHour = endsAtMidnight ? 24 : end.getHours() + end.getMinutes() / 60;
 				minHour = Math.min(minHour, Math.floor(item.startHour));
-				maxHour = Math.max(maxHour, Math.ceil(item.endHour));
 			}
 			return item;
 		});
 
-		// Colonnes côte à côte pour les cours qui commencent à la même heure.
 		const byStart = new Map();
 		items
 			.filter((ev) => !ev.isMultiDay)
@@ -465,14 +461,13 @@ const Calendar = () => {
 			box.forEach((ev, index) => {
 				ev.column = index;
 				ev.totalColumns = box.length;
-			}),
+			})
 		);
 
 		const total = maxHour - minHour;
 		items.forEach((ev) => {
 			if (ev.isMultiDay) return;
 			const width = 100 / ev.totalColumns;
-			// 2px de marge papier autour de chaque cellule.
 			ev.style = {
 				top: `calc(${((ev.startHour - minHour) / total) * 100}% + 2px)`,
 				height: `calc(${((ev.endHour - ev.startHour) / total) * 100}% - 4px)`,
@@ -490,6 +485,10 @@ const Calendar = () => {
 		return processedEvents.find((ev) => !isEventCancelled(ev) && ev.endTime > now.getTime()) || null;
 	}, [processedEvents, isCurrentWeek, now]);
 	const nextKey = nextEvent ? getEventCacheKey(nextEvent) : null;
+	const weekExams = useMemo(
+		() => processedEvents.filter((ev) => isExamEvent(ev) && !isEventCancelled(ev) && (!isCurrentWeek || ev.endTime > now.getTime())),
+		[processedEvents, isCurrentWeek, now]
+	);
 
 	const handleNav = (delta) => {
 		setCurrentDate(addDays(currentDate, delta * 7));
@@ -555,12 +554,19 @@ const Calendar = () => {
 		trackEvent("calendar_view_changed", { view_mode: mode });
 	};
 
-	const roomNames = (ev) => ev.rooms?.map((r) => r.name).filter(Boolean).join(", ");
+	const roomNames = (ev) =>
+		ev.rooms
+			?.map((r) => r.name)
+			.filter(Boolean)
+			.join(", ");
+	const placeLabel = (ev) => [roomNames(ev), ev.isOnline && "En ligne"].filter(Boolean).join(" · ");
 	const isNextEvent = (ev) => getEventCacheKey(ev) === nextKey;
-	// Le surligneur passe sur le nom du prochain cours, comme un vrai trait de fluo.
 	const courseTitle = (ev) => (isNextEvent(ev) ? <mark className="marker">{ev.name || ev.typeName}</mark> : ev.name || ev.typeName);
 	const courseClass = (ev, base) =>
-		[base, isEventCancelled(ev) && "is-cancelled", getEventCacheKey(ev) === nextKey && "is-next"].filter(Boolean).join(" ");
+		[base, isEventCancelled(ev) && "is-cancelled", getEventCacheKey(ev) === nextKey && "is-next", isExamEvent(ev) && "is-exam", ev.isOnline && "is-online"]
+			.filter(Boolean)
+			.join(" ");
+	const examTag = (ev) => isExamEvent(ev) && <span className="exam-tag">Examen</span>;
 
 	const weekDays = [...Array(7)].map((_, i) => addDays(weekStart, i));
 	const eventsOnDay = (day) => {
@@ -568,16 +574,35 @@ const Calendar = () => {
 		const dayEnd = addDays(day, 1).setHours(0, 0, 0, 0);
 		return processedEvents.filter((ev) => ev.startTime < dayEnd && ev.endTime > dayStart);
 	};
-	const hasWeekend = weekDays.slice(5).some((day) => eventsOnDay(day).length > 0);
-	const visibleDays = hasWeekend ? weekDays : weekDays.slice(0, 5);
+	const visibleDays = weekDays;
 	const selectedDay = visibleDays.find((day) => day.toDateString() === currentDate.toDateString()) || visibleDays[0];
 
 	const renderGrid = () => {
 		const days = isNarrow ? [selectedDay] : visibleDays;
 		const hours = [...Array(gridEnd - gridStart)].map((_, i) => gridStart + i);
-		const multiDay = days.map((day) => eventsOnDay(day).filter((ev) => ev.isMultiDay));
-		const hasMultiDay = multiDay.some((list) => list.length > 0);
 		const nowHour = now.getHours() + now.getMinutes() / 60;
+
+		const dayStarts = days.map((day) => new Date(day).setHours(0, 0, 0, 0));
+		const laneEnds = [];
+		const spans = [];
+		processedEvents
+			.filter((ev) => ev.isMultiDay)
+			.forEach((ev) => {
+				const startDay = new Date(ev.startTime).setHours(0, 0, 0, 0);
+				const endDay = new Date(ev.endTime - 1).setHours(0, 0, 0, 0);
+				const first = dayStarts.findIndex((ts) => ts >= startDay);
+				let last = -1;
+				dayStarts.forEach((ts, index) => {
+					if (ts <= endDay) last = index;
+				});
+				if (first === -1 || last < first) return;
+				let lane = laneEnds.findIndex((end) => end < first);
+				if (lane === -1) lane = laneEnds.length;
+				laneEnds[lane] = last;
+				spans.push({ ev, first, last, lane, before: startDay < dayStarts[first], after: endDay > dayStarts[last] });
+			});
+		const blockedHue = days.map((_, index) => spans.find((span) => !isEventCancelled(span.ev) && span.first <= index && span.last >= index)?.ev.hue);
+		const shortDate = (date) => date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }).replace(".", "");
 
 		return (
 			<div className="planner" style={{ "--hours": gridEnd - gridStart, "--days": days.length }}>
@@ -613,22 +638,25 @@ const Calendar = () => {
 					</div>
 				)}
 
-				{hasMultiDay && (
-					<div className="planner-allday">
+				{spans.length > 0 && (
+					<div className="planner-allday" style={{ "--lanes": laneEnds.length }}>
 						<span className="planner-allday-label">Journée</span>
-						{multiDay.map((list, index) => (
-							<div key={index} className="planner-allday-col">
-								{list.map((ev) => (
-									<button
-										type="button"
-										key={getEventCacheKey(ev)}
-										className={courseClass(ev, "allday-course")}
-										style={{ "--h": ev.hue }}
-										onClick={() => handleEventClick(ev)}>
-										{courseTitle(ev)}
-									</button>
-								))}
-							</div>
+						{spans.map(({ ev, first, last, lane, before, after }) => (
+							<button
+								type="button"
+								key={getEventCacheKey(ev)}
+								className={[courseClass(ev, "allday-course"), before && "goes-before", after && "goes-after"].filter(Boolean).join(" ")}
+								style={{ "--h": ev.hue, "--col": first, gridColumn: `${first + 2} / ${last + 3}`, gridRow: lane + 1 }}
+								onClick={() => handleEventClick(ev)}>
+								{before && <ChevronLeft size={15} strokeWidth={2.4} aria-label="Commence avant" />}
+								{examTag(ev)}
+								{ev.isOnline && <Laptop size={13} strokeWidth={2.2} aria-label="En ligne" />}
+								<span className="allday-title">{courseTitle(ev)}</span>
+								<span className="allday-dates">
+									{shortDate(ev.startObj)} → {shortDate(new Date(ev.endTime - 1))}
+								</span>
+								{after && <ChevronRight size={15} strokeWidth={2.4} aria-label="Continue après" />}
+							</button>
 						))}
 					</div>
 				)}
@@ -641,11 +669,14 @@ const Calendar = () => {
 							</span>
 						))}
 					</div>
-					{days.map((day) => {
+					{days.map((day, dayIndex) => {
 						const isToday = day.toDateString() === now.toDateString();
 						const dayEvents = processedEvents.filter((ev) => !ev.isMultiDay && ev.dateKey === day.toDateString());
 						return (
-							<div key={day.toDateString()} className="planner-col">
+							<div
+								key={day.toDateString()}
+								className={`planner-col ${blockedHue[dayIndex] !== undefined && dayEvents.length === 0 ? "is-blocked" : ""}`}
+								style={{ "--col": dayIndex, "--h": blockedHue[dayIndex] }}>
 								{isToday && nowHour >= gridStart && nowHour < gridEnd && (
 									<div className="now-line" style={{ top: `${((nowHour - gridStart) / (gridEnd - gridStart)) * 100}%` }} title={`Il est ${formatTime(now)}`} />
 								)}
@@ -658,12 +689,13 @@ const Calendar = () => {
 											className={courseClass(ev, "course")}
 											style={{ ...ev.style, "--h": ev.hue }}
 											onClick={() => handleEventClick(ev)}>
+											{examTag(ev)}
 											<span className="course-time">
 												{formatTime(ev.startObj)}–{formatTime(ev.endObj)}
 												{ev.isOnline && <Laptop size={13} strokeWidth={2.2} aria-label="En ligne" />}
 											</span>
 											<strong className="course-name">{courseTitle(ev)}</strong>
-											{roomNames(ev) && <span className="course-room">{roomNames(ev)}</span>}
+											{placeLabel(ev) && <span className="course-room">{placeLabel(ev)}</span>}
 											{groupNames.length > 0 && <span className="course-room">{groupNames.join(", ")}</span>}
 											{isEventCancelled(ev) && <span className="hand course-note">annulé</span>}
 										</button>
@@ -705,10 +737,10 @@ const Calendar = () => {
 								{isToday && <span className="hand agenda-today">aujourd'hui</span>}
 							</h2>
 							<ol>
-								{items.map((ev) => {
+								{items.map((ev, rowIndex) => {
 									const teachers = ev.teachers?.map((t) => `${t.firstname || ""} ${t.name || ""}`.trim()).filter(Boolean);
 									return (
-										<li key={getEventCacheKey(ev)}>
+										<li key={getEventCacheKey(ev)} style={{ "--i": rowIndex }}>
 											<button type="button" className={courseClass(ev, "agenda-row")} style={{ "--h": ev.hue }} onClick={() => handleEventClick(ev)}>
 												<span className="agenda-time">
 													{ev.isMultiDay ? (
@@ -724,10 +756,9 @@ const Calendar = () => {
 													)}
 												</span>
 												<span className="agenda-main">
+													{examTag(ev)}
 													<strong>{courseTitle(ev)}</strong>
-													<span>
-														{[roomNames(ev), ev.isOnline && "En ligne", teachers?.join(", ")].filter(Boolean).join(" · ") || "Salle non précisée"}
-													</span>
+													<span>{[placeLabel(ev), teachers?.join(", ")].filter(Boolean).join(" · ") || "Salle non précisée"}</span>
 												</span>
 												{isEventCancelled(ev) && <span className="hand agenda-note">annulé</span>}
 											</button>
@@ -795,7 +826,7 @@ const Calendar = () => {
 				/>
 
 				<main className="app-main">
-					{(scheduleContext.type !== "group" || nextEvent || error) && (
+					{(scheduleContext.type !== "group" || nextEvent || weekExams.length > 0 || error) && (
 						<div className="app-notes">
 							{scheduleContext.type !== "group" && (
 								<div className="context-note paper-lilac">
@@ -808,15 +839,40 @@ const Calendar = () => {
 								</div>
 							)}
 							{nextEvent && (
-								<button type="button" className="next-up paper-orange" onClick={() => handleEventClick(nextEvent)}>
-									<span className="next-up-label">{nextEvent.startObj <= now ? "En cours" : "Prochain cours"}</span>
+								<button type="button" className={`next-up paper-sky ${isExamEvent(nextEvent) ? "is-exam" : ""}`} onClick={() => handleEventClick(nextEvent)}>
+									<span className="next-up-label">
+										{isExamEvent(nextEvent)
+											? nextEvent.startObj <= now
+												? "Examen en cours"
+												: "Prochain examen"
+											: nextEvent.startObj <= now
+												? "En cours"
+												: "Prochain cours"}
+									</span>
 									<span className="next-up-time">{formatTime(nextEvent.startObj)}</span>
 									<span className="next-up-main">
 										<strong>{nextEvent.name || nextEvent.typeName}</strong>
-										<span>{roomNames(nextEvent) || (nextEvent.isOnline ? "En ligne" : "Salle non précisée")}</span>
+										<span>{placeLabel(nextEvent) || "Salle non précisée"}</span>
 									</span>
 									<span className="hand next-up-when">← {formatRelative(nextEvent, now)}</span>
 								</button>
+							)}
+							{weekExams.length > 0 && (
+								<div className="exam-note" role="status">
+									<ClipboardCheck size={20} strokeWidth={2.2} aria-hidden="true" />
+									<strong>{weekExams.length === 1 ? "Examen cette semaine" : `${weekExams.length} examens cette semaine`}</strong>
+									<span className="exam-note-list">
+										{weekExams.slice(0, 3).map((ev) => (
+											<button key={getEventCacheKey(ev)} type="button" className="exam-chip" onClick={() => handleEventClick(ev)}>
+												<span>{ev.name || ev.typeName}</span>
+												<time dateTime={ev.startObj.toISOString()}>
+													{ev.startObj.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")} {formatTime(ev.startObj)}
+												</time>
+											</button>
+										))}
+										{weekExams.length > 3 && <span className="exam-note-more">+{weekExams.length - 3}</span>}
+									</span>
+								</div>
 							)}
 							{error && (
 								<div className="error-note" role="alert">

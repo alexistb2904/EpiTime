@@ -39,7 +39,10 @@ const CalendarHeader = ({ weekStart, isOnToday, handleNav, goToToday, viewMode, 
 		</div>
 
 		<h1 className="app-title" aria-live="polite">
-			{formatWeekLabel(weekStart).label} <span className="app-title-year">{formatWeekLabel(weekStart).year}</span>
+			{/* La clé relance la petite entrée du titre à chaque changement de semaine. */}
+			<span key={weekStart.getTime()} className="app-title-text">
+				{formatWeekLabel(weekStart).label} <span className="app-title-year">{formatWeekLabel(weekStart).year}</span>
+			</span>
 		</h1>
 
 		<div className="app-actions">
