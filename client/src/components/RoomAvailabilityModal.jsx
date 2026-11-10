@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CalendarDays, Check, MapPin, Minus, Plus, Search, X } from "lucide-react";
+import Modal from "./Modal";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi } from "../utils/api";
 
@@ -163,19 +165,21 @@ const enforceKbTree = (tree = []) => {
 	return clean(dedupeRoots);
 };
 
-const LocationTree = ({ nodes, selectedLocation, onSelect, depth = 0 }) => {
-	return nodes.map((node) => (
-		<div key={node.id} className="rf-tree-node" style={{ marginLeft: `${depth * 16}px` }}>
-			<label className="rf-tree-row">
-				<input type="radio" name="location-filter" checked={selectedLocation === String(node.id)} onChange={() => onSelect(String(node.id))} />
-				<span>{node.name}</span>
-			</label>
-			{node.children?.length > 0 && <LocationTree nodes={node.children} selectedLocation={selectedLocation} onSelect={onSelect} depth={depth + 1} />}
-		</div>
-	));
-};
+const LocationTree = ({ nodes, selectedLocation, onSelect }) => (
+	<ul className="tree">
+		{nodes.map((node) => (
+			<li key={node.id} className="tree-node">
+				<label className="tree-row">
+					<input type="radio" name="location-filter" checked={selectedLocation === String(node.id)} onChange={() => onSelect(String(node.id))} />
+					<span>{node.name}</span>
+				</label>
+				{node.children?.length > 0 && <LocationTree nodes={node.children} selectedLocation={selectedLocation} onSelect={onSelect} />}
+			</li>
+		))}
+	</ul>
+);
 
-const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], onApplyRoomFilter }) => {
+const RoomAvailabilityModal = ({ onClose, zeusToken, selectedGroups = [], onApplyRoomFilter }) => {
 	const [durationMinutes, setDurationMinutes] = useState(30);
 
 	const [selectedLocation, setSelectedLocation] = useState("");
@@ -195,7 +199,7 @@ const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], 
 	const [hasSearched, setHasSearched] = useState(false);
 
 	useEffect(() => {
-		if (!show || !zeusToken) return;
+		if (!zeusToken) return;
 
 		const loadMeta = async () => {
 			setMetaLoading(true);
@@ -227,7 +231,7 @@ const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], 
 		};
 
 		loadMeta();
-	}, [show, zeusToken]);
+	}, [zeusToken]);
 
 	const availableRoomIds = useMemo(() => new Set(availableRooms.map((r) => r.id)), [availableRooms]);
 
@@ -314,153 +318,146 @@ const RoomAvailabilityModal = ({ show, onClose, zeusToken, selectedGroups = [], 
 		}
 	};
 
-	if (!show) return null;
+	const until = new Date(Date.now() + (Math.max(5, Number(durationMinutes)) || 30) * 60000);
 
 	return (
-		<div
-			className="modal-overlay"
-			onClick={(e) => {
-				if (e.target === e.currentTarget) onClose();
-			}}>
-			<div className="modal-content room-finder-modal" onClick={(e) => e.stopPropagation()}>
-				<div className="modal-header room-finder-header">
-					<h2>Disponibilité des salles</h2>
-					<button className="btn-icon" onClick={onClose}>
-						✕
-					</button>
-				</div>
-
-				<div className="modal-body room-finder-body">
-					<form className="room-finder-form" onSubmit={submitSearch}>
-						<div className="rf-grid">
-							<label className="rf-field">
-								<span>Durée (à partir de maintenant)</span>
-								<div className="rf-duration-counter">
-									<button type="button" onClick={() => setDurationMinutes((prev) => Math.max(5, Number(prev || 30) - 5))}>
-										−
-									</button>
-									<input type="number" min="5" step="5" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} />
-									<button type="button" onClick={() => setDurationMinutes((prev) => Math.min(24 * 60, Number(prev || 30) + 5))}>
-										+
-									</button>
-								</div>
-							</label>
-							<label className="rf-field">
-								<span>Salle à vérifier (optionnel)</span>
-								<select value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)}>
-									<option value="">Toutes les salles</option>
-									{rooms
-										.slice()
-										.sort((a, b) => a.name.localeCompare(b.name, "fr"))
-										.map((room) => (
-											<option key={room.id} value={room.id}>
-												{room.name} (cap. {room.capacity})
-											</option>
-										))}
-								</select>
-							</label>
-							<label className="rf-field">
-								<span>Type de salle</span>
-								<select value={selectedRoomType} onChange={(e) => setSelectedRoomType(e.target.value)}>
-									<option value="">Tous</option>
-									{roomTypes
-										.slice()
-										.sort((a, b) => getRoomTypeLabel(a.type).localeCompare(getRoomTypeLabel(b.type), "fr"))
-										.map((roomType) => (
-											<option key={roomType.id} value={roomType.id}>
-												{getRoomTypeLabel(roomType.type)}
-											</option>
-										))}
-								</select>
-							</label>
-							<label className="rf-field">
-								<span>Capacité minimum</span>
-								<input type="number" min="1" placeholder="ex: 25" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
-							</label>
-						</div>
-
-						<div className="rf-location-tree-card">
-							<div className="rf-location-head">
-								<span>Localisation</span>
-								<button type="button" className="rf-clear-link" onClick={() => setSelectedLocation("")}>
-									Tout réinitialiser
-								</button>
-							</div>
-							<div className="rf-tree-row rf-tree-partout">
-								<label>
-									<input type="radio" name="location-filter" checked={selectedLocation === ""} onChange={() => setSelectedLocation("")} />
-									<span>Partout</span>
-								</label>
-							</div>
-							<div className="rf-location-tree">
-								<LocationTree nodes={locationTree} selectedLocation={selectedLocation} onSelect={setSelectedLocation} />
-							</div>
-						</div>
-
-						<div className="rf-actions">
-							<button className="btn-primary" type="submit" disabled={searchLoading || metaLoading}>
-								{searchLoading ? "Recherche..." : "Voir les salles libres"}
+		<Modal className="rooms-sheet paper-mint" title="Salles libres" onClose={onClose}>
+			<form className="rooms-form" onSubmit={submitSearch}>
+				<div className="rooms-fields">
+					<div className="field">
+						<span id="rf-duration">Libre pendant</span>
+						<div className="stepper" role="group" aria-labelledby="rf-duration">
+							<button type="button" className="tool" onClick={() => setDurationMinutes((prev) => Math.max(5, Number(prev || 30) - 5))} aria-label="5 minutes de moins">
+								<Minus size={16} strokeWidth={2.4} aria-hidden="true" />
 							</button>
+							<input type="number" className="input" min="5" step="5" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} aria-label="Durée en minutes" />
+							<button type="button" className="tool" onClick={() => setDurationMinutes((prev) => Math.min(24 * 60, Number(prev || 30) + 5))} aria-label="5 minutes de plus">
+								<Plus size={16} strokeWidth={2.4} aria-hidden="true" />
+							</button>
+							<span>min, jusqu'à {until.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>
 						</div>
-					</form>
-
-					{metaLoading && <p className="rf-feedback">Chargement des options…</p>}
-					{error && <p className="rf-feedback rf-error">{error}</p>}
-
-					{selectedRoomStatus && (
-						<div className={`rf-status-card ${selectedRoomStatus === "free" ? "free" : "busy"}`}>
-							{selectedRoomStatus === "free" ? "✅ Cette salle est libre sur ce créneau" : "⛔ Cette salle n'est pas libre sur ce créneau"}
-						</div>
-					)}
-
-					{hasSearched && (
-						<div className="rf-results">
-							<h3>{availableRoomsSorted.length} salle(s) disponible(s)</h3>
-							{availableRoomsSorted.length === 0 ? (
-								<p className="rf-feedback">Aucune salle ne correspond à ces critères.</p>
-							) : (
-								<div className="rf-room-list">
-									{availableRoomsSorted.map((room) => {
-										const type = getRoomTypeLabel(roomTypes.find((rt) => rt.id === room.idRoomType)?.type || "Type inconnu");
-										return (
-											<article
-												key={room.id}
-												className="rf-room-card"
-												onClick={() => handlePickRoom(room)}
-												onKeyDown={(e) => {
-													if (e.key === "Enter" || e.key === " ") {
-														e.preventDefault();
-														handlePickRoom(room);
-													}
-												}}
-												role="button"
-												tabIndex={0}>
-												<div className="rf-room-title">{room.name}</div>
-												<div className="rf-room-meta">Capacité: {room.capacity}</div>
-												<div className="rf-room-meta">Type: {type}</div>
-												<div className="rf-room-actions">
-													<button
-														type="button"
-														className="rf-room-map-btn"
-														onClick={(e) => {
-															e.stopPropagation();
-															trackEvent("room_map_opened", { source: "room_search" });
-															window.open(getMapUrl(room, locationsRaw), "_blank", "noopener,noreferrer");
-														}}>
-														Voir la carte
-													</button>
-													<div className="rf-room-action">Cliquer pour filtrer le calendrier</div>
-												</div>
-											</article>
-										);
-									})}
-								</div>
-							)}
-						</div>
-					)}
+					</div>
+					<label className="field">
+						<span>Capacité minimum</span>
+						<input type="number" min="1" placeholder="ex. 25" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+					</label>
+					<label className="field">
+						<span>Type de salle</span>
+						<select value={selectedRoomType} onChange={(e) => setSelectedRoomType(e.target.value)}>
+							<option value="">Tous</option>
+							{roomTypes
+								.slice()
+								.sort((a, b) => getRoomTypeLabel(a.type).localeCompare(getRoomTypeLabel(b.type), "fr"))
+								.map((roomType) => (
+									<option key={roomType.id} value={roomType.id}>
+										{getRoomTypeLabel(roomType.type)}
+									</option>
+								))}
+						</select>
+					</label>
+					<label className="field">
+						<span>Vérifier une salle précise</span>
+						<select value={selectedRoom} onChange={(e) => setSelectedRoom(e.target.value)}>
+							<option value="">Aucune</option>
+							{rooms
+								.slice()
+								.sort((a, b) => a.name.localeCompare(b.name, "fr"))
+								.map((room) => (
+									<option key={room.id} value={room.id}>
+										{room.name} ({room.capacity} places)
+									</option>
+								))}
+						</select>
+					</label>
 				</div>
-			</div>
-		</div>
+
+				<fieldset className="rooms-where">
+					<legend className="label">Où</legend>
+					<ul className="tree tree-root">
+						<li className="tree-node">
+							<label className="tree-row">
+								<input type="radio" name="location-filter" checked={selectedLocation === ""} onChange={() => setSelectedLocation("")} />
+								<span>Partout</span>
+							</label>
+						</li>
+					</ul>
+					<LocationTree nodes={locationTree} selectedLocation={selectedLocation} onSelect={setSelectedLocation} />
+				</fieldset>
+
+				<button className="ticket is-ink is-compact rooms-submit" type="submit" disabled={searchLoading || metaLoading}>
+					<span className="ticket-stub">{searchLoading ? <span className="ticket-spinner" /> : <Search size={18} strokeWidth={2.4} aria-hidden="true" />}</span>
+					<span className="ticket-text">
+						<strong>{searchLoading ? "Recherche…" : metaLoading ? "Chargement des salles…" : "Voir les salles libres"}</strong>
+					</span>
+				</button>
+			</form>
+
+			{error && (
+				<p className="pen-note" role="alert">
+					<AlertTriangle size={18} strokeWidth={2.2} aria-hidden="true" />
+					{error}
+				</p>
+			)}
+
+			{selectedRoomStatus && (
+				<p className={`room-status ${selectedRoomStatus}`}>
+					{selectedRoomStatus === "free" ? <Check size={18} strokeWidth={2.4} aria-hidden="true" /> : <X size={18} strokeWidth={2.4} aria-hidden="true" />}
+					{selectedRoomStatus === "free" ? "Cette salle est libre sur ce créneau." : "Cette salle n'est pas libre sur ce créneau."}
+				</p>
+			)}
+
+			{hasSearched && (
+				<section className="rooms-results" aria-live="polite">
+					<h3>
+						{availableRoomsSorted.length === 0
+							? "Aucune salle libre"
+							: `${availableRoomsSorted.length} salle${availableRoomsSorted.length > 1 ? "s" : ""} libre${availableRoomsSorted.length > 1 ? "s" : ""}`}
+					</h3>
+					{availableRoomsSorted.length === 0 ? (
+						<p className="modal-hint">Aucune salle ne correspond. Essaie une durée plus courte ou un autre bâtiment.</p>
+					) : (
+						<table className="rooms-table">
+							<thead>
+								<tr>
+									<th scope="col">Salle</th>
+									<th scope="col">Places</th>
+									<th scope="col" className="rooms-type">Type</th>
+									<th scope="col">
+										<span className="visually-hidden">Actions</span>
+									</th>
+								</tr>
+							</thead>
+							<tbody>
+								{availableRoomsSorted.map((room) => (
+									<tr key={room.id}>
+										<th scope="row">{room.name}</th>
+										<td>{room.capacity}</td>
+										<td className="rooms-type">{getRoomTypeLabel(roomTypes.find((rt) => rt.id === room.idRoomType)?.type || "Type inconnu")}</td>
+										<td>
+											<span className="rooms-actions">
+												<a
+													className="btn is-small"
+													href={getMapUrl(room, locationsRaw)}
+													target="_blank"
+													rel="noopener noreferrer"
+													onClick={() => trackEvent("room_map_opened", { source: "room_search" })}>
+													<MapPin size={14} strokeWidth={2.2} aria-hidden="true" />
+													Plan
+												</a>
+												<button type="button" className="btn is-small" onClick={() => handlePickRoom(room)}>
+													<CalendarDays size={14} strokeWidth={2.2} aria-hidden="true" />
+													Planning
+												</button>
+											</span>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					)}
+				</section>
+			)}
+		</Modal>
 	);
 };
 

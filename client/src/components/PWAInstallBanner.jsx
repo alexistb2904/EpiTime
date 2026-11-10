@@ -20,7 +20,7 @@ export function PWAInstallBanner({ show, installMethod, onInstall, onDismiss, is
 	return (
 		<div className="pwa-install-banner show">
 			<div className="pwa-banner-content">
-				<div className="pwa-banner-title">📱 Installer EpiTime</div>
+				<div className="pwa-banner-title">Installer EpiTime</div>
 
 				<div className="pwa-banner-text">
 					{isIOS

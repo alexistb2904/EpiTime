@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Check, ChevronRight } from "lucide-react";
+import Modal from "./Modal";
 
 const getExpandableIdsFromTree = (nodes) => {
 	const ids = [];
@@ -14,65 +16,57 @@ const getExpandableIdsFromTree = (nodes) => {
 	return ids;
 };
 
-const GroupTreeItem = ({ group, selectedGroups, onToggle, depth = 0, expandedNodes, onToggleExpand, forceExpanded }) => {
+const GroupTreeItem = ({ group, selectedGroups, onToggle, expandedNodes, onToggleExpand, forceExpanded }) => {
 	const isSelected = selectedGroups.includes(group.id);
 	const hasChildren = group.children && group.children.length > 0;
 	const isExpanded = forceExpanded ? true : !!expandedNodes[group.id];
 
 	return (
-		<div className="group-tree-node" style={{ marginLeft: `${depth * 20}px` }}>
-			<div className={`group-checkbox-row ${isSelected ? "selected" : ""}`} style={{ "--group-color": group.color || "#ccc" }}>
+		<li className="tree-node">
+			<div className={`tree-row ${isSelected ? "is-selected" : ""}`}>
 				{hasChildren ? (
 					<button
 						type="button"
-						className={`group-expand-toggle ${isExpanded ? "expanded" : ""}`}
-						onClick={(e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							onToggleExpand(group.id);
-						}}
-						aria-label={isExpanded ? `Rétracter ${group.name}` : `Étendre ${group.name}`}>
-						▸
+						className={`tree-toggle ${isExpanded ? "is-open" : ""}`}
+						onClick={() => onToggleExpand(group.id)}
+						aria-expanded={isExpanded}
+						aria-label={isExpanded ? `Replier ${group.name}` : `Déplier ${group.name}`}>
+						<ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" />
 					</button>
 				) : (
-					<span className="group-expand-spacer" />
+					<span className="tree-toggle" aria-hidden="true" />
 				)}
-
-				<label className="group-checkbox-label">
+				<label>
 					<input type="checkbox" checked={isSelected} onChange={() => onToggle(group.id)} />
-					<span className="checkmark"></span>
-					<span className="group-name">{group.name}</span>
-					{group.color && <span className="color-dot" style={{ background: group.color }}></span>}
+					{group.color && <span className="swatch" style={{ background: group.color }} aria-hidden="true" />}
+					<span>{group.name}</span>
 				</label>
 			</div>
 
 			{hasChildren && isExpanded && (
-				<div className="group-children">
+				<ul className="tree">
 					{group.children.map((child) => (
 						<GroupTreeItem
 							key={child.id}
 							group={child}
 							selectedGroups={selectedGroups}
 							onToggle={onToggle}
-							depth={depth + 1}
 							expandedNodes={expandedNodes}
 							onToggleExpand={onToggleExpand}
 							forceExpanded={forceExpanded}
 						/>
 					))}
-				</div>
+				</ul>
 			)}
-		</div>
+		</li>
 	);
 };
 
-const GroupSelectionModal = ({ show, onClose, filteredGroupTree, selectedGroups, onToggle, groupSearch, setGroupSearch, onValidate }) => {
+const GroupSelectionModal = ({ onClose, filteredGroupTree, selectedGroups, onToggle, groupSearch, setGroupSearch, onValidate }) => {
 	const [expandedNodes, setExpandedNodes] = useState({});
 	const isSearching = useMemo(() => groupSearch.trim().length > 0, [groupSearch]);
 
 	useEffect(() => {
-		if (!show) return;
-
 		if (!isSearching) {
 			setExpandedNodes({});
 			return;
@@ -86,7 +80,7 @@ const GroupSelectionModal = ({ show, onClose, filteredGroupTree, selectedGroups,
 			});
 			return next;
 		});
-	}, [filteredGroupTree, isSearching, show]);
+	}, [filteredGroupTree, isSearching]);
 
 	const handleToggleExpand = (groupId) => {
 		if (isSearching) return;
@@ -96,36 +90,29 @@ const GroupSelectionModal = ({ show, onClose, filteredGroupTree, selectedGroups,
 		}));
 	};
 
-	if (!show) return null;
-
 	return (
-		<div
-			className="modal-overlay"
-			onClick={(e) => {
-				if (e.target === e.currentTarget) onClose();
-			}}>
-			<div className="modal-content" onClick={(e) => e.stopPropagation()}>
-				<div className="modal-header">
-					<h2>Choisir mes groupes</h2>
-					<button
-						className="btn-icon"
-						onClick={(e) => {
-							e.stopPropagation();
-							onClose();
-						}}>
-						✕
+		<Modal
+			className="groups-sheet paper-sky"
+			title="Mes groupes"
+			onClose={onClose}
+			footer={
+				<>
+					<span className="modal-foot-note">
+						{selectedGroups.length === 0 ? "Aucun groupe coché" : `${selectedGroups.length} groupe${selectedGroups.length > 1 ? "s" : ""} coché${selectedGroups.length > 1 ? "s" : ""}`}
+					</span>
+					<button type="button" className="ticket is-ink is-compact" onClick={onValidate}>
+						<span className="ticket-stub">
+							<Check size={18} strokeWidth={2.4} aria-hidden="true" />
+						</span>
+						<span className="ticket-text">
+							<strong>Afficher mon planning</strong>
+						</span>
 					</button>
-				</div>
-				<div style={{ padding: "0 2%" }}>
-					<input
-						style={{ marginBottom: "0" }}
-						className="search-input"
-						placeholder="Rechercher un groupe..."
-						value={groupSearch}
-						onChange={(e) => setGroupSearch(e.target.value)}
-					/>
-				</div>
-				<div className="modal-body group-tree-container">
+				</>
+			}>
+			<input className="input" type="search" placeholder="Rechercher un groupe (ex. ING1, SCIA…)" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} aria-label="Rechercher un groupe" />
+			{filteredGroupTree.length > 0 ? (
+				<ul className="tree tree-root">
 					{filteredGroupTree.map((root) => (
 						<GroupTreeItem
 							key={root.id}
@@ -137,14 +124,11 @@ const GroupSelectionModal = ({ show, onClose, filteredGroupTree, selectedGroups,
 							forceExpanded={isSearching}
 						/>
 					))}
-				</div>
-				<div className="modal-footer">
-					<button className="btn-primary" onClick={onValidate}>
-						Valider ({selectedGroups.length})
-					</button>
-				</div>
-			</div>
-		</div>
+				</ul>
+			) : (
+				<p className="modal-hint">{isSearching ? `Aucun groupe ne correspond à « ${groupSearch.trim()} ».` : "Chargement des groupes…"}</p>
+			)}
+		</Modal>
 	);
 };
 

@@ -4,13 +4,7 @@ const ThemeContext = createContext();
 
 const getInitialTheme = () => {
 	const stored = localStorage.getItem('zeus_theme');
-	if (stored) return stored;
-
-	if (typeof window !== 'undefined' && window.matchMedia) {
-		return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-	}
-
-	return 'light';
+	return stored || 'dark';
 };
 
 export const ThemeProvider = ({ children }) => {

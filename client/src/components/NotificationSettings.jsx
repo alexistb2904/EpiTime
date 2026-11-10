@@ -2,9 +2,11 @@ import React from "react";
 import { useNotification } from "../context/NotificationContext";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import { trackEvent } from "../utils/analyticsTracker";
-import "./NotificationSettings.css";
+import { AlertTriangle, Minus, Plus, RotateCcw, Send } from "lucide-react";
+import Modal from "./Modal";
 
-export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = [] }) => {
+export const NotificationSettings = ({ onClose, userEmail, userGroups = [] }) => {
+	const [problem, setProblem] = React.useState("");
 	const { notificationSettings, updateSettings } = useNotification();
 	const { sendTestNotification, registerPushNotifications, updateNotificationSettings } = usePushNotifications(userEmail, userGroups, notificationSettings);
 
@@ -23,17 +25,18 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 			next_state: !notificationSettings.enabled ? "enabled" : "disabled",
 		});
 
+		setProblem("");
 		if (!notificationSettings.enabled) {
 			// Activer : demander permission d'abord
 			if (!("Notification" in window)) {
 				trackEvent("notification_permission_result", { result: "unsupported", source: "notification_settings" });
-				alert("Les notifications ne sont pas supportées sur ce navigateur");
+				setProblem("Ton navigateur ne gère pas les notifications. Installe l'app Android ou iPhone pour recevoir les rappels.");
 				return;
 			}
 
 			if (Notification.permission === "denied") {
 				trackEvent("notification_permission_result", { result: "denied", source: "notification_settings" });
-				alert("Les notifications sont bloquées. Veuillez les autoriser dans les paramètres de votre navigateur.");
+				setProblem("Les notifications sont bloquées pour EpiTime. Autorise-les dans les réglages du site de ton navigateur, puis réessaie.");
 				return;
 			}
 
@@ -41,7 +44,7 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 				const permission = await Notification.requestPermission();
 				trackEvent("notification_permission_result", { result: permission, source: "notification_settings" });
 				if (permission !== "granted") {
-					alert("Permission de notification refusée");
+					setProblem("Autorisation refusée : sans elle, EpiTime ne peut pas t'envoyer de rappel.");
 					return;
 				}
 			} else {
@@ -54,7 +57,7 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 				source: "notification_settings",
 			});
 			if (!subscription) {
-				alert("Impossible d'enregistrer les notifications push");
+				setProblem("Impossible d'enregistrer les notifications push. Vérifie ta connexion et réessaie.");
 				return;
 			}
 		}
@@ -90,139 +93,109 @@ export const NotificationSettings = ({ isOpen, onClose, userEmail, userGroups = 
 		updateNotificationSettings({ ...notificationSettings, selectedDays: [] }, userGroups);
 	};
 
-	if (!isOpen) return null;
+	const step = (delta) => {
+		const value = Math.max(1, Math.min(120, notificationSettings.minuesBefore + delta));
+		updateSettings({ minuesBefore: value });
+		updateNotificationSettings({ ...notificationSettings, minuesBefore: value }, userGroups);
+	};
+
+	const dayCount = notificationSettings.selectedDays.length;
 
 	return (
-		<div className="modal-overlay" onClick={onClose}>
-			<div className="modal-content" onClick={(e) => e.stopPropagation()}>
-				<div className="modal-header">
-					<h2>⚙️ Paramètres des notifications</h2>
-					<button className="close-btn" onClick={onClose}>
-						✕
-					</button>
+		<Modal className="notif-sheet paper-orange" title="Rappels de cours" onClose={onClose}>
+			<div className="settings-row">
+				<div>
+					<h3>Notifications avant chaque cours</h3>
+					<p>Une alerte sur cet appareil avant le début de tes cours.</p>
 				</div>
-				<div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-					<div className="setting-group">
-						<div className="setting-row">
-							<label className="toggle-label">
-								<input type="checkbox" checked={notificationSettings.enabled} onChange={handleToggleEnabled} className="toggle-input" />
-								<span className="toggle-text">Activer les notifications</span>
-							</label>
+				<input type="checkbox" role="switch" className="switch" checked={notificationSettings.enabled} onChange={handleToggleEnabled} aria-label="Activer les notifications" />
+			</div>
+
+			{problem && (
+				<p className="pen-note" role="alert">
+					<AlertTriangle size={18} strokeWidth={2.2} aria-hidden="true" />
+					{problem}
+				</p>
+			)}
+
+			{notificationSettings.enabled && (
+				<>
+					<div className="notif-field">
+						<span className="label" id="notif-minutes">Prévenir</span>
+						<div className="stepper" role="group" aria-labelledby="notif-minutes">
+							<button type="button" className="tool" onClick={() => step(-5)} aria-label="5 minutes de moins">
+								<Minus size={16} strokeWidth={2.4} aria-hidden="true" />
+							</button>
+							<input type="number" className="input" value={notificationSettings.minuesBefore} onChange={handleMinutesChange} min="1" max="120" aria-label="Minutes avant le cours" />
+							<button type="button" className="tool" onClick={() => step(5)} aria-label="5 minutes de plus">
+								<Plus size={16} strokeWidth={2.4} aria-hidden="true" />
+							</button>
+							<span>min avant</span>
 						</div>
 					</div>
 
-					{notificationSettings.enabled && (
-						<>
-							<div className="setting-group">
-								<label className="setting-label">⏱️ Alerter avant (minutes)</label>
-								<div className="minutes-control">
-									<button className="minutes-btn" onClick={() => updateSettings({ minuesBefore: Math.max(1, notificationSettings.minuesBefore - 5) })}>
-										−
-									</button>
-									<input type="number" value={notificationSettings.minuesBefore} onChange={handleMinutesChange} className="minutes-input" min="1" max="120" />
-									<button className="minutes-btn" onClick={() => updateSettings({ minuesBefore: Math.min(120, notificationSettings.minuesBefore + 5) })}>
-										+
-									</button>
-								</div>
-								<small>Entre 1 et 120 minutes</small>
-							</div>
+					<fieldset className="notif-field">
+						<legend className="label">Alerte</legend>
+						<div className="seg">
+							{[
+								["banner", "Bannière"],
+								["sound", "Son"],
+								["both", "Bannière + son"],
+							].map(([value, label]) => (
+								<label key={value} className={notificationSettings.notificationType === value ? "is-on" : ""}>
+									<input type="radio" name="notificationType" value={value} checked={notificationSettings.notificationType === value} onChange={handleNotificationTypeChange} />
+									{label}
+								</label>
+							))}
+						</div>
+					</fieldset>
 
-							<div className="setting-group">
-								<label className="setting-label">🔔 Type de notification</label>
-								<div className="notification-type-options">
-									<label>
-										<input
-											type="radio"
-											name="notificationType"
-											value="banner"
-											checked={notificationSettings.notificationType === "banner"}
-											onChange={handleNotificationTypeChange}
-										/>
-										Bannière uniquement
-									</label>
-									<label>
-										<input
-											type="radio"
-											name="notificationType"
-											value="sound"
-											checked={notificationSettings.notificationType === "sound"}
-											onChange={handleNotificationTypeChange}
-										/>
-										Son uniquement
-									</label>
-									<label>
-										<input
-											type="radio"
-											name="notificationType"
-											value="both"
-											checked={notificationSettings.notificationType === "both"}
-											onChange={handleNotificationTypeChange}
-										/>
-										Bannière + Son
-									</label>
-								</div>
-							</div>
-
-							<div className="setting-group">
-								<label className="setting-label">📅 Jours d'alerte</label>
-								<div className="days-control">
-									<button className="quick-select-btn" onClick={handleSelectAllDays}>
-										Tous
+					<fieldset className="notif-field">
+						<legend className="label">Jours</legend>
+						<div className="days-row">
+							{daysOfWeek.map((day) => {
+								const on = notificationSettings.selectedDays.includes(day.value);
+								return (
+									<button key={day.value} type="button" className={`day-chip ${on ? "is-on" : ""}`} aria-pressed={on} onClick={() => handleDayToggle(day.value)}>
+										{day.label}
 									</button>
-									<button className="quick-select-btn" onClick={handleDeselectAllDays}>
-										Aucun
-									</button>
-								</div>
-								<div className="days-grid">
-									{daysOfWeek.map((day) => (
-										<button
-											key={day.value}
-											className={`day-btn ${notificationSettings.selectedDays.includes(day.value) ? "active" : ""}`}
-											onClick={() => handleDayToggle(day.value)}>
-											{day.label}
-										</button>
-									))}
-								</div>
-							</div>
+								);
+							})}
+							<button type="button" className="btn is-small" onClick={dayCount === 7 ? handleDeselectAllDays : handleSelectAllDays}>
+								{dayCount === 7 ? "Aucun" : "Tous"}
+							</button>
+						</div>
+					</fieldset>
 
-							<div className="setting-group summary">
-								<p>
-									📌 <strong>Résumé :</strong> Vous recevrez une notification <strong>{notificationSettings.minuesBefore} minutes</strong> avant chaque cours sur{" "}
-									<strong>{notificationSettings.selectedDays.length === 7 ? "tous les jours" : `${notificationSettings.selectedDays.length} jours`}</strong>.
-								</p>
-							</div>
+					<p className="notif-summary">
+						Rappel <strong>{notificationSettings.minuesBefore} min</strong> avant chaque cours,{" "}
+						<strong>{dayCount === 7 ? "tous les jours" : dayCount === 0 ? "aucun jour" : `${dayCount} jour${dayCount > 1 ? "s" : ""} sur 7`}</strong>.
+					</p>
 
-							<div className="setting-group">
-								<label className="setting-label">🧪 Test des notifications</label>
-								<div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-									<button
-										className="btn-test"
-										onClick={() => {
-											trackEvent("notification_test_sent", { type: "push" });
-											sendTestNotification("📚 Test - Notification Push", "Les notifications sont bien activées!");
-										}}>
-										Tester Push Notification
-									</button>
-									<button
-										className="btn-test"
-										onClick={() => {
-											trackEvent("notification_reactivate_clicked");
-											registerPushNotifications();
-										}}>
-										🔔 Réactiver notifications
-									</button>
-								</div>
-							</div>
-						</>
-					)}
-				</div>
-
-				<div className="modal-footer">
-					<button className="btn-primary" onClick={onClose}>
-						Fermer
-					</button>
-				</div>
-			</div>
-		</div>
+					<div className="notif-actions">
+						<button
+							type="button"
+							className="btn is-small"
+							onClick={() => {
+								trackEvent("notification_test_sent", { type: "push" });
+								sendTestNotification("Test EpiTime", "Les notifications sont bien activées.");
+							}}>
+							<Send size={15} strokeWidth={2.2} aria-hidden="true" />
+							Envoyer un test
+						</button>
+						<button
+							type="button"
+							className="btn is-small"
+							onClick={() => {
+								trackEvent("notification_reactivate_clicked");
+								registerPushNotifications();
+							}}>
+							<RotateCcw size={15} strokeWidth={2.2} aria-hidden="true" />
+							Réenregistrer cet appareil
+						</button>
+					</div>
+				</>
+			)}
+		</Modal>
 	);
 };

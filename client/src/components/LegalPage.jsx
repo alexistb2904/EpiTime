@@ -31,21 +31,20 @@ export default function LegalPage() {
 
 	return (
 		<main className="legal-page">
-			<div className="legal-orbit legal-orbit--one" aria-hidden="true" />
-			<div className="legal-orbit legal-orbit--two" aria-hidden="true" />
 			<div className="legal-shell">
 				<header className="legal-header">
 					<a className="legal-brand" href="/" aria-label="Retour à l'accueil EpiTime">
 						<img src="/icons/app_logo.png" alt="" />
 						<span>EpiTime</span>
 					</a>
-					<a className="legal-back" href="/">
+					<a className="btn is-small" href="/">
 						Retour à l'application
 					</a>
 				</header>
 
+				<article className="legal-sheet sheet">
+				<span className="tape" aria-hidden="true" />
 				<section className="legal-hero" aria-labelledby="legal-title">
-					<p className="legal-eyebrow">TRANSPARENCE &amp; DONNÉES</p>
 					<h1 id="legal-title">
 						Politique de confidentialité
 						<br />
@@ -65,7 +64,6 @@ export default function LegalPage() {
 
 				<section id="privacy" className="legal-section">
 					<div className="legal-section-intro">
-						<p className="legal-kicker">01 - Confidentialité</p>
 						<h2>Ce qu'EpiTime traite</h2>
 					</div>
 					<div className="legal-copy">
@@ -141,7 +139,6 @@ export default function LegalPage() {
 
 				<section id="cookies" className="legal-section legal-section--split">
 					<div className="legal-section-intro">
-						<p className="legal-kicker">02 - Cookies &amp; audience</p>
 						<h2>La mesure d'audience reste votre choix.</h2>
 					</div>
 					<div className="legal-copy">
@@ -167,10 +164,10 @@ export default function LegalPage() {
 								<span>{analyticsEnabled ? "Activée" : "Désactivée"}</span>
 							</div>
 							<div className="legal-consent-actions">
-								<button type="button" className="legal-button legal-button--outline" onClick={() => void updateAnalyticsConsent(false)}>
+								<button type="button" className="btn is-small" onClick={() => void updateAnalyticsConsent(false)}>
 									Refuser / retirer
 								</button>
-								<button type="button" className="legal-button" onClick={() => void updateAnalyticsConsent(true)}>
+								<button type="button" className="btn is-small is-ink" onClick={() => void updateAnalyticsConsent(true)}>
 									Accepter
 								</button>
 							</div>
@@ -180,7 +177,6 @@ export default function LegalPage() {
 
 				<section id="rights" className="legal-section legal-section--split">
 					<div className="legal-section-intro">
-						<p className="legal-kicker">03 - Vos droits</p>
 						<h2>Vous gardez la main.</h2>
 					</div>
 					<div className="legal-copy">
@@ -203,7 +199,6 @@ export default function LegalPage() {
 
 				<section id="terms" className="legal-section legal-section--split">
 					<div className="legal-section-intro">
-						<p className="legal-kicker">04 - Conditions générales d’utilisation</p>
 						<h2>Un service personnel et indépendant.</h2>
 					</div>
 					<div className="legal-copy">
@@ -233,7 +228,6 @@ export default function LegalPage() {
 
 				<section id="mentions" className="legal-section legal-section--mentions">
 					<div className="legal-section-intro">
-						<p className="legal-kicker">05 - Mentions légales</p>
 						<h2>Édition, contenu et code.</h2>
 					</div>
 					<div className="legal-copy legal-mentions-grid">
@@ -274,8 +268,10 @@ export default function LegalPage() {
 					</div>
 				</section>
 
+				</article>
+
 				<div className="legal-bottom-back">
-					<a className="legal-button legal-bottom-back__button" href="/">
+					<a className="btn" href="/">
 						Retour à l'accueil
 					</a>
 				</div>

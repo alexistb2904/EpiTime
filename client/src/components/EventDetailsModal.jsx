@@ -1,9 +1,9 @@
 import React from "react";
-import { AlertTriangle, CalendarDays, Clock3, Laptop, Link2, Timer, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, Laptop, Link2, MapPin } from "lucide-react";
+import Modal from "./Modal";
 import { trackEvent } from "../utils/analyticsTracker";
 
 const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitch }) => {
-	if (!event) return null;
 	const isCancelled = Boolean(event.isCancelled || event.isCanceled);
 	const isSameDay = event.startObj.toDateString() === event.endObj.toDateString();
 
@@ -78,171 +78,148 @@ const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitc
 	const title = event.name || event.typeName || "Cours";
 	const associatedGroups = (event.groups || []).filter((group) => group.id !== undefined && group.id !== null && selectedGroups.some((id) => String(id) === String(group.id)));
 
+	const hue = event.hue;
+	const rooms = (event.rooms || []).map((r) => ({ id: r.id || r.room?.id, name: r.name || r.room?.name || "Salle" }));
+
 	return (
-		<div
-			className="modal-overlay"
-			onClick={(e) => {
-				if (e.target === e.currentTarget) onClose();
-			}}>
-			<div className="modal-content event-detail-modal" onClick={(e) => e.stopPropagation()}>
-				<div className="modal-header event-detail-header">
-					<div className="event-detail-title-block">
-						<span className="event-detail-eyebrow">Détails du cours</span>
-						<h2 className={isCancelled ? "detail-value-cancelled" : ""}>{title}</h2>
-						{event.code && <span className="event-detail-code">Code : {event.code}</span>}
-					</div>
-					<div className="event-detail-header-actions">
-						{isCancelled && <span className="event-detail-status cancelled">Annulé</span>}
+		<Modal
+			className="event-sheet"
+			style={{ "--h": hue }}
+			onClose={onClose}
+			title={
+				<>
+					<span className="event-swatch" style={{ "--h": hue }} aria-hidden="true" />
+					<span className={isCancelled ? "is-struck" : ""}>{title}</span>
+				</>
+			}
+			titleAside={
+				(courseTypeLabel || isCancelled || event.isOnline || associatedGroups.length > 0) && (
+					<p className="event-tags">
+						{isCancelled && <span className="hand event-cancelled">annulé</span>}
+						{courseTypeLabel && <span>{courseTypeLabel}</span>}
 						{event.isOnline && (
-							<span className="event-detail-status online">
-								<Laptop size={15} aria-hidden="true" />
+							<span>
+								<Laptop size={14} strokeWidth={2.2} aria-hidden="true" />
 								En ligne
 							</span>
 						)}
-						{courseTypeLabel && <span className="event-detail-status">{courseTypeLabel}</span>}
 						{associatedGroups.map((group) => (
-							<span key={group.id || group.name} className="event-detail-status">
-								{group.name || String(group.id)}
-							</span>
+							<span key={group.id || group.name}>{group.name || String(group.id)}</span>
 						))}
-						<button
-							type="button"
-							className="btn-icon event-detail-close"
-							aria-label="Fermer les détails"
-							onClick={(e) => {
-								e.stopPropagation();
-								onClose();
-							}}>
-							<X size={20} aria-hidden="true" />
-						</button>
-					</div>
+					</p>
+				)
+			}>
+			{isCancelled && (
+				<p className="pen-note">
+					<AlertTriangle size={18} strokeWidth={2.2} aria-hidden="true" />
+					Ce cours n'est plus présent dans le dernier retour Zeus.
+				</p>
+			)}
+
+			<dl className="facts">
+				<div>
+					<dt>Quand</dt>
+					<dd>
+						<strong>{isSameDay ? formatDate(event.startObj) : `${formatDate(event.startObj)} – ${formatDate(event.endObj)}`}</strong>
+						<span className="facts-sub">
+							{isSameDay ? `${formatTime(event.startObj)} – ${formatTime(event.endObj)}` : `${formatShortDateTime(event.startObj)} – ${formatShortDateTime(event.endObj)}`}
+							{" · "}
+							{formatDuration(event.startObj, event.endObj)}
+						</span>
+					</dd>
 				</div>
-				<div className="modal-body event-detail-body">
-					{isCancelled && (
-						<div className="detail-cancelled-notice">
-							<AlertTriangle size={18} aria-hidden="true" />
-							<span>Ce cours n'est plus présent dans le dernier retour Zeus.</span>
-						</div>
-					)}
 
-					<div className="event-detail-stat-grid">
-						<div className="event-detail-stat-card">
-							<div className="detail-label">
-								<CalendarDays size={14} aria-hidden="true" />
-								Date
-							</div>
-							<div className="detail-value">{isSameDay ? formatDate(event.startObj) : `${formatDate(event.startObj)} - ${formatDate(event.endObj)}`}</div>
-						</div>
-						<div className="event-detail-stat-card">
-							<div className="detail-label">
-								<Clock3 size={14} aria-hidden="true" />
-								Horaire
-							</div>
-							<div className="detail-value">
-								{isSameDay
-									? `${formatTime(event.startObj)} - ${formatTime(event.endObj)}`
-									: `${formatShortDateTime(event.startObj)} - ${formatShortDateTime(event.endObj)}`}
-							</div>
-						</div>
-						<div className="event-detail-stat-card">
-							<div className="detail-label">
-								<Timer size={14} aria-hidden="true" />
-								Durée
-							</div>
-							<div className="detail-value">{formatDuration(event.startObj, event.endObj)}</div>
-						</div>
+				{rooms.length > 0 && (
+					<div>
+						<dt>{rooms.length > 1 ? "Salles" : "Salle"}</dt>
+						<dd className="facts-list">
+							{rooms.map((room) => (
+								<span className="facts-item" key={room.id || room.name}>
+									<strong>{room.name}</strong>
+									<span className="facts-links">
+										<a
+											href={getRoomMapUrl(room.name)}
+											target="_blank"
+											rel="noopener noreferrer"
+											onClick={() => trackEvent("room_map_opened", { source: "event_details" })}>
+											<MapPin size={14} strokeWidth={2.2} aria-hidden="true" />
+											Plan
+										</a>
+										{room.id && (
+											<button type="button" onClick={() => onContextSwitch("room", room.id, room.name)}>
+												<CalendarDays size={14} strokeWidth={2.2} aria-hidden="true" />
+												Planning de la salle
+											</button>
+										)}
+									</span>
+								</span>
+							))}
+						</dd>
 					</div>
+				)}
 
-					{event.teachers && event.teachers.length > 0 && (
-						<div className="event-detail-section">
-							<span className="detail-label">Intervenants</span>
-							<div className="event-detail-chip-row">
-								{event.teachers.map((t) => (
-									<button
-										type="button"
-										className="detail-chip"
-										key={t.id || getTeacherName(t)}
-										onClick={() => onContextSwitch("teacher", t.id, getTeacherName(t))}>
-										<span className="detail-chip-emoji" aria-hidden="true">
-											🎓
-										</span>
-										{getTeacherName(t)}
-									</button>
-								))}
-							</div>
-						</div>
-					)}
-
-					{event.rooms && event.rooms.length > 0 && (
-						<div className="event-detail-section">
-							<span className="detail-label">Salles</span>
-							<div className="event-detail-chip-row">
-								{event.rooms.map((r) => {
-									const roomId = r.id || r.room?.id;
-									const roomName = r.name || r.room?.name || "Salle";
-									return (
-										<span className="detail-room-chip-group" key={roomId || roomName}>
-											<button type="button" className="detail-chip" onClick={() => onContextSwitch("room", roomId, roomName)}>
-												<span className="detail-chip-emoji" aria-hidden="true">
-													📍
-												</span>
-												{roomName}
-											</button>
-											<button
-												type="button"
-												className="detail-map-icon-btn"
-												title="Voir sur la carte"
-												aria-label={`Voir ${roomName} sur la carte`}
-												onClick={() => {
-													trackEvent("room_map_opened", { source: "event_details" });
-													window.open(getRoomMapUrl(roomName), "_blank", "noopener,noreferrer");
-												}}>
-												<span aria-hidden="true">🗺️</span>
+				{event.teachers?.length > 0 && (
+					<div>
+						<dt>{event.teachers.length > 1 ? "Intervenants" : "Intervenant"}</dt>
+						<dd className="facts-list">
+							{event.teachers.map((teacher) => (
+								<span className="facts-item" key={teacher.id || getTeacherName(teacher)}>
+									<strong>{getTeacherName(teacher)}</strong>
+									{teacher.id && (
+										<span className="facts-links">
+											<button type="button" onClick={() => onContextSwitch("teacher", teacher.id, getTeacherName(teacher))}>
+												<CalendarDays size={14} strokeWidth={2.2} aria-hidden="true" />
+												Son planning
 											</button>
 										</span>
-									);
-								})}
-							</div>
-						</div>
-					)}
+									)}
+								</span>
+							))}
+						</dd>
+					</div>
+				)}
 
-					{event.groups?.length > 0 && (
-						<div className="event-detail-section">
-							<span className="detail-label">Groupes Associés</span>
-							<div className="event-detail-chip-row">
-								{event.groups.map((g) => (
-									<button type="button" className="detail-chip" key={g.id || g.name} onClick={() => onContextSwitch("group", g.id, g.name)}>
-										<span className="detail-chip-emoji" aria-hidden="true">
-											👥
-										</span>
-										{g.name}
-									</button>
-								))}
-							</div>
-						</div>
-					)}
+				{event.groups?.length > 0 && (
+					<div>
+						<dt>Groupes</dt>
+						<dd className="facts-chips">
+							{event.groups.map((group) => (
+								<button type="button" key={group.id || group.name} onClick={() => onContextSwitch("group", group.id, group.name)} title={`Voir le planning de ${group.name}`}>
+									{group.name}
+								</button>
+							))}
+						</dd>
+					</div>
+				)}
 
-					{event.url && (
-						<div className="event-detail-section">
-							<span className="detail-label">
-								<Link2 size={14} aria-hidden="true" />
-								Lien
-							</span>
+				{event.url && (
+					<div>
+						<dt>Lien</dt>
+						<dd>
 							<a
-								className="event-detail-link"
+								className="facts-url"
 								href={event.url}
 								onClick={() => trackEvent("online_course_link_opened", { source: "event_details", link_type: "course" })}
 								target="_blank"
 								rel="noopener noreferrer">
+								<Link2 size={14} strokeWidth={2.2} aria-hidden="true" />
 								{event.url}
 							</a>
-						</div>
-					)}
+						</dd>
+					</div>
+				)}
 
-					{event.creationDate && <div className="event-detail-created">Créé le {new Date(event.creationDate).toLocaleString("fr-FR")}</div>}
-				</div>
-			</div>
-		</div>
+				{event.code && (
+					<div>
+						<dt>Code</dt>
+						<dd>{event.code}</dd>
+					</div>
+				)}
+			</dl>
+
+			{event.loadingDetails && <p className="modal-hint">Chargement des détails…</p>}
+			{event.creationDate && <p className="modal-hint">Créé le {new Date(event.creationDate).toLocaleString("fr-FR")}</p>}
+		</Modal>
 	);
 };
 

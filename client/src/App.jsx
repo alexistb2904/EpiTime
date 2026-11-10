@@ -1,4 +1,6 @@
 import React from "react";
+// Les tokens et primitives partagés passent en premier : les feuilles des composants les surchargent.
+import "./App.css";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { NotificationProvider } from "./context/NotificationContext";
@@ -18,7 +20,6 @@ import {
 } from "./utils/analyticsConsent";
 import { trackEvent } from "./utils/analyticsTracker";
 import LegalPage from "./components/LegalPage";
-import "./App.css";
 
 function AppContent() {
 	const { user, loading, loadingMessage } = useAuth();

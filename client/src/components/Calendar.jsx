@@ -13,22 +13,49 @@ import RoomAvailabilityModal from "./RoomAvailabilityModal";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi } from "../utils/api";
 import { getDisplayedGroupNames } from "../utils/calendarGroups";
+import { courseHue } from "../utils/courseColor";
 import { buildCalendarFilterParams, buildEffectiveCalendarFilters } from "../utils/calendarFilters";
+import { AlertTriangle, ArrowLeft, ChevronRight, Laptop, Users } from "lucide-react";
 import "./Calendar.css";
 
-const generatePastelColor = (str) => {
-	if (!str) return "#a5b4fc";
+const formatTime = (date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-	let hash = 0;
-	for (let i = 0; i < str.length; i++) {
-		hash = str.charCodeAt(i) + ((hash << 5) - hash);
+const getWeekStart = (date) => {
+	const start = new Date(date);
+	start.setHours(0, 0, 0, 0);
+	start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+	return start;
+};
+
+const addDays = (date, days) => {
+	const next = new Date(date);
+	next.setDate(next.getDate() + days);
+	return next;
+};
+
+const formatRelative = (event, now) => {
+	if (event.startObj <= now) return `jusqu'à ${formatTime(event.endObj)}`;
+	const minutes = Math.round((event.startObj - now) / 60000);
+	if (minutes < 60) return `dans ${minutes} min`;
+	if (event.startObj.toDateString() === now.toDateString()) {
+		const h = Math.floor(minutes / 60);
+		const m = minutes % 60;
+		return `dans ${h} h${m ? ` ${String(m).padStart(2, "0")}` : ""}`;
 	}
+	if (event.startObj.toDateString() === addDays(now, 1).toDateString()) return `demain, ${formatTime(event.startObj)}`;
+	return `${event.startObj.toLocaleDateString("fr-FR", { weekday: "long" })}, ${formatTime(event.startObj)}`;
+};
 
-	const hue = Math.abs(hash % 360);
-	const saturation = 60 + (Math.abs(hash >> 8) % 16);
-	const lightness = 70 + (Math.abs(hash >> 16) % 16);
-
-	return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+const useMediaQuery = (query) => {
+	const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+	useEffect(() => {
+		const media = window.matchMedia(query);
+		const onChange = () => setMatches(media.matches);
+		media.addEventListener("change", onChange);
+		onChange();
+		return () => media.removeEventListener("change", onChange);
+	}, [query]);
+	return matches;
 };
 
 const getEventCacheKey = (event) => `${event.idReservation || event.id || "event"}-${event.startDate || event.start || ""}`;
@@ -65,8 +92,7 @@ const Calendar = () => {
 
 	const [currentDate, setCurrentDate] = useState(new Date());
 	const [viewMode, setViewMode] = useState(() => {
-		const savedViewMode = localStorage.getItem("zeus_view_mode");
-		return savedViewMode || "week";
+		return localStorage.getItem("zeus_view_mode") === "list" ? "list" : "week";
 	});
 	const [events, setEvents] = useState([]);
 
@@ -95,6 +121,9 @@ const Calendar = () => {
 	const [now, setNow] = useState(new Date());
 	const [sidebarOpen, setSidebarOpen] = useState(false);
 	const todayRef = useRef(null);
+	const isNarrow = useMediaQuery("(max-width: 720px)");
+	const weekStart = useMemo(() => getWeekStart(currentDate), [currentDate]);
+	const weekKey = weekStart.getTime();
 	const eventDetailsCacheRef = useRef(new Map());
 	const selectedEventRequestRef = useRef(0);
 
@@ -136,7 +165,7 @@ const Calendar = () => {
 			return;
 		}
 		loadCalendar();
-	}, [zeusToken, calendarFilters, hasCalendarFilter, currentDate, viewMode]);
+	}, [zeusToken, calendarFilters, hasCalendarFilter, weekKey]);
 
 	useEffect(() => {
 		if (!notificationSettings.enabled || events.length === 0) return;
@@ -165,7 +194,7 @@ const Calendar = () => {
 	useEffect(() => {
 		if (viewMode === "list" && todayRef.current) {
 			setTimeout(() => {
-				todayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+				todayRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 			}, 100);
 		}
 	}, [viewMode, events]);
@@ -228,18 +257,9 @@ const Calendar = () => {
 		let cacheKey = "";
 		try {
 			setLoading(true);
-			let start, end;
-			if (viewMode === "day") {
-				const d = new Date(currentDate);
-				d.setHours(0, 0, 0, 0);
-				start = d;
-				end = new Date(d);
-				end.setDate(end.getDate() + 1);
-			} else {
-				const range = getWeekRange(currentDate);
-				start = range.start;
-				end = range.end;
-			}
+			setError(null);
+			const start = getWeekStart(currentDate);
+			const end = addDays(start, 7);
 
 			const params = buildCalendarFilterParams(calendarFilters);
 			params.set("start", start.toISOString());
@@ -404,135 +424,75 @@ const Calendar = () => {
 		return roots.map(filterNode).filter(Boolean);
 	}, [groups, groupSearch]);
 
-	const processedEvents = useMemo(() => {
-		const GRID_START_HOUR = 7;
-		const GRID_END_HOUR = 24;
-		const GRID_TOTAL_HOURS = GRID_END_HOUR - GRID_START_HOUR;
-
-		const eventsWithPos = [];
-		const multiDayEvents = [];
-
-		events.forEach((ev) => {
+	const { processedEvents, gridStart, gridEnd } = useMemo(() => {
+		let minHour = 8;
+		let maxHour = 19;
+		const items = events.map((ev) => {
 			const start = new Date(ev.startDate);
 			const end = new Date(ev.endDate);
-
-			const courseName = ev.name || ev.typeName || "";
-			const courseColor = generatePastelColor(courseName);
-
-			const startDay = new Date(start);
-			startDay.setHours(0, 0, 0, 0);
-			const endDay = new Date(end);
-			endDay.setHours(0, 0, 0, 0);
-
-			const daysDiff = Math.ceil((endDay - startDay) / (1000 * 60 * 60 * 24));
-
-			if (daysDiff > 0) {
-				multiDayEvents.push({
-					...ev,
-					startObj: start,
-					endObj: end,
-					dateKey: start.toDateString(),
-					startTime: start.getTime(),
-					endTime: end.getTime(),
-					courseColor,
-					isMultiDay: true,
-					totalDays: daysDiff + 1,
-				});
-			} else {
-				let startHour = start.getHours() + start.getMinutes() / 60;
-				let endHour = end.getHours() + end.getMinutes() / 60;
-
-				if (endHour < GRID_START_HOUR) endHour += 24;
-				if (startHour < GRID_START_HOUR) startHour += 24;
-
-				const top = ((startHour - GRID_START_HOUR) / GRID_TOTAL_HOURS) * 100;
-				const height = ((endHour - startHour) / GRID_TOTAL_HOURS) * 100;
-
-				eventsWithPos.push({
-					...ev,
-					startObj: start,
-					endObj: end,
-					dateKey: start.toDateString(),
-					startTime: start.getTime(),
-					endTime: end.getTime(),
-					top,
-					height,
-					courseColor,
-					isMultiDay: false,
-				});
-			}
-		});
-
-		const byDay = {};
-		eventsWithPos.forEach((ev) => {
-			if (!byDay[ev.dateKey]) byDay[ev.dateKey] = [];
-			byDay[ev.dateKey].push(ev);
-		});
-
-		Object.values(byDay).forEach((dayEvs) => {
-			dayEvs.sort((a, b) => a.startTime - b.startTime);
-
-			const boxes = new Map();
-
-			dayEvs.forEach((ev) => {
-				const boxKey = ev.startTime;
-				if (!boxes.has(boxKey)) {
-					boxes.set(boxKey, []);
-				}
-				boxes.get(boxKey).push(ev);
-			});
-
-			const sortedBoxKeys = Array.from(boxes.keys()).sort((a, b) => a - b);
-
-			sortedBoxKeys.forEach((startTime, boxIndex) => {
-				const boxEvents = boxes.get(startTime);
-				const count = boxEvents.length;
-				boxEvents.forEach((ev, idx) => {
-					ev.boxSize = count;
-					ev.boxIndex = idx;
-					ev.zIndex = boxIndex;
-				});
-			});
-
-			dayEvs.forEach((ev) => {
-				ev.column = ev.boxIndex || 0;
-				ev.totalColumns = ev.boxSize || 1;
-			});
-		});
-
-		return [...multiDayEvents, ...eventsWithPos].map((ev) => {
-			const columnWidth = ev.totalColumns > 1 ? 100 / ev.totalColumns : 100;
-			const left = (ev.column || 0) * columnWidth;
-
-			return {
+			const startDay = new Date(start).setHours(0, 0, 0, 0);
+			const endDay = new Date(end).setHours(0, 0, 0, 0);
+			const isMultiDay = endDay > startDay;
+			const item = {
 				...ev,
-				style: {
-					top: `${ev.top + 0.15}%`,
-					height: `${ev.height - 0.3}%`,
-					left: `${left}%`,
-					width: `${columnWidth}%`,
-					zIndex: ev.zIndex || 0,
-				},
+				startObj: start,
+				endObj: end,
+				dateKey: start.toDateString(),
+				startTime: start.getTime(),
+				endTime: end.getTime(),
+				hue: courseHue(ev.name || ev.typeName || ""),
+				isMultiDay,
+			};
+			if (!isMultiDay) {
+				item.startHour = start.getHours() + start.getMinutes() / 60;
+				item.endHour = end.getHours() + end.getMinutes() / 60;
+				minHour = Math.min(minHour, Math.floor(item.startHour));
+				maxHour = Math.max(maxHour, Math.ceil(item.endHour));
+			}
+			return item;
+		});
+
+		// Colonnes côte à côte pour les cours qui commencent à la même heure.
+		const byStart = new Map();
+		items
+			.filter((ev) => !ev.isMultiDay)
+			.forEach((ev) => {
+				const key = `${ev.dateKey}-${ev.startTime}`;
+				if (!byStart.has(key)) byStart.set(key, []);
+				byStart.get(key).push(ev);
+			});
+		byStart.forEach((box) =>
+			box.forEach((ev, index) => {
+				ev.column = index;
+				ev.totalColumns = box.length;
+			}),
+		);
+
+		const total = maxHour - minHour;
+		items.forEach((ev) => {
+			if (ev.isMultiDay) return;
+			const width = 100 / ev.totalColumns;
+			// 2px de marge papier autour de chaque cellule.
+			ev.style = {
+				top: `calc(${((ev.startHour - minHour) / total) * 100}% + 2px)`,
+				height: `calc(${((ev.endHour - ev.startHour) / total) * 100}% - 4px)`,
+				left: `calc(${ev.column * width}% + 3px)`,
+				width: `calc(${width}% - 6px)`,
 			};
 		});
+
+		return { processedEvents: items.sort((a, b) => a.startTime - b.startTime), gridStart: minHour, gridEnd: maxHour };
 	}, [events]);
 
-	const getWeekRange = (date) => {
-		const curr = new Date(date);
-		const day = curr.getDay() || 7;
-		if (day !== 1) curr.setHours(-24 * (day - 1));
-		const start = new Date(curr);
-		start.setHours(0, 0, 0, 0);
-		const end = new Date(start);
-		end.setDate(end.getDate() + 7);
-		return { start, end };
-	};
+	const isCurrentWeek = weekKey === getWeekStart(now).getTime();
+	const nextEvent = useMemo(() => {
+		if (!isCurrentWeek) return null;
+		return processedEvents.find((ev) => !isEventCancelled(ev) && ev.endTime > now.getTime()) || null;
+	}, [processedEvents, isCurrentWeek, now]);
+	const nextKey = nextEvent ? getEventCacheKey(nextEvent) : null;
 
 	const handleNav = (delta) => {
-		const newDate = new Date(currentDate);
-		if (viewMode === "day") newDate.setDate(newDate.getDate() + delta);
-		else newDate.setDate(newDate.getDate() + delta * 7);
-		setCurrentDate(newDate);
+		setCurrentDate(addDays(currentDate, delta * 7));
 		trackEvent("calendar_navigated", {
 			view_mode: viewMode,
 			direction: delta > 0 ? "next" : "previous",
@@ -595,368 +555,341 @@ const Calendar = () => {
 		trackEvent("calendar_view_changed", { view_mode: mode });
 	};
 
-	const CurrentTimeLine = () => {
-		const GRID_START_HOUR = 7;
-		const GRID_END_HOUR = 24;
-		const GRID_TOTAL_HOURS = GRID_END_HOUR - GRID_START_HOUR;
-		const currentH = now.getHours() + now.getMinutes() / 60;
+	const roomNames = (ev) => ev.rooms?.map((r) => r.name).filter(Boolean).join(", ");
+	const isNextEvent = (ev) => getEventCacheKey(ev) === nextKey;
+	// Le surligneur passe sur le nom du prochain cours, comme un vrai trait de fluo.
+	const courseTitle = (ev) => (isNextEvent(ev) ? <mark className="marker">{ev.name || ev.typeName}</mark> : ev.name || ev.typeName);
+	const courseClass = (ev, base) =>
+		[base, isEventCancelled(ev) && "is-cancelled", getEventCacheKey(ev) === nextKey && "is-next"].filter(Boolean).join(" ");
 
-		if (currentH < GRID_START_HOUR || currentH >= GRID_END_HOUR) return null;
-		const top = ((currentH - GRID_START_HOUR) / GRID_TOTAL_HOURS) * 100;
-		return <div className="current-time-line" style={{ top: `${top}%` }} title={now.toLocaleTimeString()} />;
+	const weekDays = [...Array(7)].map((_, i) => addDays(weekStart, i));
+	const eventsOnDay = (day) => {
+		const dayStart = new Date(day).setHours(0, 0, 0, 0);
+		const dayEnd = addDays(day, 1).setHours(0, 0, 0, 0);
+		return processedEvents.filter((ev) => ev.startTime < dayEnd && ev.endTime > dayStart);
 	};
+	const hasWeekend = weekDays.slice(5).some((day) => eventsOnDay(day).length > 0);
+	const visibleDays = hasWeekend ? weekDays : weekDays.slice(0, 5);
+	const selectedDay = visibleDays.find((day) => day.toDateString() === currentDate.toDateString()) || visibleDays[0];
 
 	const renderGrid = () => {
-		const w = viewMode === "day" ? { start: currentDate } : getWeekRange(currentDate);
-		const daysCount = viewMode === "day" ? 1 : 7;
-		const startRef = viewMode === "day" ? currentDate : w.start;
+		const days = isNarrow ? [selectedDay] : visibleDays;
+		const hours = [...Array(gridEnd - gridStart)].map((_, i) => gridStart + i);
+		const multiDay = days.map((day) => eventsOnDay(day).filter((ev) => ev.isMultiDay));
+		const hasMultiDay = multiDay.some((list) => list.length > 0);
+		const nowHour = now.getHours() + now.getMinutes() / 60;
 
-		const headers = [];
-		const columns = [];
+		return (
+			<div className="planner" style={{ "--hours": gridEnd - gridStart, "--days": days.length }}>
+				{isNarrow ? (
+					<div className="day-strip" role="group" aria-label="Choisir le jour">
+						{visibleDays.map((day) => {
+							const isSelected = day === selectedDay;
+							const count = eventsOnDay(day).length;
+							return (
+								<button
+									type="button"
+									key={day.toDateString()}
+									className={`${isSelected ? "is-on" : ""} ${day.toDateString() === now.toDateString() ? "is-today" : ""}`}
+									aria-pressed={isSelected}
+									aria-label={`${day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" })}, ${count} cours`}
+									onClick={() => setCurrentDate(day)}>
+									<span>{day.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</span>
+									<strong>{day.getDate()}</strong>
+									<i className={count ? "has-courses" : ""} aria-hidden="true" />
+								</button>
+							);
+						})}
+					</div>
+				) : (
+					<div className="planner-head">
+						<span />
+						{days.map((day) => (
+							<div key={day.toDateString()} className={`planner-day ${day.toDateString() === now.toDateString() ? "is-today" : ""}`}>
+								<span>{day.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}</span>
+								<strong>{day.getDate()}</strong>
+							</div>
+						))}
+					</div>
+				)}
 
-		const multiDayEventsInWeek = processedEvents.filter((ev) => {
-			if (!ev.isMultiDay) return false;
-			const evStart = new Date(ev.startDate);
-			const evEnd = new Date(ev.endDate);
-			const weekStart = new Date(startRef);
-			const weekEnd = new Date(startRef);
-			weekEnd.setDate(weekEnd.getDate() + 7);
-			return evStart < weekEnd && evEnd > weekStart;
-		});
+				{hasMultiDay && (
+					<div className="planner-allday">
+						<span className="planner-allday-label">Journée</span>
+						{multiDay.map((list, index) => (
+							<div key={index} className="planner-allday-col">
+								{list.map((ev) => (
+									<button
+										type="button"
+										key={getEventCacheKey(ev)}
+										className={courseClass(ev, "allday-course")}
+										style={{ "--h": ev.hue }}
+										onClick={() => handleEventClick(ev)}>
+										{courseTitle(ev)}
+									</button>
+								))}
+							</div>
+						))}
+					</div>
+				)}
 
-		for (let i = 0; i < daysCount; i++) {
-			const d = new Date(startRef);
-			if (viewMode !== "day") d.setDate(d.getDate() + i);
-
-			const isToday = d.toDateString() === now.toDateString();
-			const dateStr = d.toDateString();
-
-			headers.push(
-				<div key={i} className={`grid-header-cell ${isToday ? "today" : ""}`}>
-					<span className="day-name">{d.toLocaleDateString("fr-FR", { weekday: "short" })}</span>
-					<span className="day-num">{d.getDate()}</span>
-				</div>
-			);
-
-			const dayEvents = processedEvents.filter((ev) => !ev.isMultiDay && new Date(ev.startDate).toDateString() === dateStr);
-
-			columns.push(
-				<div key={i} className="grid-col">
-					{isToday && <CurrentTimeLine />}
-					{[...Array(17)].map((_, h) => (
-						<div key={h} className="grid-bg-hour" style={{ top: `${((h + 1) / 17) * 100}%` }}></div>
-					))}
-
-					{dayEvents.map((ev, idx) => {
-						const cancelled = isEventCancelled(ev);
-						const displayedGroupNames = getDisplayedGroupNames(ev.groups, scheduleContext);
-						let borderColor = ev.courseColor || "var(--accent-color)";
-						if (borderColor.startsWith("hsl")) {
-							borderColor = borderColor.replace(/hsl\((\d+),\s*(\d+)%?,\s*(\d+)%?\)/, (h, hue, sat, light) => `hsl(${hue}, ${sat}%, ${Math.max(0, light - 20)}%)`);
-						}
+				<div className="planner-body">
+					<div className="planner-hours" aria-hidden="true">
+						{hours.map((h) => (
+							<span key={h} style={{ top: `${((h - gridStart) / (gridEnd - gridStart)) * 100}%` }}>
+								{String(h).padStart(2, "0")}h
+							</span>
+						))}
+					</div>
+					{days.map((day) => {
+						const isToday = day.toDateString() === now.toDateString();
+						const dayEvents = processedEvents.filter((ev) => !ev.isMultiDay && ev.dateKey === day.toDateString());
 						return (
-							<div
-								key={idx}
-								className={`grid-event ${ev.isOnline ? "event-online" : ""} ${cancelled ? "event-cancelled" : ""}`}
-								onClick={() => handleEventClick(ev)}
-								style={{
-									...ev.style,
-									borderColor: cancelled ? "var(--text-secondary)" : borderColor,
-									backgroundColor: cancelled ? "var(--bg-secondary)" : ev.courseColor || "var(--bg-secondary)",
-								}}>
-								{cancelled && <div className="event-badge cancelled-badge">Annulé</div>}
-								{ev.isOnline && <div className="event-badge">💻 En ligne</div>}
-								<div className="ev-time">
-									{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-									{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-								</div>
-								<div className="ev-title">{ev.name || ev.typeName}</div>
-								<div className="ev-room">{ev.rooms?.map((r) => r.name).join(", ")}</div>
-								{displayedGroupNames.length > 0 && <div className="ev-group">{displayedGroupNames.join(", ")}</div>}
+							<div key={day.toDateString()} className="planner-col">
+								{isToday && nowHour >= gridStart && nowHour < gridEnd && (
+									<div className="now-line" style={{ top: `${((nowHour - gridStart) / (gridEnd - gridStart)) * 100}%` }} title={`Il est ${formatTime(now)}`} />
+								)}
+								{dayEvents.map((ev) => {
+									const groupNames = getDisplayedGroupNames(ev.groups, scheduleContext);
+									return (
+										<button
+											type="button"
+											key={getEventCacheKey(ev)}
+											className={courseClass(ev, "course")}
+											style={{ ...ev.style, "--h": ev.hue }}
+											onClick={() => handleEventClick(ev)}>
+											<span className="course-time">
+												{formatTime(ev.startObj)}–{formatTime(ev.endObj)}
+												{ev.isOnline && <Laptop size={13} strokeWidth={2.2} aria-label="En ligne" />}
+											</span>
+											<strong className="course-name">{courseTitle(ev)}</strong>
+											{roomNames(ev) && <span className="course-room">{roomNames(ev)}</span>}
+											{groupNames.length > 0 && <span className="course-room">{groupNames.join(", ")}</span>}
+											{isEventCancelled(ev) && <span className="hand course-note">annulé</span>}
+										</button>
+									);
+								})}
 							</div>
 						);
 					})}
 				</div>
-			);
-		}
-
-		return (
-			<div className="calendar-grid-wrapper">
-				<div className="grid-content">
-					<div className="grid-headers">
-						<div className="grid-spacers"></div>
-						{headers}
-					</div>
-
-					{multiDayEventsInWeek.length > 0 && (
-						<div className="multi-day-events-bar">
-							<div className="grid-spacers"></div>
-							<div style={{ display: "flex", flex: 1 }}>
-								{[...Array(daysCount)].map((_, dayIdx) => {
-									const d = new Date(startRef);
-									if (viewMode !== "day") d.setDate(d.getDate() + dayIdx);
-									const dateStr = d.toDateString();
-
-									const dayMultiDayEvents = multiDayEventsInWeek.filter((ev) => {
-										const evStart = new Date(ev.startDate);
-										const evEnd = new Date(ev.endDate);
-										const dayStart = new Date(dateStr);
-										const dayEnd = new Date(dateStr);
-										dayEnd.setDate(dayEnd.getDate() + 1);
-										return evStart < dayEnd && evEnd > dayStart;
-									});
-
-									return (
-										<div key={dayIdx} style={{ flex: 1, minHeight: dayMultiDayEvents.length > 0 ? "auto" : "0" }} className="multi-day-col">
-											{dayMultiDayEvents.map((ev, idx) => {
-												const cancelled = isEventCancelled(ev);
-												const displayedGroupNames = getDisplayedGroupNames(ev.groups, scheduleContext);
-												return (
-													<div
-														key={idx}
-														className={`multi-day-event-item ${cancelled ? "event-cancelled" : ""}`}
-														onClick={() => handleEventClick(ev)}
-														style={{
-															backgroundColor: cancelled ? "var(--bg-secondary)" : ev.courseColor || "var(--bg-secondary)",
-															borderColor: cancelled ? "var(--text-secondary)" : ev.courseColor || "var(--accent-color)",
-															marginBottom: "2px",
-														}}>
-														{cancelled && <div className="event-badge cancelled-badge">Annulé</div>}
-														<div className="ev-title">{ev.name || ev.typeName}</div>
-														<div className="ev-room">{ev.rooms?.map((r) => r.name).join(", ")}</div>
-														{displayedGroupNames.length > 0 && <div className="ev-group">{displayedGroupNames.join(", ")}</div>}
-													</div>
-												);
-											})}
-										</div>
-									);
-								})}
-							</div>
-						</div>
-					)}
-
-					<div style={{ display: "flex", position: "relative" }}>
-						<div className="time-sidebar">
-							{[...Array(18)].map((_, i) => {
-								const hour = i + 7;
-								const displayHour = hour >= 24 ? hour - 24 : hour;
-								return (
-									<div key={i} className="time-label" style={{ top: `${(i / 17) * 100}%` }}>
-										{displayHour.toString().padStart(2, "0")}:00
-									</div>
-								);
-							})}
-						</div>
-						<div className="grid-body">{columns}</div>
-					</div>
-				</div>
+				{processedEvents.length === 0 && !loading && <p className="planner-empty">Aucun cours cette semaine.</p>}
 			</div>
 		);
 	};
 
 	const renderList = () => {
-		const eventsByIdAndDate = new Map();
+		const days = weekDays.map((day) => ({ day, items: eventsOnDay(day) })).filter(({ items }) => items.length > 0);
 
-		processedEvents.forEach((ev) => {
-			const key = `${ev.idReservation || ev.id}`;
-			if (!eventsByIdAndDate.has(key)) {
-				eventsByIdAndDate.set(key, ev);
-			}
-		});
-
-		const uniqueEvents = Array.from(eventsByIdAndDate.values());
-
-		const datesMap = new Map();
-		uniqueEvents.forEach((ev) => {
-			const startDate = new Date(ev.startDate);
-			const dateKey = startDate.toDateString();
-			const dateLabel = startDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
-
-			if (!datesMap.has(dateKey)) {
-				datesMap.set(dateKey, {
-					dateLabel,
-					dateObj: startDate,
-					events: [],
-				});
-			}
-			datesMap.get(dateKey).events.push(ev);
-		});
-		datesMap.forEach((dateEntry) => {
-			dateEntry.events.sort((a, b) => a.startObj - b.startObj);
-		});
-
-		const sortedDates = Array.from(datesMap.values()).sort((a, b) => a.dateObj - b.dateObj);
-
-		if (sortedDates.length === 0)
+		if (days.length === 0) {
 			return (
-				<div className="empty-state" style={{ padding: "2rem", textAlign: "center" }}>
-					Aucun cours 😴
+				<div className="agenda-empty">
+					<p>Aucun cours cette semaine.</p>
+					<button type="button" className="btn" onClick={() => handleNav(1)}>
+						Semaine suivante
+						<ChevronRight size={16} strokeWidth={2.2} aria-hidden="true" />
+					</button>
 				</div>
 			);
-
-		const today = now.toDateString();
+		}
 
 		return (
-			<div className="list-view">
-				{sortedDates.map(({ dateLabel, dateObj, events: evs }) => {
-					const isToday = dateObj.toDateString() === today;
+			<div className="agenda">
+				{days.map(({ day, items }) => {
+					const isToday = day.toDateString() === now.toDateString();
 					return (
-						<div key={dateLabel} className="list-section" ref={isToday ? todayRef : null}>
-							<h3 className="list-date-sticky">{isToday ? `${dateLabel} (Aujourd'hui)` : dateLabel}</h3>
-							<div className="list-events">
-								{evs.map((ev, i) => {
-									const cancelled = isEventCancelled(ev);
+						<section key={day.toDateString()} className="agenda-day" ref={isToday ? todayRef : null}>
+							<h2 className="agenda-date">
+								{day.toLocaleDateString("fr-FR", { weekday: "long" })}
+								<span>{day.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</span>
+								{isToday && <span className="hand agenda-today">aujourd'hui</span>}
+							</h2>
+							<ol>
+								{items.map((ev) => {
+									const teachers = ev.teachers?.map((t) => `${t.firstname || ""} ${t.name || ""}`.trim()).filter(Boolean);
 									return (
-										<div
-											key={i}
-											className={`list-card ${ev.isOnline ? "list-card-online" : ""} ${ev.isMultiDay ? "list-card-multiday" : ""} ${cancelled ? "event-cancelled" : ""}`}
-											onClick={() => handleEventClick(ev)}
-											style={{
-												borderLeftColor: cancelled ? "var(--text-secondary)" : ev.courseColor || "var(--accent-color)",
-												backgroundColor: cancelled
-													? "var(--bg-secondary)"
-													: ev.courseColor
-														? ev.courseColor.replace("hsl", "hsla").replace("%)", "%, 0.2)")
-														: "transparent",
-											}}>
-											<div className="list-top-row">
-												{cancelled && <span className="chip cancelled-chip">Annulé</span>}
-												{ev.isOnline && <span className="chip online-chip">💻 En ligne</span>}
-												{ev.isMultiDay && <span className="chip multi-day-chip">📅 Multi-jours</span>}
-											</div>
-											<div className="list-time">
-												{ev.startObj.toDateString() === ev.endObj.toDateString() ? (
-													<>
-														{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}-
-														{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-													</>
-												) : (
-													<>
-														Du {ev.startObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
-														{ev.startObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-														<br />
-														au {ev.endObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}{" "}
-														{ev.endObj.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-													</>
-												)}
-											</div>
-											<div className="list-title">{ev.name || ev.typeName}</div>
-											<div className="list-meta">
-												{ev.rooms?.map((r) => (
-													<span className="chip" key={r.id}>
-														📍 {r.name}
+										<li key={getEventCacheKey(ev)}>
+											<button type="button" className={courseClass(ev, "agenda-row")} style={{ "--h": ev.hue }} onClick={() => handleEventClick(ev)}>
+												<span className="agenda-time">
+													{ev.isMultiDay ? (
+														<>
+															<span>{ev.startObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
+															<span>{ev.endObj.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>
+														</>
+													) : (
+														<>
+															<span>{formatTime(ev.startObj)}</span>
+															<span>{formatTime(ev.endObj)}</span>
+														</>
+													)}
+												</span>
+												<span className="agenda-main">
+													<strong>{courseTitle(ev)}</strong>
+													<span>
+														{[roomNames(ev), ev.isOnline && "En ligne", teachers?.join(", ")].filter(Boolean).join(" · ") || "Salle non précisée"}
 													</span>
-												))}
-											</div>
-											{ev.teachers?.length > 0 && (
-												<div className="list-teachers">
-													{ev.teachers.map((t) => (
-														<div className="teacher-line" key={t.id}>
-															<span className="teacher-name">
-																🎓 {t.firstname} {t.name}
-															</span>
-														</div>
-													))}
-												</div>
-											)}
-										</div>
+												</span>
+												{isEventCancelled(ev) && <span className="hand agenda-note">annulé</span>}
+											</button>
+										</li>
 									);
 								})}
-							</div>
-						</div>
+							</ol>
+						</section>
 					);
 				})}
 			</div>
 		);
 	};
 
+	const closeDrawer = () => setSidebarOpen(false);
+
 	return (
-		<div className="calendar-container">
-			{sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)}></div>}
-
-			<Sidebar
+		<div className={`app ${sidebarOpen ? "drawer-open" : ""}`}>
+			<CalendarHeader
+				weekStart={weekStart}
+				isOnToday={currentDate.toDateString() === now.toDateString()}
+				handleNav={handleNav}
+				goToToday={() => setCurrentDate(new Date())}
+				viewMode={viewMode}
+				setViewMode={handleViewModeChange}
 				sidebarOpen={sidebarOpen}
-				currentDate={currentDate}
-				setCurrentDate={setCurrentDate}
-				selectedGroups={selectedGroups}
-				groups={groups}
-				toggleGroup={toggleGroup}
-				setShowGroupModal={setShowGroupModal}
-				selectedRooms={selectedRooms}
-				rooms={rooms}
-				roomSearch={roomSearch}
-				setRoomSearch={setRoomSearch}
-				toggleRoom={toggleRoom}
-				selectedTeachers={selectedTeachers}
-				teachers={teachers}
-				teacherSearch={teacherSearch}
-				setTeacherSearch={setTeacherSearch}
-				toggleTeacher={toggleTeacher}
-				filterOptionsLoading={filterOptionsLoading}
-				theme={theme}
-				toggleTheme={toggleTheme}
-				setShowSettingsModal={setShowSettingsModal}
-				setShowNotificationsModal={setShowNotificationsModal}
-				logout={logout}
-			/>
-
-			<div className="main-content">
-				<CalendarHeader
-					currentDate={currentDate}
-					setCurrentDate={setCurrentDate}
-					handleNav={handleNav}
-					viewMode={viewMode}
-					setViewMode={handleViewModeChange}
-					scheduleContext={scheduleContext}
-					resetContext={resetContext}
-					sidebarOpen={sidebarOpen}
-					setSidebarOpen={setSidebarOpen}
-					logout={logout}
-					onOpenRoomFinder={() => {
-						trackEvent("room_finder_opened", { source: "calendar_header" });
-						setShowRoomAvailabilityModal(true);
-					}}
-				/>
-
-				<div className="calendar-grid-wrapper">
-					{viewMode === "week" ? renderGrid() : renderList()}
-					{loading && (
-						<div className="loading-overlay">
-							<div className="spinner"></div>
-						</div>
-					)}
-				</div>
-			</div>
-
-			<GroupSelectionModal
-				show={showGroupModal}
-				onClose={() => setShowGroupModal(false)}
-				filteredGroupTree={filteredGroupTree}
-				selectedGroups={selectedGroups}
-				onToggle={toggleGroup}
-				groupSearch={groupSearch}
-				setGroupSearch={setGroupSearch}
-				onValidate={() => {
-					setShowGroupModal(false);
-					trackEvent("group_selection_saved", {
-						result: selectedGroups.length > 0 ? "success" : "empty",
-						group_count: selectedGroups.length,
-					});
-					loadCalendar();
+				setSidebarOpen={setSidebarOpen}
+				onOpenRoomFinder={() => {
+					trackEvent("room_finder_opened", { source: "calendar_header" });
+					setShowRoomAvailabilityModal(true);
 				}}
 			/>
 
-			<EventDetailsModal event={selectedEvent} selectedGroups={selectedGroups} onClose={() => setSelectedEvent(null)} onContextSwitch={handleContextSwitch} />
+			<div className="app-body">
+				{sidebarOpen && <div className="drawer-scrim" onClick={closeDrawer} aria-hidden="true" />}
+				<Sidebar
+					sidebarOpen={sidebarOpen}
+					onClose={closeDrawer}
+					currentDate={currentDate}
+					setCurrentDate={(date) => {
+						setCurrentDate(date);
+						closeDrawer();
+					}}
+					jumpToDate={setCurrentDate}
+					selectedGroups={selectedGroups}
+					groups={groups}
+					toggleGroup={toggleGroup}
+					setShowGroupModal={setShowGroupModal}
+					selectedRooms={selectedRooms}
+					rooms={rooms}
+					roomSearch={roomSearch}
+					setRoomSearch={setRoomSearch}
+					toggleRoom={toggleRoom}
+					selectedTeachers={selectedTeachers}
+					teachers={teachers}
+					teacherSearch={teacherSearch}
+					setTeacherSearch={setTeacherSearch}
+					toggleTeacher={toggleTeacher}
+					filterOptionsLoading={filterOptionsLoading}
+					theme={theme}
+					toggleTheme={toggleTheme}
+					setShowSettingsModal={setShowSettingsModal}
+					setShowNotificationsModal={setShowNotificationsModal}
+					logout={logout}
+				/>
 
-			<SettingsModal show={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
-			<NotificationSettings isOpen={showNotificationsModal} onClose={() => setShowNotificationsModal(false)} userEmail={user?.username} userGroups={selectedGroups} />
-			<RoomAvailabilityModal
-				show={showRoomAvailabilityModal}
-				onClose={() => setShowRoomAvailabilityModal(false)}
-				zeusToken={zeusToken}
-				selectedGroups={selectedGroups}
-				onApplyRoomFilter={applyRoomCalendarFilter}
-			/>
+				<main className="app-main">
+					{(scheduleContext.type !== "group" || nextEvent || error) && (
+						<div className="app-notes">
+							{scheduleContext.type !== "group" && (
+								<div className="context-note paper-lilac">
+									<span>Planning de</span>
+									<strong>{scheduleContext.label}</strong>
+									<button type="button" className="btn is-small" onClick={resetContext}>
+										<ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
+										Mes groupes
+									</button>
+								</div>
+							)}
+							{nextEvent && (
+								<button type="button" className="next-up paper-orange" onClick={() => handleEventClick(nextEvent)}>
+									<span className="next-up-label">{nextEvent.startObj <= now ? "En cours" : "Prochain cours"}</span>
+									<span className="next-up-time">{formatTime(nextEvent.startObj)}</span>
+									<span className="next-up-main">
+										<strong>{nextEvent.name || nextEvent.typeName}</strong>
+										<span>{roomNames(nextEvent) || (nextEvent.isOnline ? "En ligne" : "Salle non précisée")}</span>
+									</span>
+									<span className="hand next-up-when">← {formatRelative(nextEvent, now)}</span>
+								</button>
+							)}
+							{error && (
+								<div className="error-note" role="alert">
+									<AlertTriangle size={18} strokeWidth={2.2} aria-hidden="true" />
+									<span>{error}</span>
+									<button
+										type="button"
+										className="btn is-small"
+										onClick={() => {
+											setError(null);
+											loadCalendar();
+										}}>
+										Réessayer
+									</button>
+								</div>
+							)}
+						</div>
+					)}
+
+					<section className={`planning sheet ${loading ? "is-loading" : ""}`} aria-busy={loading} aria-label="Emploi du temps">
+						{selectedGroups.length === 0 && scheduleContext.type === "group" && selectedRooms.length === 0 && selectedTeachers.length === 0 ? (
+							<div className="agenda-empty">
+								<p>Choisis ton groupe pour afficher ton emploi du temps.</p>
+								<button type="button" className="ticket is-ink is-compact" onClick={() => setShowGroupModal(true)}>
+									<span className="ticket-stub">
+										<Users size={18} strokeWidth={2.2} aria-hidden="true" />
+									</span>
+									<span className="ticket-text">
+										<strong>Choisir mes groupes</strong>
+									</span>
+								</button>
+							</div>
+						) : viewMode === "week" ? (
+							renderGrid()
+						) : (
+							renderList()
+						)}
+					</section>
+				</main>
+			</div>
+
+			{showGroupModal && (
+				<GroupSelectionModal
+					onClose={() => setShowGroupModal(false)}
+					filteredGroupTree={filteredGroupTree}
+					selectedGroups={selectedGroups}
+					onToggle={toggleGroup}
+					groupSearch={groupSearch}
+					setGroupSearch={setGroupSearch}
+					onValidate={() => {
+						setShowGroupModal(false);
+						trackEvent("group_selection_saved", {
+							result: selectedGroups.length > 0 ? "success" : "empty",
+							group_count: selectedGroups.length,
+						});
+					}}
+				/>
+			)}
+
+			{selectedEvent && (
+				<EventDetailsModal event={selectedEvent} selectedGroups={selectedGroups} onClose={() => setSelectedEvent(null)} onContextSwitch={handleContextSwitch} />
+			)}
+
+			{showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
+			{showNotificationsModal && <NotificationSettings onClose={() => setShowNotificationsModal(false)} userEmail={user?.username} userGroups={selectedGroups} />}
+			{showRoomAvailabilityModal && (
+				<RoomAvailabilityModal
+					onClose={() => setShowRoomAvailabilityModal(false)}
+					zeusToken={zeusToken}
+					selectedGroups={selectedGroups}
+					onApplyRoomFilter={applyRoomCalendarFilter}
+				/>
+			)}
 		</div>
 	);
 };

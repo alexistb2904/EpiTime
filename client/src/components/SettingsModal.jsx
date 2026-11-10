@@ -1,4 +1,6 @@
 import React from "react";
+import { ArrowUpRight, RefreshCw } from "lucide-react";
+import Modal from "./Modal";
 import { useUniqueUsers } from "../hooks/useUniqueUsers";
 import {
 	analyticsConsentValues,
@@ -10,15 +12,10 @@ import {
 } from "../utils/analyticsConsent";
 import { trackEvent } from "../utils/analyticsTracker";
 
-const SettingsModal = ({ show, onClose }) => {
+const SettingsModal = ({ onClose }) => {
 	const [analyticsEnabled, setAnalyticsEnabled] = React.useState(() => getAnalyticsConsent() === analyticsConsentValues.accepted);
-	const { users, enabledAnalytics, loading: uniqueUsersLoading, error: uniqueUsersError, refresh } = useUniqueUsers({ enabled: show });
+	const { users, enabledAnalytics, loading: uniqueUsersLoading, error: uniqueUsersError, refresh } = useUniqueUsers({ enabled: true });
 	const formattedUsers = typeof users === "number" ? new Intl.NumberFormat("fr-FR").format(users) : "-";
-
-	React.useEffect(() => {
-		if (!show) return;
-		setAnalyticsEnabled(getAnalyticsConsent() === analyticsConsentValues.accepted);
-	}, [show]);
 
 	const handleToggleAnalytics = async () => {
 		if (analyticsEnabled) {
@@ -35,130 +32,78 @@ const SettingsModal = ({ show, onClose }) => {
 		setAnalyticsEnabled(true);
 	};
 
-	if (!show) return null;
-
 	return (
-		<div
-			className="modal-overlay"
-			onClick={(e) => {
-				if (e.target === e.currentTarget) onClose();
-			}}>
-			<div className="modal-content settings-modal" onClick={(e) => e.stopPropagation()}>
-				<div className="modal-header">
-					<h2>⚙️ Paramètres & Informations</h2>
-					<button
-						className="btn-icon"
-						onClick={(e) => {
-							e.stopPropagation();
-							onClose();
-						}}>
-						✕
+		<Modal className="settings-sheet paper-lilac" title="Paramètres" onClose={onClose}>
+			<section className="settings-block">
+				<div className="settings-row">
+					<div>
+						<h3>Mesure d'audience auto-hébergée</h3>
+						<p>Mesure d'usage limitée, après ton accord : un identifiant aléatoire local par navigateur. Aucun nom, e-mail, identifiant de compte ou jeton n'est transmis à Rybbit.</p>
+					</div>
+					<input
+						type="checkbox"
+						role="switch"
+						className="switch"
+						checked={analyticsEnabled}
+						onChange={handleToggleAnalytics}
+						aria-label="Mesure d'audience"
+					/>
+				</div>
+				<ul className="settings-facts">
+					<li>Authentification via Microsoft (EPITA).</li>
+					<li>Tes préférences (groupes sélectionnés, thème, notifications, consentement analytics) sont stockées uniquement dans ton navigateur via localStorage.</li>
+				</ul>
+				<a href="/legal" className="settings-link">
+					Politique de confidentialité et mentions légales
+					<ArrowUpRight size={15} strokeWidth={2.2} aria-hidden="true" />
+				</a>
+			</section>
+
+			<section className="settings-block">
+				<div className="settings-row">
+					<div>
+						<h3>Utilisateurs uniques (total)</h3>
+						<p className="settings-kpi">{uniqueUsersLoading ? "…" : formattedUsers}</p>
+						{uniqueUsersError && <p className="settings-error">Impossible de charger le compteur : {uniqueUsersError}</p>}
+					</div>
+					<button type="button" className="tool" onClick={refresh} aria-label="Actualiser le compteur" disabled={uniqueUsersLoading}>
+						<RefreshCw size={17} strokeWidth={2.2} aria-hidden="true" />
 					</button>
 				</div>
-				<div className="modal-body settings-body">
-					<div className="settings-section">
-						<h3 className="settings-section-title">🐞 Signaler un bug</h3>
-						<p className="settings-text">Vous avez rencontré un problème ? Merci de le signaler pour améliorer l'application.</p>
-						<a
-							href="https://github.com/alexistb2904/EpiTime/issues/new"
-							onClick={() => trackEvent("bug_report_opened", { source: "settings" })}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="btn-primary settings-btn">
-							📝 Signaler sur GitHub
-						</a>
+			</section>
+
+			<section className="settings-block">
+				<div className="settings-row">
+					<div>
+						<h3>Signaler un bug</h3>
+						<p>Un problème ? Signale-le pour améliorer l'application.</p>
 					</div>
-
-					<div className="settings-divider"></div>
-
-					<div className="settings-section disclaimer-section">
-						<h3 className="settings-section-title">⚠️ Avertissement</h3>
-						<div className="disclaimer-box">
-							<p className="settings-text">
-								<strong>Ce site n'est PAS affilié à :</strong>
-							</p>
-							<ul className="disclaimer-list">
-								<li>❌ Zeus (plateforme officielle)</li>
-								<li>❌ IONIS Education Group</li>
-								<li>❌ EPITA</li>
-							</ul>
-							<p className="settings-text highlight">
-								🎓 <strong>Projet étudiant indépendant</strong>
-								<br />
-								Cette application a été développée par un étudiant d'EPITA dans un cadre personnel.
-							</p>
-						</div>
-					</div>
-
-					<div className="settings-divider"></div>
-
-					<div className="settings-section">
-						<h3 className="settings-section-title">🔒 Confidentialité & Données</h3>
-						<div className="privacy-box">
-							<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.8rem", marginBottom: "0.8rem" }}>
-								<strong>Mesure d'audience auto-hébergée</strong>
-								<button type="button" className="btn-primary settings-btn" onClick={handleToggleAnalytics} style={{ margin: 0 }}>
-									{analyticsEnabled ? "Activé" : "Désactivé"}
-								</button>
-							</div>
-							<p className="settings-text">
-								<strong>Mesure d'usage limitée (après votre accord)</strong>
-								<br />
-								<strong>Un identifiant aléatoire local par navigateur, après accord</strong>
-								<br />
-								<strong>Aucun nom, e-mail, identifiant de compte ou jeton transmis à Rybbit</strong>
-								<br />
-								<strong>Authentification via Microsoft (EPITA)</strong>
-								<br />
-								<strong>Données stockées localement (navigateur uniquement)</strong>
-							</p>
-							<p className="settings-text muted">
-								Vos préférences (groupes sélectionnés, thème, notifications, consentement analytics) sont stockées uniquement dans votre navigateur via
-								localStorage.
-							</p>
-							<a href="/legal" className="btn-primary settings-btn" style={{ display: "inline-flex", marginTop: "0.8rem" }}>
-								Lire la politique de confidentialité et les mentions légales
-							</a>
-						</div>
-					</div>
-
-					<div className="settings-divider"></div>
-
-					<div className="settings-section">
-						<h3 className="settings-section-title">📊 Audience</h3>
-						<div className="analytics-kpi-card">
-							<div className="analytics-kpi-head">
-								<span className="analytics-kpi-title">Utilisateurs uniques (total)</span>
-							</div>
-							<div className="analytics-kpi-value">{uniqueUsersLoading ? "…" : formattedUsers}</div>
-							{uniqueUsersError && (
-								<p className="settings-text" style={{ color: "#d32f2f" }}>
-									Erreur API: {uniqueUsersError}
-								</p>
-							)}
-							<button type="button" className="btn-primary settings-btn" onClick={refresh} style={{ margin: 0 }}>
-								🔄 Actualiser
-							</button>
-						</div>
-					</div>
-
-					<div className="settings-divider"></div>
-
-					<div className="settings-footer">
-						<p className="settings-text muted small">
-							Version 1.5.0 • Code source disponible sur{" "}
-							<a
-								href="https://github.com/alexistb2904/EpiTime"
-								target="_blank"
-								rel="noopener noreferrer"
-								style={{ color: "var(--accent-color)", textDecoration: "none" }}>
-								GitHub
-							</a>
-						</p>
-					</div>
+					<a
+						href="https://github.com/alexistb2904/EpiTime/issues/new"
+						onClick={() => trackEvent("bug_report_opened", { source: "settings" })}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="btn is-small">
+						Ouvrir une issue
+						<ArrowUpRight size={15} strokeWidth={2.2} aria-hidden="true" />
+					</a>
 				</div>
-			</div>
-		</div>
+			</section>
+
+			<section className="settings-block settings-disclaimer">
+				<h3>Projet étudiant indépendant</h3>
+				<p>
+					Développé par un étudiant d'EPITA dans un cadre personnel. <strong>Non affilié</strong> à Zeus (plateforme officielle), IONIS Education Group ni EPITA.
+				</p>
+			</section>
+
+			<p className="modal-hint">
+				Version 1.5.0 · Code source sur{" "}
+				<a href="https://github.com/alexistb2904/EpiTime" target="_blank" rel="noopener noreferrer">
+					GitHub
+				</a>
+			</p>
+		</Modal>
 	);
 };
 
