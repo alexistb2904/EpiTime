@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, Text, View } from "react-native";
-import { ChevronRight, Minus, Plus } from "lucide-react-native";
+import { CaretRight, Minus, Plus } from "phosphor-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import type { AppTheme } from "../../theme/palettes";
 
@@ -76,7 +76,7 @@ export function Row({ icon: IconComponent, iconColor, title, subtitle, trailing,
 					{subtitle ? <Text style={[s.rowSubtitle, { color: theme.muted }]}>{subtitle}</Text> : null}
 				</View>
 				{toggle ? <Toggle value={toggle.value} onValueChange={toggle.onValueChange} disabled={toggle.disabled} /> : trailing}
-				{showChevron ? <ChevronRight color={theme.muted} size={20} /> : null}
+				{showChevron ? <CaretRight color={theme.muted} size={20} /> : null}
 			</View>
 			{below ? <View style={[s.rowBelow, IconComponent || loading ? s.rowBelowIndented : null]}>{below}</View> : null}
 		</>

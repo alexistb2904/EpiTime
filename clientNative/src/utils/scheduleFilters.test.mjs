@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildScheduleFilterQuery, hasScheduleFilters } from "./scheduleFilters.ts";
+import { buildScheduleFilterQuery, hasScheduleFilters, normalizeSearchText, searchByKey, sortByLabel } from "./scheduleFilters.ts";
 
 test("buildScheduleFilterQuery combines selected groups, rooms and teachers", () => {
 	assert.deepEqual(
@@ -44,4 +44,20 @@ test("buildScheduleFilterQuery replaces global filters when a single-group conte
 
 test("hasScheduleFilters accepts a room-only calendar selection", () => {
 	assert.equal(hasScheduleFilters({ groups: [], rooms: [42], teachers: [] }), true);
+});
+
+test("sortByLabel orders names without accents or case getting in the way", () => {
+	const names = ["Zoé Martin", "élodie Durand", "Alice Bernard", "Émile Zola", "alice Arnaud"];
+	assert.deepEqual(
+		sortByLabel(names, (name) => name),
+		["alice Arnaud", "Alice Bernard", "élodie Durand", "Émile Zola", "Zoé Martin"]
+	);
+});
+
+test("searchByKey matches every term on precomputed keys and stops at the limit", () => {
+	const teachers = ["Émile Zola", "Zoé Martin", "Emilie Martin", "Martin Dupont"];
+	const keys = teachers.map(normalizeSearchText);
+	assert.deepEqual(searchByKey(teachers, keys, "MARTIN  emi"), ["Emilie Martin"]);
+	assert.deepEqual(searchByKey(teachers, keys, "martin", 2), ["Zoé Martin", "Emilie Martin"]);
+	assert.deepEqual(searchByKey(teachers, keys, ""), teachers);
 });

@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ChevronRight } from "lucide-react-native";
+import { CaretRight } from "phosphor-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import type { DisplayGrade } from "../../services/gradesService";
 
@@ -26,7 +26,7 @@ export default function GradeCard({ grade, onPress }: { grade: DisplayGrade; onP
 			<View style={[s.score, { backgroundColor: validation ? theme.surfaceSoft : theme.accentSoft }]}>
 				<Text style={[s.scoreText, { color: validation ? theme.text : theme.accent }]}>{formatScore(grade)}</Text>
 			</View>
-			<ChevronRight color={theme.muted} size={18} />
+			<CaretRight color={theme.muted} size={18} />
 		</Pressable>
 	);
 }

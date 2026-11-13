@@ -1,31 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import {
-	BellRing,
-	Bug,
-	Calculator,
-	ChevronRight,
-	Clock,
-	Code2,
-	Download,
-	ExternalLink,
-	Hourglass,
-	LogOut,
-	Moon,
-	Palette,
-	RefreshCw,
-	RotateCcw,
-	Scale,
-	Send,
-	ShieldCheck,
-	Smartphone,
-	Square,
-	Sun,
-	Timer,
-	Trash2,
-	User,
-	X,
-} from "lucide-react-native";
+import { BellRinging, Bug, Calculator, CaretRight, Clock, Code, DownloadSimple, ArrowSquareOut, Hourglass, SignOut, Moon, Palette, ArrowsClockwise, ArrowCounterClockwise, Scales, PaperPlaneTilt, ShieldCheck, DeviceMobile, Square, Sun, Timer, Trash, User, X } from "phosphor-react-native";
 import Card from "../Card";
 import { useTheme } from "../../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -105,7 +80,7 @@ export function SettingsContent({
 
 			<Section title="Apparence">
 				<Row
-					icon={mode === "system" ? Smartphone : resolvedMode === "dark" ? Moon : Sun}
+					icon={mode === "system" ? DeviceMobile : resolvedMode === "dark" ? Moon : Sun}
 					title="Thème"
 					below={
 						<Segmented
@@ -137,7 +112,7 @@ export function SettingsContent({
 					toggle={{ value: useWeightedAverages, onValueChange: (enabled) => void toggleGradeWeighting(enabled) }}
 				/>
 				<Row
-					icon={LogOut}
+					icon={SignOut}
 					destructive
 					loading={aurigaDisconnecting}
 					title={aurigaDisconnecting ? "Déconnexion d'Auriga…" : "Se déconnecter d'Auriga"}
@@ -148,7 +123,7 @@ export function SettingsContent({
 
 			<Section title="Agenda">
 				<Row
-					icon={RotateCcw}
+					icon={ArrowCounterClockwise}
 					title="Restaurer les cours masqués"
 					subtitle={deletedEventsCount ? restoreLabel : "Aucun cours supprimé ou ignoré"}
 					onPress={() => void restoreEvents()}
@@ -163,19 +138,19 @@ export function SettingsContent({
 					subtitle="Auto-hébergée, sans nom, e-mail ni identifiant de compte"
 					toggle={{ value: analyticsEnabled, onValueChange: (enabled) => void toggleAnalytics(enabled) }}
 				/>
-				<Row icon={Scale} title="Mentions légales" onPress={() => setCreditsVisible(true)} />
+				<Row icon={Scales} title="Mentions légales" onPress={() => setCreditsVisible(true)} />
 			</Section>
 
 			<Section title="À propos">
 				<Row
-					icon={updateAvailable ? Download : Smartphone}
+					icon={updateAvailable ? DownloadSimple : DeviceMobile}
 					iconColor={updateAvailable ? theme.warn : undefined}
 					loading={checking}
 					title={checking ? "Vérification…" : versionStatus}
 					subtitle={versionDetails}
 					onPress={() => void checkForUpdates(true)}
 					disabled={checking}
-					trailing={<RefreshCw color={theme.muted} size={18} />}
+					trailing={<ArrowsClockwise color={theme.muted} size={18} />}
 					below={
 						updateAvailable ? (
 							<View style={s.updateActions}>
@@ -184,8 +159,8 @@ export function SettingsContent({
 									disabled={updating}
 									onPress={() => void startUpdate()}
 									style={({ pressed }) => [s.updateButton, { backgroundColor: theme.warn, opacity: updating ? 0.68 : pressed ? 0.82 : 1 }]}>
-									{updating ? <ActivityIndicator color={theme.bg} size="small" /> : <Download color={theme.bg} size={18} />}
-									<Text style={[s.updateText, { color: theme.bg }]}>
+									{updating ? <ActivityIndicator color={theme.onWarn} size="small" /> : <DownloadSimple color={theme.onWarn} size={18} />}
+									<Text style={[s.updateText, { color: theme.onWarn }]}>
 										{updatePhase === "downloading"
 											? `Téléchargement… ${Math.round(updateProgress * 100)}%`
 											: updatePhase === "permission"
@@ -207,14 +182,14 @@ export function SettingsContent({
 				<Row
 					icon={Bug}
 					title="Signaler un bug"
-					trailing={<ExternalLink color={theme.muted} size={18} />}
+					trailing={<ArrowSquareOut color={theme.muted} size={18} />}
 					onPress={() => Linking.openURL("https://github.com/alexistb2904/EpiTime/issues/new")}
 				/>
 				<Row
-					icon={Code2}
+					icon={Code}
 					title="Code source"
 					subtitle="GitHub, licence MIT"
-					trailing={<ExternalLink color={theme.muted} size={18} />}
+					trailing={<ArrowSquareOut color={theme.muted} size={18} />}
 					onPress={() => Linking.openURL("https://github.com/alexistb2904/EpiTime")}
 				/>
 			</Section>
@@ -265,11 +240,11 @@ export function SettingsContent({
 					/>
 				) : null}
 				{notificationDebugSettings.enabled ? (
-					<Row icon={Send} title="Programmer une notification" subtitle="À l'heure cible" loading={debugBusyAction === "local"} disabled={debugBusy} onPress={scheduleDebugLocal} />
+					<Row icon={PaperPlaneTilt} title="Programmer une notification" subtitle="À l'heure cible" loading={debugBusyAction === "local"} disabled={debugBusy} onPress={scheduleDebugLocal} />
 				) : null}
 				{notificationDebugSettings.enabled ? (
 					<Row
-						icon={BellRing}
+						icon={BellRinging}
 						title="Programmer une progression"
 						subtitle="À l'heure cible"
 						loading={debugBusyAction === "progress"}
@@ -300,13 +275,13 @@ export function SettingsContent({
 									label="Actualiser"
 									onPress={() => void refreshScheduledNotifications()}
 									disabled={scheduledNotificationsLoading || debugBusy}
-									icon={scheduledNotificationsLoading ? <ActivityIndicator color={theme.accent} /> : <RefreshCw color={theme.accent} size={18} />}
+									icon={scheduledNotificationsLoading ? <ActivityIndicator color={theme.accent} /> : <ArrowsClockwise color={theme.accent} size={18} />}
 								/>
 								<IconAction
 									label="Tout supprimer"
 									onPress={deleteAllScheduledNotifications}
 									disabled={!scheduledNotifications.length || debugBusy}
-									icon={<Trash2 color={destructiveColor(theme)} size={18} />}
+									icon={<Trash color={destructiveColor(theme)} size={18} />}
 								/>
 							</View>
 						}
@@ -321,7 +296,7 @@ export function SettingsContent({
 									label="Supprimer"
 									onPress={() => deleteScheduledNotification(notification)}
 									disabled={debugBusy}
-									icon={<Trash2 color={destructiveColor(theme)} size={18} />}
+									icon={<Trash color={destructiveColor(theme)} size={18} />}
 								/>
 							}
 						/>
@@ -330,7 +305,7 @@ export function SettingsContent({
 			) : null}
 
 			<Section>
-				<Row icon={LogOut} destructive title="Se déconnecter" onPress={logout} />
+				<Row icon={SignOut} destructive title="Se déconnecter" onPress={logout} />
 			</Section>
 
 			<Text style={[s.footer, { color: theme.muted }]}>
@@ -391,13 +366,13 @@ export function CreditsModal({ visible, onClose }: { visible: boolean; onClose: 
 							onPress={() => void Linking.openURL("https://epitime.epita.it/legal")}
 							style={({ pressed }) => [s.legalLink, { backgroundColor: pressed ? theme.accentSoft : theme.surfaceSoft, borderColor: theme.border }]}>
 							<Text style={[s.legalLinkText, { color: theme.accent }]}>Lire le document complet</Text>
-							<ChevronRight color={theme.accent} size={18} />
+							<CaretRight color={theme.accent} size={18} />
 						</Pressable>
 						<Pressable
 							onPress={() => void Linking.openURL("https://epitime.epita.it/legal#terms")}
 							style={({ pressed }) => [s.legalLink, { backgroundColor: pressed ? theme.accentSoft : theme.surfaceSoft, borderColor: theme.border }]}>
 							<Text style={[s.legalLinkText, { color: theme.accent }]}>Lire les CGU</Text>
-							<ChevronRight color={theme.accent} size={18} />
+							<CaretRight color={theme.accent} size={18} />
 						</Pressable>
 					</Card>
 					<CreditSection
@@ -414,7 +389,7 @@ export function CreditsModal({ visible, onClose }: { visible: boolean; onClose: 
 							"Expo, React, React Native",
 							"React Navigation",
 							"React Native Reanimated",
-							"Lucide React Native",
+							"Phosphor Icons",
 							"Expo Auth Session, Secure Store, Notifications",
 							"Async Storage",
 							"React Native Android Widget",

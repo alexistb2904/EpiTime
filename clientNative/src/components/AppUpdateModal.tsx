@@ -1,6 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Download, ExternalLink, RefreshCw, ShieldCheck, X } from "lucide-react-native";
+import { DownloadSimple, ArrowSquareOut, ArrowsClockwise, ShieldCheck, X } from "phosphor-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../context/ThemeContext";
 import type { UpdatePhase } from "../services/appUpdate";
@@ -119,7 +119,7 @@ export default function AppUpdateModal({
 
 					<View style={s.header}>
 						<View style={[s.icon, { backgroundColor: phase === "permission" ? theme.accentSoft : theme.surfaceSoft }]}>
-							{phase === "permission" ? <ShieldCheck color={theme.accent} size={26} /> : <Download color={theme.accent} size={26} />}
+							{phase === "permission" ? <ShieldCheck color={theme.accent} size={26} /> : <DownloadSimple color={theme.accent} size={26} />}
 						</View>
 						<View style={s.headerText}>
 							<Text style={[s.eyebrow, { color: theme.accent }]}>MISE À JOUR ANDROID</Text>
@@ -180,20 +180,20 @@ export default function AppUpdateModal({
 							},
 						]}>
 						{busy ? (
-							<ActivityIndicator color="#fff" size="small" />
+							<ActivityIndicator color={theme.onAccent} size="small" />
 						) : phase === "error" ? (
-							<RefreshCw color="#fff" size={19} />
+							<ArrowsClockwise color={theme.onAccent} size={19} />
 						) : phase === "permission" ? (
-							<ShieldCheck color="#fff" size={19} />
+							<ShieldCheck color={theme.onAccent} size={19} />
 						) : (
-							<Download color="#fff" size={19} />
+							<DownloadSimple color={theme.onAccent} size={19} />
 						)}
-						<Text style={s.primaryText}>{primaryLabel}</Text>
+						<Text style={[s.primaryText, { color: theme.onAccent }]}>{primaryLabel}</Text>
 					</Pressable>
 
 					{phase === "error" ? (
 						<Pressable onPress={onOpenRelease} style={({ pressed }) => [s.secondary, { opacity: pressed ? 0.7 : 1 }]}>
-							<ExternalLink color={theme.accent} size={17} />
+							<ArrowSquareOut color={theme.accent} size={17} />
 							<Text style={[s.secondaryText, { color: theme.accent }]}>Ouvrir la release GitHub</Text>
 						</Pressable>
 					) : null}
@@ -227,7 +227,7 @@ const s = StyleSheet.create({
 	security: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderWidth: 1, borderRadius: 14, padding: 12 },
 	securityText: { flex: 1, fontSize: 12, lineHeight: 17, fontWeight: "600" },
 	primary: { minHeight: 54, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
-	primaryText: { color: "#fff", fontSize: 15, fontWeight: "900" },
+	primaryText: { fontSize: 15, fontWeight: "900" },
 	secondary: { minHeight: 40, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
 	secondaryText: { fontSize: 14, fontWeight: "800" },
 });

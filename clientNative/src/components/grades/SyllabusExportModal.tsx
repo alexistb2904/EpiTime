@@ -1,9 +1,9 @@
 import React from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { FileDown, X } from "lucide-react-native";
+import { FileArrowDown, X } from "phosphor-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
-import { readableTextOn } from "../../utils/calendar";
+
 import type { SyllabusExportDetail } from "../../services/syllabusExport";
 
 type Props = {
@@ -62,15 +62,15 @@ export default function SyllabusExportModal({
 								s.secondaryAction,
 								{ borderColor: theme.border, backgroundColor: theme.surfaceSoft, opacity: exporting || pressed ? 0.72 : 1 },
 							]}>
-							{exporting ? <ActivityIndicator color={theme.accent} size="small" /> : <FileDown color={theme.accent} size={18} />}
+							{exporting ? <ActivityIndicator color={theme.accent} size="small" /> : <FileArrowDown color={theme.accent} size={18} />}
 							<Text style={[s.secondaryActionText, { color: theme.text }]}>Génération minimale</Text>
 						</Pressable>
 						<Pressable
 							disabled={exporting}
 							onPress={() => onGenerate("complete")}
 							style={({ pressed }) => [s.primaryAction, { backgroundColor: theme.accent, opacity: exporting || pressed ? 0.72 : 1 }]}>
-							{exporting ? <ActivityIndicator color={readableTextOn(theme.accent)} size="small" /> : <FileDown color={readableTextOn(theme.accent)} size={18} />}
-							<Text style={[s.primaryActionText, { color: readableTextOn(theme.accent) }]}>Génération complète</Text>
+							{exporting ? <ActivityIndicator color={theme.onAccent} size="small" /> : <FileArrowDown color={theme.onAccent} size={18} />}
+							<Text style={[s.primaryActionText, { color: theme.onAccent }]}>Génération complète</Text>
 						</Pressable>
 					</View>
 				</Pressable>

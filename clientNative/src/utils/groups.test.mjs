@@ -17,6 +17,21 @@ test("buildGroupTree nests children under their parent even when ID types differ
 	assert.deepEqual(tree[0].children.map((group) => group.name), ["A1", "B2", "C3"]);
 });
 
+test("buildGroupTree lists EPITA, EPITECH, other parents, then orphan groups", () => {
+	const tree = buildGroupTree([
+		{ id: 1, name: "B7" },
+		{ id: 2, name: "ESME" },
+		{ id: 3, name: "ESME child", idParent: 2 },
+		{ id: 4, name: "Epitech" },
+		{ id: 5, name: "Epitech child", idParent: 4 },
+		{ id: 6, name: "EPITA" },
+		{ id: 7, name: "EPITA child", idParent: 6 },
+		{ id: 8, name: "ACU" },
+	]);
+
+	assert.deepEqual(tree.map((group) => group.name), ["EPITA", "Epitech", "ESME", "ACU", "B7"]);
+});
+
 test("filterGroupTree keeps the matching child and its parent", () => {
 	const filtered = filterGroupTree(buildGroupTree(groups), "b2");
 

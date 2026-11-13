@@ -2,25 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, type TextInputInstance, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn } from "react-native-reanimated";
-import {
-	BadgePlus,
-	BookOpen,
-	Calculator,
-	Check,
-	ChevronRight,
-	FileDown,
-	Hash,
-	KeyRound,
-	Link2,
-	LogOut,
-	Mail,
-	Percent,
-	RefreshCw,
-	Search,
-	Trash2,
-	WifiOff,
-	X,
-} from "lucide-react-native";
+import { PlusCircle, BookOpen, Calculator, Check, CaretRight, FileArrowDown, Hash, Key, Link, SignOut, Envelope, Percent, ArrowsClockwise, MagnifyingGlass, Trash, WifiSlash, X } from "phosphor-react-native";
 import CoefficientEditorModal from "./CoefficientEditorModal";
 import SyllabusCard from "./SyllabusCard";
 import SyllabusDetailModal from "./SyllabusDetailModal";
@@ -33,7 +15,7 @@ import { type ManualGrade } from "../../services/manualGrades";
 import type { AurigaSyllabus } from "../../services/aurigaTypes";
 import { getSubjectCoefficientOverride, type SubjectCoefficientOverrides, type SubjectCoefficientReference } from "../../services/gradeCoefficientOverrides";
 import { UE_NAMES, type DisplayGrade, type DisplaySubject } from "../../services/gradesService";
-import { hexToRgba, readableTextOn } from "../../utils/calendar";
+import { hexToRgba } from "../../utils/calendar";
 
 function scoreLabel(score?: { value: number; outOf?: number; status?: string }) {
 	if (!score) return "-";
@@ -167,15 +149,15 @@ export function GradesContent({
 						{buttonRefreshing ? (
 							<ActivityIndicator color={theme.accent} />
 						) : offline ? (
-							<WifiOff color={theme.warn} size={20} />
+							<WifiSlash color={theme.warn} size={20} />
 						) : (
-							<RefreshCw color={theme.text} size={20} />
+							<ArrowsClockwise color={theme.text} size={20} />
 						)}
 					</Pressable>
 				</View>
 
 				{status && connected ? <AurigaStatusBanner status={status} /> : null}
-				{offline ? <Notice icon={<WifiOff color={theme.muted} size={17} />} text="Hors ligne : notes enregistrées affichées." /> : null}
+				{offline ? <Notice icon={<WifiSlash color={theme.muted} size={17} />} text="Hors ligne : notes enregistrées affichées." /> : null}
 				{!connected ? (
 					<ConnectCard
 						compact
@@ -256,7 +238,7 @@ export function GradesContent({
 				) : null}
 
 				<View style={[s.searchBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-					<Search color={theme.muted} size={18} />
+					<MagnifyingGlass color={theme.muted} size={18} />
 					<TextInput
 						value={search}
 						onChangeText={setSearch}
@@ -288,7 +270,7 @@ export function GradesContent({
 						disabled={exportingSyllabus || !exportSemesters.length}
 						onPress={onOpenSyllabusExport}
 						accessibilityRole="button">
-						{exportingSyllabus ? <ActivityIndicator color={theme.accent} size="small" /> : <FileDown color={theme.accent} size={18} />}
+						{exportingSyllabus ? <ActivityIndicator color={theme.accent} size="small" /> : <FileArrowDown color={theme.accent} size={18} />}
 						<Text style={[s.secondaryBtnText, { color: theme.text }]}>{exportingSyllabus ? "Création du PDF..." : "Exporter le syllabus"}</Text>
 					</Pressable>
 				) : null}
@@ -335,7 +317,7 @@ export function GradesContent({
 						style={({ pressed }) => [s.secondaryBtn, s.disconnect, { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceSoft : "transparent" }]}
 						onPress={disconnectAuriga}
 						accessibilityRole="button">
-						<LogOut color={danger} size={18} />
+						<SignOut color={danger} size={18} />
 						<Text style={[s.secondaryBtnText, { color: danger }]}>Se déconnecter d'Auriga</Text>
 					</Pressable>
 				) : null}
@@ -474,7 +456,7 @@ export function ConnectCard({
 	onAurigaId: () => void;
 }) {
 	const { theme } = useTheme();
-	const onAccent = readableTextOn(theme.accent);
+	const onAccent = theme.onAccent;
 	const passwordRef = useRef<TextInputInstance>(null);
 	const [focused, setFocused] = useState<"identifier" | "password" | null>(null);
 	const canSubmit = Boolean(identifier.trim() && password);
@@ -494,7 +476,7 @@ export function ConnectCard({
 			<View style={s.formField}>
 				<Text style={[s.formLabel, { color: theme.muted }]}>Identifiant</Text>
 				<View style={fieldStyle("identifier")}>
-					<Mail color={theme.muted} size={18} />
+					<Envelope color={theme.muted} size={18} />
 					<TextInput
 						value={identifier}
 						onChangeText={onChangeIdentifier}
@@ -522,7 +504,7 @@ export function ConnectCard({
 			<View style={s.formField}>
 				<Text style={[s.formLabel, { color: theme.muted }]}>Mot de passe</Text>
 				<View style={fieldStyle("password")}>
-					<KeyRound color={theme.muted} size={18} />
+					<Key color={theme.muted} size={18} />
 					<TextInput
 						ref={passwordRef}
 						value={password}
@@ -553,7 +535,7 @@ export function ConnectCard({
 				accessibilityRole="checkbox"
 				accessibilityState={{ checked: rememberCredentials }}>
 				<View style={[s.checkbox, { borderColor: rememberCredentials ? theme.accent : theme.border, backgroundColor: rememberCredentials ? theme.accent : "transparent" }]}>
-					{rememberCredentials ? <Check color={onAccent} size={15} strokeWidth={3} /> : null}
+					{rememberCredentials ? <Check color={onAccent} size={15} weight="bold" /> : null}
 				</View>
 				<Text style={[s.rememberText, { color: theme.text }]}>Se souvenir de moi</Text>
 			</Pressable>
@@ -699,7 +681,7 @@ export function SubjectCard({ subject, onPress }: { subject: DisplaySubject; onP
 				</View>
 			</View>
 			<Text style={[s.listScore, { color: scoreTone(theme, subject) }]}>{average}</Text>
-			<ChevronRight color={theme.muted} size={18} />
+			<CaretRight color={theme.muted} size={18} />
 		</ListRow>
 	);
 }
@@ -711,7 +693,7 @@ function TrailingValue({ text, color, chevron }: { text: string; color?: string;
 			<Text style={[s.trailingText, { color: color || theme.text }]} numberOfLines={1}>
 				{text}
 			</Text>
-			{chevron ? <ChevronRight color={theme.muted} size={18} /> : null}
+			{chevron ? <CaretRight color={theme.muted} size={18} /> : null}
 		</View>
 	);
 }
@@ -737,7 +719,7 @@ export function SubjectDetailModal({
 }) {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
-	const onAccent = readableTextOn(theme.accent);
+	const onAccent = theme.onAccent;
 	const [showAdd, setShowAdd] = useState(false);
 	const [manualScore, setManualScore] = useState("");
 	const [selectedExamId, setSelectedExamId] = useState<number | undefined>(undefined);
@@ -816,7 +798,7 @@ export function SubjectDetailModal({
 							onPress={() => setShowAdd((value) => !value)}
 							accessibilityRole="button"
 							accessibilityState={{ expanded: showAdd }}>
-							<BadgePlus color={onAccent} size={18} />
+							<PlusCircle color={onAccent} size={18} />
 							<Text style={[s.primaryBtnText, { color: onAccent }]}>Ajouter une note</Text>
 						</Pressable>
 						{subject?.syllabus ? (
@@ -905,7 +887,7 @@ export function SubjectDetailModal({
 											</View>
 										</View>
 										<Text style={[s.listScore, { color: grade.isManual ? theme.warn : theme.text }]}>{score}</Text>
-										<ChevronRight color={theme.muted} size={18} />
+										<CaretRight color={theme.muted} size={18} />
 									</ListRow>
 								);
 							})}
@@ -965,7 +947,7 @@ export function GradeDetailModal({
 						/>
 						{canLinkExam ? (
 							<Row
-								icon={Link2}
+								icon={Link}
 								title="Note du syllabus"
 								trailing={<TrailingValue text={examLabel} color={grade?.examType ? theme.text : theme.accent} chevron />}
 								onPress={() => setPickerVisible(true)}
@@ -990,7 +972,7 @@ export function GradeDetailModal({
 									},
 								])
 							}>
-							<Trash2 color={danger} size={18} />
+							<Trash color={danger} size={18} />
 							<Text style={[s.secondaryBtnText, { color: danger }]}>Supprimer la note manuelle</Text>
 						</Pressable>
 					) : null}
@@ -1026,7 +1008,7 @@ function GradeExamPickerModal({
 	const { theme } = useTheme();
 	const choice = (key: string | number, label: string, weight: number, selected: boolean, examId: number | null) => (
 		<ListRow key={key} onPress={() => void onSelect(examId)} accessibilityLabel={`${label}, coefficient ${formatCoeff(weight)}${selected ? ", sélectionné" : ""}`}>
-			<View style={s.checkSlot}>{selected ? <Check color={theme.accent} size={18} strokeWidth={3} /> : null}</View>
+			<View style={s.checkSlot}>{selected ? <Check color={theme.accent} size={18} weight="bold" /> : null}</View>
 			<Text style={[s.listTitle, s.flex, { color: theme.text }]}>{label}</Text>
 			<Text style={[s.listMeta, { color: theme.muted }]}>coeff {formatCoeff(weight)}</Text>
 		</ListRow>

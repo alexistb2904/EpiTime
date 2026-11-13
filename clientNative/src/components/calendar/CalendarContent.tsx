@@ -3,14 +3,14 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-nati
 import { GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { Bell, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, DoorOpen, ListFilter, TriangleAlert, Users, WifiOff, X } from "lucide-react-native";
+import { Bell, CalendarDots, CaretDown, CaretLeft, CaretRight, DoorOpen, FunnelSimple, Warning, Users, WifiSlash, X } from "phosphor-react-native";
 import DatePickerModal from "../DatePickerModal";
 import EventDetailsModal from "../EventDetailsModal";
 import SessionExpiredBanner from "../SessionExpiredBanner";
 import { useTheme } from "../../context/ThemeContext";
 import { getLocalEventKey, isEventCancelled, isEventIgnored } from "../../services/localEvents";
 import { ZeusEvent } from "../../types";
-import { getCourseColor, readableTextOn, startOfDay } from "../../utils/calendar";
+import { getCourseColor, startOfDay } from "../../utils/calendar";
 import { ChangeHistoryModal, DayTimeline, EventCard, formatEventChangeNotice } from "./CalendarEvents";
 import { FiltersModal, RoomFinderModal } from "./CalendarSelectionModals";
 import { s } from "./calendarStyles";
@@ -64,6 +64,7 @@ export function CalendarContent({
 	selectedTeachers,
 	rooms,
 	teachers,
+	locations,
 	filterOptionsLoading,
 	onLoadFilterOptions,
 	setEventChanges,
@@ -89,7 +90,7 @@ export function CalendarContent({
 	const insets = useSafeAreaInsets();
 	const today = startOfDay(new Date(now));
 	const isDayView = viewMode !== "list";
-	const onAccent = readableTextOn(theme.accent);
+	const onAccent = theme.onAccent;
 	const eventsOf = (day: Date): ZeusEvent[] => eventsByDay.get(dayKey(day)) || [];
 	// Weekends only take room in the strip when they hold a course (or are the selected day).
 	const shownDays: Date[] = days.filter((day: Date, index: number) => index < 5 || eventsOf(day).length > 0 || sameDay(day, focusedDay));
@@ -127,7 +128,7 @@ export function CalendarContent({
 							<Text style={[s.monthText, { color: theme.text }]} numberOfLines={1}>
 								{monthLabel}
 							</Text>
-							<ChevronDown color={theme.muted} size={20} />
+							<CaretDown color={theme.muted} size={20} />
 							{loading ? <ActivityIndicator size="small" color={theme.muted} style={s.headerSpinner} /> : null}
 						</Pressable>
 						<View style={s.headerActions}>
@@ -139,7 +140,7 @@ export function CalendarContent({
 								<Bell color={theme.text} size={20} />
 								{changeHistory.length ? (
 									<View style={[s.badge, { backgroundColor: theme.warn, borderColor: theme.bg }]}>
-										<Text style={[s.badgeText, { color: readableTextOn(theme.warn) }]}>{Math.min(changeHistory.length, 9)}</Text>
+										<Text style={[s.badgeText, { color: theme.onWarn }]}>{Math.min(changeHistory.length, 9)}</Text>
 									</View>
 								) : null}
 							</Pressable>
@@ -148,7 +149,7 @@ export function CalendarContent({
 								onPress={() => setShowGroups(true)}
 								accessibilityRole="button"
 								accessibilityLabel={extraFilterCount ? `Groupes et filtres, ${extraFilterCount} filtres actifs` : "Groupes et filtres"}>
-								<ListFilter color={theme.text} size={20} />
+								<FunnelSimple color={theme.text} size={20} />
 								{extraFilterCount ? (
 									<View style={[s.badge, { backgroundColor: theme.accent, borderColor: theme.bg }]}>
 										<Text style={[s.badgeText, { color: onAccent }]}>{Math.min(extraFilterCount, 9)}</Text>
@@ -221,14 +222,14 @@ export function CalendarContent({
 							onPress={() => move(-1)}
 							accessibilityRole="button"
 							accessibilityLabel="Semaine précédente">
-							<ChevronLeft color={theme.text} size={20} />
+							<CaretLeft color={theme.text} size={20} />
 						</Pressable>
 						<Pressable
 							style={({ pressed }) => [s.navBtn, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface }]}
 							onPress={() => move(1)}
 							accessibilityRole="button"
 							accessibilityLabel="Semaine suivante">
-							<ChevronRight color={theme.text} size={20} />
+							<CaretRight color={theme.text} size={20} />
 						</Pressable>
 					</View>
 
@@ -272,14 +273,14 @@ export function CalendarContent({
 
 					{showCacheBanner ? (
 						<View style={[s.banner, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-							<WifiOff color={theme.muted} size={17} />
+							<WifiSlash color={theme.muted} size={17} />
 							<Text style={[s.bannerText, { color: theme.text }]}>Hors ligne : planning enregistré affiché. Nouvel essai automatique.</Text>
 						</View>
 					) : null}
 
 					{eventChanges.length ? (
 						<View style={[s.banner, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
-							<TriangleAlert color={theme.warn} size={17} />
+							<Warning color={theme.warn} size={17} />
 							<Pressable style={s.bannerBody} onPress={() => setShowChangesPanel(true)} accessibilityRole="button">
 								<Text style={[s.bannerText, { color: theme.text }]} numberOfLines={2}>
 									{formatEventChangeNotice(eventChanges)}
@@ -294,7 +295,7 @@ export function CalendarContent({
 
 					{error ? (
 						<View style={[s.banner, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
-							<TriangleAlert color={theme.warn} size={17} />
+							<Warning color={theme.warn} size={17} />
 							<Text style={[s.bannerText, { color: theme.text }]}>{error}</Text>
 						</View>
 					) : null}
@@ -319,7 +320,7 @@ export function CalendarContent({
 								) : (
 									<View style={[s.empty, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 										<View style={[s.emptyIcon, { backgroundColor: theme.accentSoft }]}>
-											<CalendarDays color={theme.accent} size={24} />
+											<CalendarDots color={theme.accent} size={24} />
 										</View>
 										<Text style={[s.emptyTitle, { color: theme.text }]}>{noGroups ? "Aucun groupe choisi" : "Pas de cours ce jour-là"}</Text>
 										<Text style={[s.emptyText, { color: theme.muted }]}>
@@ -341,12 +342,12 @@ export function CalendarContent({
 												<Text style={[s.emptyActionText, { color: theme.accent }]}>
 													Voir {nextDayWithCourses.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" })}
 												</Text>
-												<ChevronRight color={theme.accent} size={16} />
+												<CaretRight color={theme.accent} size={16} />
 											</Pressable>
 										) : (
 											<Pressable style={[s.emptyAction, { backgroundColor: theme.accentSoft }]} onPress={() => move(1)} accessibilityRole="button">
 												<Text style={[s.emptyActionText, { color: theme.accent }]}>Semaine suivante</Text>
-												<ChevronRight color={theme.accent} size={16} />
+												<CaretRight color={theme.accent} size={16} />
 											</Pressable>
 										)}
 									</View>
@@ -387,6 +388,7 @@ export function CalendarContent({
 					allGroups={groups}
 					rooms={rooms}
 					teachers={teachers}
+					locations={locations}
 					selectedGroups={selectedGroups}
 					selectedRooms={selectedRooms}
 					selectedTeachers={selectedTeachers}

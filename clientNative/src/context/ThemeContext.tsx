@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { NativeModules, useColorScheme } from "react-native";
 import { getJSON, setJSON } from "../services/storage";
+import { readableTextOn } from "../utils/calendar";
 import { mapDynamicSchemeToAppTheme, palettes, type DynamicScheme, type AppTheme, type ResolvedThemeMode, type ThemeMode } from "../theme/palettes";
 
 type ThemeContextValue = {
@@ -54,7 +55,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 	const theme = useMemo(() => {
 		const scheme = dynamicSchemes?.[resolvedMode];
-		return materialYouActive && scheme ? mapDynamicSchemeToAppTheme(scheme, resolvedMode) : palettes[resolvedMode];
+		const base = materialYouActive && scheme ? mapDynamicSchemeToAppTheme(scheme, resolvedMode) : palettes[resolvedMode];
+		return { ...base, onAccent: readableTextOn(base.accent), onDanger: readableTextOn(base.danger), onWarn: readableTextOn(base.warn) };
 	}, [materialYouActive, resolvedMode]);
 
 	const toggleTheme = async () => {

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Minus, Plus, X } from "lucide-react-native";
+import { CalendarDots, CaretLeft, CaretRight, Clock, Minus, Plus, X } from "phosphor-react-native";
 import { useTheme } from "../context/ThemeContext";
 
 type ReminderSelectorModalProps = {
@@ -145,14 +145,14 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 						<Pressable
 							style={[s.modeBtn, { backgroundColor: mode === "relative" ? theme.accent : theme.surfaceSoft, borderColor: theme.border }]}
 							onPress={() => setMode("relative")}>
-							<Clock3 color={mode === "relative" ? "#fff" : theme.muted} size={16} />
-							<Text style={[s.modeBtnText, { color: mode === "relative" ? "#fff" : theme.text }]}>Avant le cours</Text>
+							<Clock color={mode === "relative" ? theme.onAccent : theme.muted} size={16} />
+							<Text style={[s.modeBtnText, { color: mode === "relative" ? theme.onAccent : theme.text }]}>Avant le cours</Text>
 						</Pressable>
 						<Pressable
 							style={[s.modeBtn, { backgroundColor: mode === "exact" ? theme.accent : theme.surfaceSoft, borderColor: theme.border }]}
 							onPress={() => setMode("exact")}>
-							<CalendarDays color={mode === "exact" ? "#fff" : theme.muted} size={16} />
-							<Text style={[s.modeBtnText, { color: mode === "exact" ? "#fff" : theme.text }]}>Date / heure précise</Text>
+							<CalendarDots color={mode === "exact" ? theme.onAccent : theme.muted} size={16} />
+							<Text style={[s.modeBtnText, { color: mode === "exact" ? theme.onAccent : theme.text }]}>Date / heure précise</Text>
 						</Pressable>
 					</View>
 
@@ -171,7 +171,7 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 													{ backgroundColor: selected ? theme.accent : theme.surfaceSoft, borderColor: selected ? theme.accent : theme.border },
 												]}
 												onPress={() => setPreset(preset.parts)}>
-												<Text style={[s.presetText, { color: selected ? "#fff" : theme.text }]}>{preset.label}</Text>
+												<Text style={[s.presetText, { color: selected ? theme.onAccent : theme.text }]}>{preset.label}</Text>
 											</Pressable>
 										);
 									})}
@@ -211,7 +211,7 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 							<View style={s.section}>
 								<View style={s.exactSummaryCard}>
 									<View style={[s.exactSummaryIcon, { backgroundColor: theme.accentSoft }]}>
-										<CalendarDays color={theme.accent} size={18} />
+										<CalendarDots color={theme.accent} size={18} />
 									</View>
 									<View style={s.exactSummaryText}>
 										<Text style={[s.summaryLabel, { color: theme.muted }]}>Rappel choisi</Text>
@@ -224,14 +224,14 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 
 								<View style={s.monthHead}>
 									<Pressable style={[s.monthNav, { borderColor: theme.border, backgroundColor: theme.surfaceSoft }]} onPress={() => moveMonth(-1)}>
-										<ChevronLeft color={theme.text} size={20} />
+										<CaretLeft color={theme.text} size={20} />
 									</Pressable>
 									<View style={s.monthTitleWrap}>
 										<Text style={[s.monthTitle, { color: theme.text }]}>{pickerMonth.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</Text>
 										<Text style={[s.sectionHint, { color: theme.muted }]}>Choisis la date exacte du rappel</Text>
 									</View>
 									<Pressable style={[s.monthNav, { borderColor: theme.border, backgroundColor: theme.surfaceSoft }]} onPress={() => moveMonth(1)}>
-										<ChevronRight color={theme.text} size={20} />
+										<CaretRight color={theme.text} size={20} />
 									</Pressable>
 								</View>
 
@@ -266,10 +266,10 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 													});
 													setPickerMonth(new Date(date.getFullYear(), date.getMonth(), 1));
 												}}>
-												<Text style={[s.dayCellText, { color: selected ? "#fff" : inMonth ? theme.text : theme.muted, opacity: inMonth ? 1 : 0.45 }]}>
+												<Text style={[s.dayCellText, { color: selected ? theme.onAccent : inMonth ? theme.text : theme.muted, opacity: inMonth ? 1 : 0.45 }]}>
 													{date.getDate()}
 												</Text>
-												{isToday ? <View style={[s.todayDot, { backgroundColor: selected ? "#fff" : theme.accent }]} /> : null}
+												{isToday ? <View style={[s.todayDot, { backgroundColor: selected ? theme.onAccent : theme.accent }]} /> : null}
 											</Pressable>
 										);
 									})}
@@ -310,7 +310,7 @@ export default function ReminderSelectorModal({ visible, eventStartDate, current
 							style={[s.primaryBtn, { backgroundColor: theme.accent, opacity: mode === "relative" ? (relativeOffset > 0 ? 1 : 0.45) : exactValid ? 1 : 0.45 }]}
 							disabled={mode === "relative" ? relativeOffset <= 0 : !exactValid}
 							onPress={() => void (mode === "relative" ? applyRelative() : applyExact())}>
-							<Text style={[s.primaryText, { textAlign: "center" }]}>Appliquer le rappel</Text>
+							<Text style={[s.primaryText, { color: theme.onAccent, textAlign: "center" }]}>Appliquer le rappel</Text>
 						</Pressable>
 					</View>
 				</Animated.View>
@@ -432,5 +432,5 @@ const s = StyleSheet.create({
 	secondaryBtn: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 	secondaryText: { fontSize: 14, fontWeight: "900" },
 	primaryBtn: { flex: 1, minHeight: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-	primaryText: { color: "#fff", fontSize: 14, fontWeight: "900" },
+	primaryText: { fontSize: 14, fontWeight: "900" },
 });

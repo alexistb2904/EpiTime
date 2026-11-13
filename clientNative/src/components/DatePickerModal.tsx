@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react-native";
+import { CalendarDots, CaretLeft, CaretRight } from "phosphor-react-native";
 import { useTheme } from "../context/ThemeContext";
 import { startOfDay } from "../utils/calendar";
 
@@ -51,14 +51,14 @@ export default function DatePickerModal({ visible, currentDate, pickerMonth, onC
 				<Animated.View entering={FadeInDown.duration(260)} style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 					<View style={s.head}>
 						<Pressable style={[s.nav, { borderColor: theme.border, backgroundColor: theme.surfaceSoft }]} onPress={() => moveMonth(-1)}>
-							<ChevronLeft color={theme.text} size={20} />
+							<CaretLeft color={theme.text} size={20} />
 						</Pressable>
 						<View style={s.titleWrap}>
 							<Text style={[s.title, { color: theme.text }]}>{monthLabel}</Text>
 							<Text style={[s.sub, { color: theme.muted }]}>Choisir une date</Text>
 						</View>
 						<Pressable style={[s.nav, { borderColor: theme.border, backgroundColor: theme.surfaceSoft }]} onPress={() => moveMonth(1)}>
-							<ChevronRight color={theme.text} size={20} />
+							<CaretRight color={theme.text} size={20} />
 						</Pressable>
 					</View>
 
@@ -90,21 +90,21 @@ export default function DatePickerModal({ visible, currentDate, pickerMonth, onC
 										style={[
 											s.dateCellText,
 											{
-												color: selected ? "#fff" : inMonth ? theme.text : theme.muted,
+												color: selected ? theme.onAccent : inMonth ? theme.text : theme.muted,
 												opacity: inMonth ? 1 : 0.45,
 											},
 										]}>
 										{date.getDate()}
 									</Text>
-									{isToday ? <View style={[s.todayDot, { backgroundColor: selected ? "#fff" : theme.accent }]} /> : null}
+									{isToday ? <View style={[s.todayDot, { backgroundColor: selected ? theme.onAccent : theme.accent }]} /> : null}
 								</Pressable>
 							);
 						})}
 					</View>
 
 					<Pressable style={[s.todayBtn, { backgroundColor: theme.accent }]} onPress={onToday}>
-						<CalendarDays color="#fff" size={18} />
-						<Text style={s.todayText}>Retourner à aujourd'hui</Text>
+						<CalendarDots color={theme.onAccent} size={18} />
+						<Text style={[s.todayText, { color: theme.onAccent }]}>Retourner à aujourd'hui</Text>
 					</Pressable>
 				</Animated.View>
 			</View>
@@ -138,5 +138,5 @@ const s = StyleSheet.create({
 	dateCellText: { fontSize: 16, fontWeight: "900" },
 	todayDot: { width: 4, height: 4, borderRadius: 2, marginTop: 3 },
 	todayBtn: { minHeight: 50, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14 },
-	todayText: { color: "#fff", fontSize: 15, fontWeight: "900" },
+	todayText: { fontSize: 15, fontWeight: "900" },
 });

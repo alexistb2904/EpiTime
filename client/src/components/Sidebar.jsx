@@ -5,8 +5,12 @@ import { trackEvent } from "../utils/analyticsTracker";
 import { androidAppDownloadUrl, iosAppDownloadUrl } from "../utils/downloadLinks";
 import { filterCalendarFilterOptions } from "../utils/calendarFilters";
 
-const FilterSelectionSection = ({ title, items, selectedIds, search, setSearch, onToggle, getLabel, searchPlaceholder, loading }) => {
+const getRoomLabel = (room) => room.name || `Salle #${room.id}`;
+const getTeacherLabel = (teacher) => `${teacher.firstname || ""} ${teacher.name || ""}`.trim() || `Enseignant #${teacher.id}`;
+
+const FilterSelectionSection = ({ title, items, selectedIds, onToggle, getLabel, searchPlaceholder, loading }) => {
 	const [expanded, setExpanded] = useState(selectedIds.length > 0);
+	const [search, setSearch] = useState("");
 	const filteredItems = useMemo(() => filterCalendarFilterOptions(items, search, getLabel), [items, search, getLabel]);
 	const selectedItems = useMemo(() => items.filter((item) => selectedIds.includes(item.id)), [items, selectedIds]);
 	const displayedItems = search.trim() ? filteredItems.slice(0, 40) : selectedItems;
@@ -29,7 +33,7 @@ const FilterSelectionSection = ({ title, items, selectedIds, search, setSearch, 
 						onChange={(event) => setSearch(event.target.value)}
 						aria-label={searchPlaceholder}
 					/>
-					{loading ? (
+					{loading && items.length === 0 ? (
 						<p className="drawer-empty">Chargement…</p>
 					) : displayedItems.length > 0 ? (
 						<ul className="drawer-checks">
@@ -64,13 +68,9 @@ const Sidebar = ({
 	setShowGroupModal,
 	selectedRooms,
 	rooms,
-	roomSearch,
-	setRoomSearch,
 	toggleRoom,
 	selectedTeachers,
 	teachers,
-	teacherSearch,
-	setTeacherSearch,
 	toggleTeacher,
 	filterOptionsLoading,
 	theme,
@@ -155,10 +155,8 @@ const Sidebar = ({
 					title="Salles"
 					items={rooms}
 					selectedIds={selectedRooms}
-					search={roomSearch}
-					setSearch={setRoomSearch}
 					onToggle={toggleRoom}
-					getLabel={(room) => room.name || `Salle #${room.id}`}
+					getLabel={getRoomLabel}
 					searchPlaceholder="Ajouter une salle…"
 					loading={filterOptionsLoading}
 				/>
@@ -167,10 +165,8 @@ const Sidebar = ({
 					title="Enseignants"
 					items={teachers}
 					selectedIds={selectedTeachers}
-					search={teacherSearch}
-					setSearch={setTeacherSearch}
 					onToggle={toggleTeacher}
-					getLabel={(teacher) => `${teacher.firstname || ""} ${teacher.name || ""}`.trim() || `Enseignant #${teacher.id}`}
+					getLabel={getTeacherLabel}
 					searchPlaceholder="Ajouter un enseignant…"
 					loading={filterOptionsLoading}
 				/>

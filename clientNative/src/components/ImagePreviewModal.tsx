@@ -2,7 +2,7 @@ import React from "react";
 import { Image as RNImage, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ExternalLink, Image as ImageIcon, X } from "lucide-react-native";
+import { ArrowSquareOut, Image as ImageIcon, X } from "phosphor-react-native";
 import { useTheme } from "../context/ThemeContext";
 import type { CourseNoteAttachment } from "../services/courseNotes";
 
@@ -53,8 +53,8 @@ export default function ImagePreviewModal({ visible, attachment, onClose, onOpen
 							<Text style={[s.secondaryText, { color: theme.text }]}>Fermer</Text>
 						</Pressable>
 						<Pressable style={[s.primaryBtn, { backgroundColor: theme.accent }]} onPress={() => void onOpenInGallery()}>
-							<ExternalLink color="#fff" size={17} />
-							<Text style={s.primaryText}>Ouvrir dans la galerie</Text>
+							<ArrowSquareOut color={theme.onAccent} size={17} />
+							<Text style={[s.primaryText, { color: theme.onAccent }]}>Ouvrir dans la galerie</Text>
 						</Pressable>
 					</View>
 				</Animated.View>
@@ -100,5 +100,5 @@ const s = StyleSheet.create({
 	secondaryBtn: { flex: 1, minHeight: 46, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 	secondaryText: { fontSize: 14, fontWeight: "900" },
 	primaryBtn: { flex: 1, minHeight: 46, borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-	primaryText: { color: "#fff", fontSize: 14, fontWeight: "900" },
+	primaryText: { fontSize: 14, fontWeight: "900" },
 });

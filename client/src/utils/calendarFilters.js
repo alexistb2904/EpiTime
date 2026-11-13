@@ -37,12 +37,19 @@ const normalizeSearchValue = (value) =>
 		.toLocaleLowerCase("fr-FR")
 		.trim();
 
+// The lists are searched on every keystroke: each label is normalized once, not 2 000 times per key.
+const normalizedLabels = new WeakMap();
+
 export const filterCalendarFilterOptions = (options = [], search = "", getLabel = (option) => option?.name || "") => {
 	const searchTerms = normalizeSearchValue(search).split(/\s+/).filter(Boolean);
 	if (searchTerms.length === 0) return options;
 
 	return options.filter((option) => {
-		const normalizedLabel = normalizeSearchValue(getLabel(option));
+		let normalizedLabel = normalizedLabels.get(option);
+		if (normalizedLabel === undefined) {
+			normalizedLabel = normalizeSearchValue(getLabel(option));
+			normalizedLabels.set(option, normalizedLabel);
+		}
 		return searchTerms.every((term) => normalizedLabel.includes(term));
 	});
 };

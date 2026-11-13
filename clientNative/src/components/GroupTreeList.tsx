@@ -1,8 +1,9 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Check, Minus, Plus } from "lucide-react-native";
+import { Check, Minus, Plus } from "phosphor-react-native";
 import { useTheme } from "../context/ThemeContext";
 import type { GroupTreeNode } from "../utils/groups";
+
 
 type Props = {
 	groups: GroupTreeNode[];
@@ -38,14 +39,14 @@ const GroupTreeItem = memo(function GroupTreeItem({ group, selectedIds, onToggle
 						accessibilityRole="button"
 						accessibilityState={{ expanded: isExpanded }}
 						accessibilityLabel={isExpanded ? `Réduire ${group.name}` : `Développer ${group.name}`}>
-						{isExpanded ? <Minus color={theme.accent} size={17} strokeWidth={2.5} /> : <Plus color={theme.accent} size={17} strokeWidth={2.5} />}
+						{isExpanded ? <Minus color={theme.accent} size={17} weight="bold" /> : <Plus color={theme.accent} size={17} weight="bold" />}
 					</Pressable>
 				) : (
 					<View style={s.expandSpacer} />
 				)}
 				<Pressable style={[s.groupRow, { backgroundColor: theme.surface, borderColor: active ? theme.accent : theme.border }]} onPress={() => onToggle(group.id)}>
 					<View style={[s.check, { backgroundColor: active ? theme.accent : "transparent", borderColor: active ? theme.accent : theme.border }]}>
-						{active ? <Check color="#fff" size={14} /> : null}
+						{active ? <Check color={theme.onAccent} size={14} weight="bold" /> : null}
 					</View>
 					<Text style={[s.groupName, { color: theme.text }]} numberOfLines={1}>
 						{group.name}

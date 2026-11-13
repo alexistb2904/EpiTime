@@ -2,21 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import {
-	BookOpenCheck,
-	BriefcaseBusiness,
-	Calculator,
-	CalendarRange,
-	ClipboardList,
-	Clock3,
-	FileText,
-	Languages,
-	Paperclip,
-	Sparkles,
-	Target,
-	UserRound,
-	X,
-} from "lucide-react-native";
+import { BookOpenText, Briefcase, Calculator, CalendarBlank, ClipboardText, Clock, FileText, Translate, Paperclip, Sparkle, Target, User, X } from "phosphor-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { cleanHtml, type AurigaExam, type AurigaSyllabus } from "../../services/aurigaTypes";
 import { formatSecondsAsHours } from "../../utils/syllabusTime";
@@ -178,7 +164,7 @@ export default function SyllabusDetailModal({
 					<View style={[s.overview, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 						<View style={s.overviewTop}>
 							<View style={[s.overviewIcon, { backgroundColor: theme.accentSoft }]}>
-								<BookOpenCheck color={theme.accent} size={24} />
+								<BookOpenText color={theme.accent} size={24} />
 							</View>
 							<View style={s.overviewText}>
 								<Text style={[s.overviewLabel, { color: theme.muted }]}>Fiche matière</Text>
@@ -191,22 +177,22 @@ export default function SyllabusDetailModal({
 							</View>
 						</View>
 						<View style={s.metrics}>
-							<Metric icon={<Clock3 color={theme.accent} size={18} />} label="Encadré" value={formatSecondsAsHours(syllabus?.duration)} />
-							<Metric icon={<BriefcaseBusiness color={theme.accent} size={18} />} label="Travail" value={formatSecondsAsHours(syllabus?.estimatedStudentWorkload)} />
+							<Metric icon={<Clock color={theme.accent} size={18} />} label="Encadré" value={formatSecondsAsHours(syllabus?.duration)} />
+							<Metric icon={<Briefcase color={theme.accent} size={18} />} label="Travail" value={formatSecondsAsHours(syllabus?.estimatedStudentWorkload)} />
 							<Metric icon={<Target color={theme.accent} size={18} />} label="Seuil" value={syllabus?.minScore ? `${syllabus.minScore}/20` : "10/20"} />
 							<Metric
-								icon={<ClipboardList color={theme.accent} size={18} />}
+								icon={<ClipboardText color={theme.accent} size={18} />}
 								label={coefficientOverridden ? "Coeff · modifié" : onEditCoefficient ? "Coeff · modifier" : "Coeff"}
 								value={String(displayedCoefficient)}
 								onPress={onEditCoefficient}
 							/>
 						</View>
 						<View style={s.quickFacts}>
-							<Fact icon={<Languages color={theme.accent} size={15} />} label={languageLabel(syllabus?.mediaLanguages)} />
-							<Fact icon={<CalendarRange color={theme.accent} size={15} />} label={formatPeriod(syllabus?.period?.startDate, syllabus?.period?.endDate)} />
+							<Fact icon={<Translate color={theme.accent} size={15} />} label={languageLabel(syllabus?.mediaLanguages)} />
+							<Fact icon={<CalendarBlank color={theme.accent} size={15} />} label={formatPeriod(syllabus?.period?.startDate, syllabus?.period?.endDate)} />
 						</View>
 					</View>
-					<Section title="Examens" icon={<ClipboardList color={theme.muted} size={23} />}>
+					<Section title="Examens" icon={<ClipboardText color={theme.muted} size={23} />}>
 						<View style={[s.groupedCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 							{exams.length ? (
 								exams.map((exam, index) => (
@@ -228,8 +214,8 @@ export default function SyllabusDetailModal({
 						</View>
 						{exams.length ? (
 							<Pressable style={[s.simulatorButton, { backgroundColor: theme.accent }]} onPress={() => setSimulatorOpen((value) => !value)}>
-								<Calculator color="#fff" size={18} />
-								<Text style={s.simulatorButtonText}>{simulatorOpen ? "Fermer le simulateur" : "Simuler mes notes"}</Text>
+								<Calculator color={theme.onAccent} size={18} />
+								<Text style={[s.simulatorButtonText, { color: theme.onAccent }]}>{simulatorOpen ? "Fermer le simulateur" : "Simuler mes notes"}</Text>
 							</Pressable>
 						) : null}
 						{simulatorOpen ? (
@@ -261,7 +247,7 @@ export default function SyllabusDetailModal({
 							</Animated.View>
 						) : null}
 					</Section>
-					<Section title="Activites" icon={<Sparkles color={theme.muted} size={23} />}>
+					<Section title="Activites" icon={<Sparkle color={theme.muted} size={23} />}>
 						<View style={[s.activitySummary, { backgroundColor: theme.accentSoft }]}>
 							<Text style={[s.activitySummaryValue, { color: theme.accent }]}>{formatSecondsAsHours(activitySeconds)}</Text>
 							<Text style={[s.activitySummaryText, { color: theme.muted }]}> Total volume activités</Text>
@@ -283,7 +269,7 @@ export default function SyllabusDetailModal({
 							)}
 						</View>
 					</Section>
-					<Section title="Référent" icon={<UserRound color={theme.muted} size={23} />}>
+					<Section title="Référent" icon={<User color={theme.muted} size={23} />}>
 						<View style={[s.groupedCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 							{syllabus?.responsables?.length ? (
 								syllabus.responsables.map((person, index) => (
@@ -556,7 +542,7 @@ const s = StyleSheet.create({
 	activitySummaryValue: { fontSize: 18, fontWeight: "900" },
 	activitySummaryText: { flex: 1, textAlign: "right", fontSize: 12, lineHeight: 16, fontWeight: "900" },
 	simulatorButton: { minHeight: 48, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-	simulatorButtonText: { color: "#fff", fontSize: 15, fontWeight: "900" },
+	simulatorButtonText: { fontSize: 15, fontWeight: "900" },
 	simulator: { borderWidth: 1, borderRadius: 18, padding: 14, gap: 12 },
 	simulatorTitle: { fontSize: 17, fontWeight: "900" },
 	simRow: { borderWidth: 1, borderRadius: 14, padding: 10, flexDirection: "row", alignItems: "center", gap: 10 },

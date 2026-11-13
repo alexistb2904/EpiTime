@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { AlertCircle, BellRing, CalendarClock, CalendarDays, Clock, Radio, Send, Volume2 } from "lucide-react-native";
+import { WarningCircle, BellRinging, ClockCountdown, CalendarDots, Clock, Broadcast, PaperPlaneTilt, SpeakerHigh } from "phosphor-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton, Row, ScreenTitle, Section, Segmented, Stepper, s as ls } from "../components/settings/SettingsList";
 import { getLiveCourseNotificationSettings, setLiveCourseProgressNotificationEnabled } from "../services/liveCourse";
@@ -247,7 +247,7 @@ export default function NotificationsScreen() {
 			{missingPermissions.length ? (
 				<Section>
 					<Row
-						icon={AlertCircle}
+						icon={WarningCircle}
 						iconColor={theme.warn}
 						title={missingPermissions.length > 1 ? `${missingPermissions.length} autorisations manquantes` : "Autorisation manquante"}
 						subtitle={`${missingPermissions.map((permission) => permission.label).join(", ")} : sans ${missingPermissions.length > 1 ? "elles" : "elle"}, les rappels peuvent ne pas arriver.`}
@@ -259,7 +259,7 @@ export default function NotificationsScreen() {
 
 			<Section title="Avant les cours">
 				<Row
-					icon={BellRing}
+					icon={BellRinging}
 					title="Rappels de cours"
 					subtitle={settings.enabled ? "Une notification avant chaque cours" : "Désactivés"}
 					loading={loading}
@@ -281,7 +281,7 @@ export default function NotificationsScreen() {
 				) : null}
 				{settings.enabled ? (
 					<Row
-						icon={CalendarDays}
+						icon={CalendarDots}
 						title="Jours"
 						trailing={
 							<Pressable accessibilityRole="button" hitSlop={12} onPress={() => saveSettings({ ...settings, selectedDays: allDays ? [] : [0, 1, 2, 3, 4, 5, 6] })}>
@@ -309,7 +309,7 @@ export default function NotificationsScreen() {
 				) : null}
 				{settings.enabled ? (
 					<Row
-						icon={Volume2}
+						icon={SpeakerHigh}
 						title="Type d’alerte"
 						below={
 							<Segmented
@@ -328,14 +328,14 @@ export default function NotificationsScreen() {
 
 			<Section title="Changements de planning">
 				<Row
-					icon={CalendarClock}
+					icon={ClockCountdown}
 					title="Cours modifiés"
 					subtitle="Prévenir quand un cours change"
 					toggle={{ value: settings.changeDetectionEnabled, onValueChange: (changeDetectionEnabled) => saveSettings({ ...settings, changeDetectionEnabled }) }}
 				/>
 				{settings.changeDetectionEnabled ? (
 					<Row
-						icon={CalendarDays}
+						icon={CalendarDots}
 						title="Période surveillée"
 						trailing={
 							<Stepper
@@ -352,7 +352,7 @@ export default function NotificationsScreen() {
 			{Platform.OS === "android" ? (
 				<Section title="Pendant le cours">
 					<Row
-						icon={Radio}
+						icon={Broadcast}
 						title="Progression du cours"
 						subtitle="Notification persistante pendant le cours"
 						toggle={{ value: liveCourseProgressEnabled, onValueChange: (enabled) => void toggleLiveCourseProgress(enabled) }}
@@ -360,7 +360,7 @@ export default function NotificationsScreen() {
 				</Section>
 			) : null}
 
-			<PrimaryButton label="Tester une notification" icon={Send} onPress={test} loading={loading} />
+			<PrimaryButton label="Tester une notification" icon={PaperPlaneTilt} onPress={test} loading={loading} />
 			<Text style={[s.status, { color: theme.muted }]}>{message}</Text>
 		</ScrollView>
 	);

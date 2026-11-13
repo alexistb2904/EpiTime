@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, ScrollVie
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { BookOpen, Calculator, GraduationCap, LogOut, RefreshCw, Search, WifiOff, X } from "lucide-react-native";
+import { BookOpen, Calculator, GraduationCap, SignOut, ArrowsClockwise, MagnifyingGlass, WifiSlash, X } from "phosphor-react-native";
 import Card from "../components/Card";
 import SyllabusCard from "../components/grades/SyllabusCard";
 import SyllabusDetailModal from "../components/grades/SyllabusDetailModal";

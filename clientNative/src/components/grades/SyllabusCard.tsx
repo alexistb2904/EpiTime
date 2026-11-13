@@ -1,6 +1,6 @@
 import React from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { ChevronRight } from "lucide-react-native";
+import { CaretRight } from "phosphor-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import type { AurigaSyllabus } from "../../services/aurigaTypes";
 import { formatSecondsAsHours } from "../../utils/syllabusTime";
@@ -30,7 +30,7 @@ export default function SyllabusCard({ syllabus, coefficient, onPress }: { sylla
 					</Text>
 				) : null}
 			</View>
-			<ChevronRight color={theme.muted} size={18} />
+			<CaretRight color={theme.muted} size={18} />
 		</Pressable>
 	);
 }

@@ -1,7 +1,7 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, Clock, Coffee, MapPin, Paperclip, StickyNote, Trash2, User, Users, Video, X } from "lucide-react-native";
+import { Bell, Clock, Coffee, MapPin, Paperclip, Note, Trash, User, Users, VideoCamera, X } from "phosphor-react-native";
 import Card from "../Card";
 import { useTheme } from "../../context/ThemeContext";
 import { CourseNoteSummary } from "../../services/courseNotes";
@@ -58,8 +58,8 @@ export function ChangeHistoryModal({ visible, changes, onClose, onClear }: { vis
 				{changes.length ? (
 					<View style={[s.changeModalFooter, { borderTopColor: theme.border, backgroundColor: theme.bg, paddingBottom: Math.max(insets.bottom, 18) }]}>
 						<Pressable style={[s.clearChangesBtn, { backgroundColor: theme.warn }]} onPress={onClear}>
-							<Trash2 color="#fff" size={18} />
-							<Text style={s.clearChangesText}>Effacer les modifications</Text>
+							<Trash color={theme.onWarn} size={18} />
+							<Text style={[s.clearChangesText, { color: theme.onWarn }]}>Effacer les modifications</Text>
 						</Pressable>
 					</View>
 				) : null}
@@ -252,10 +252,10 @@ export function EventCard({
 					</Text>
 					<Text style={[s.eventDuration, { color: theme.muted }]}>· {formatDuration((endMillis - startMillis) / minute)}</Text>
 					<View style={s.eventIndicators}>
-						{event.isOnline ? <Video color={theme.muted} size={15} /> : null}
+						{event.isOnline ? <VideoCamera color={theme.muted} size={15} /> : null}
 						{noteSummary?.count ? (
 							<View style={s.eventIndicator}>
-								<StickyNote color={theme.muted} size={15} />
+								<Note color={theme.muted} size={15} />
 								<Text style={[s.eventIndicatorText, { color: theme.muted }]}>{noteSummary.count}</Text>
 							</View>
 						) : null}

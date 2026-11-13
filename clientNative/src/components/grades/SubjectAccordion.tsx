@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { BookOpen, ChevronDown, ChevronRight } from "lucide-react-native";
+import { BookOpen, CaretDown, CaretRight } from "phosphor-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import type { AurigaSyllabus } from "../../services/aurigaTypes";
 import type { DisplayGrade, DisplaySubject } from "../../services/gradesService";
@@ -38,7 +38,7 @@ export default function SubjectAccordion({
 				<View style={[s.average, { backgroundColor: subject.hasNonValidated ? "rgba(239, 68, 68, 0.12)" : theme.accentSoft }]}>
 					<Text style={[s.averageText, { color: subject.hasNonValidated ? theme.danger : theme.accent }]}>{average}</Text>
 				</View>
-				{open ? <ChevronDown color={theme.muted} size={20} /> : <ChevronRight color={theme.muted} size={20} />}
+				{open ? <CaretDown color={theme.muted} size={20} /> : <CaretRight color={theme.muted} size={20} />}
 			</Pressable>
 			{open ? (
 				<View style={s.content}>

@@ -108,10 +108,8 @@ const Calendar = () => {
 	const [showGroupModal, setShowGroupModal] = useState(false);
 	const [selectedRooms, setSelectedRooms] = useState([]);
 	const [rooms, setRooms] = useState([]);
-	const [roomSearch, setRoomSearch] = useState("");
 	const [selectedTeachers, setSelectedTeachers] = useState([]);
 	const [teachers, setTeachers] = useState([]);
-	const [teacherSearch, setTeacherSearch] = useState("");
 	const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
 	const [selectedEvent, setSelectedEvent] = useState(null);
 	const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -235,21 +233,25 @@ const Calendar = () => {
 	};
 
 	const loadFilterOptions = async () => {
-		try {
-			setFilterOptionsLoading(true);
-			const headers = { Authorization: `Bearer ${zeusToken}` };
-			const [roomsResponse, teachersResponse] = await Promise.all([fetchApi("/api/rooms", { headers }), fetchApi("/api/teachers", { headers })]);
-			if (!roomsResponse.ok || !teachersResponse.ok) throw new Error("Impossible de charger les filtres de calendrier");
-
-			const [roomsData, teachersData] = await Promise.all([roomsResponse.json(), teachersResponse.json()]);
-			setRooms(Array.isArray(roomsData) ? roomsData : []);
-			setTeachers(Array.isArray(teachersData) ? teachersData : []);
-		} catch (err) {
-			console.error("Erreur chargement filtres calendrier", err);
+		setFilterOptionsLoading(true);
+		const headers = { Authorization: `Bearer ${zeusToken}` };
+		const loadList = async (path, cacheKey, setItems) => {
+			const cached = await cacheGet(cacheKey);
+			if (Array.isArray(cached)) setItems(cached);
+			const response = await fetchApi(path, { headers });
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const data = await response.json();
+			if (!Array.isArray(data)) throw new Error("Réponse inattendue");
+			setItems(data);
+			cacheSet(cacheKey, data);
+		};
+		const results = await Promise.allSettled([loadList("/api/rooms", "zeus_cached_rooms", setRooms), loadList("/api/teachers", "zeus_cached_teachers", setTeachers)]);
+		const failure = results.find((result) => result.status === "rejected");
+		if (failure) {
+			console.error("Erreur chargement filtres calendrier", failure.reason);
 			trackEvent("calendar_filter_options_load_failed");
-		} finally {
-			setFilterOptionsLoading(false);
 		}
+		setFilterOptionsLoading(false);
 	};
 
 	const loadCalendar = async () => {
@@ -833,13 +835,9 @@ const Calendar = () => {
 					setShowGroupModal={setShowGroupModal}
 					selectedRooms={selectedRooms}
 					rooms={rooms}
-					roomSearch={roomSearch}
-					setRoomSearch={setRoomSearch}
 					toggleRoom={toggleRoom}
 					selectedTeachers={selectedTeachers}
 					teachers={teachers}
-					teacherSearch={teacherSearch}
-					setTeacherSearch={setTeacherSearch}
 					toggleTeacher={toggleTeacher}
 					filterOptionsLoading={filterOptionsLoading}
 					theme={theme}

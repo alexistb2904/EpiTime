@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, SectionList, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Check, Clock, DoorOpen, Filter, Layers, MapPin, Minus, Navigation, Plus, RotateCcw, Search, SlidersHorizontal, Users, X } from "lucide-react-native";
+import { Check, CaretDown, CaretRight, Clock, DoorOpen, Funnel, GraduationCap, Stack, MapPin, NavigationArrow, ArrowCounterClockwise, MagnifyingGlass, SlidersHorizontal, Users, X } from "phosphor-react-native";
 import { useTheme } from "../../context/ThemeContext";
 import { getAvailableRooms, getLocations, getRooms, getRoomTypes } from "../../services/api";
 import { Group, LocationNode, Room, RoomType, Teacher } from "../../types";
@@ -10,6 +10,7 @@ import type { GroupTreeNode } from "../../utils/groups";
 import GroupTreeList from "../GroupTreeList";
 import { openUrl } from "../../utils/calendar";
 import { getRoomMapUrl } from "../../utils/rooms";
+import { normalizeSearchText, searchByKey } from "../../utils/scheduleFilters";
 import { s } from "./calendarStyles";
 
 const getLocationLabel = (node: LocationNode) => {
@@ -64,7 +65,7 @@ export function GroupModal({
 			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
 				<ModalHeader title="Mes groupes" onClose={onClose} />
 				<View style={[s.searchBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-					<Search color={theme.muted} size={18} />
+					<MagnifyingGlass color={theme.muted} size={18} />
 					<TextInput
 						value={search}
 						onChangeText={onSearch}
@@ -89,8 +90,8 @@ export function GroupModal({
 							onApply(draftSelected);
 							onClose();
 						}}>
-						<Check color="#fff" size={18} />
-						<Text style={s.primaryText}>
+						<Check color={theme.onAccent} size={18} />
+						<Text style={[s.primaryText, { color: theme.onAccent }]}>
 							Choisir {draftSelected.length} groupe{draftSelected.length > 1 ? "s" : ""}
 						</Text>
 					</Pressable>
@@ -103,41 +104,39 @@ export function GroupModal({
 type FilterSelectionId = string | number;
 type FilterSelection = { groups: FilterSelectionId[]; rooms: FilterSelectionId[]; teachers: FilterSelectionId[] };
 
-const sameId = (first: FilterSelectionId, second: FilterSelectionId) => String(first) === String(second);
-const toggleSelectionId = (items: FilterSelectionId[], id: FilterSelectionId) => (items.some((item) => sameId(item, id)) ? items.filter((item) => !sameId(item, id)) : [...items, id]);
-const normalizeFilterSearch = (value: string) =>
-	value
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.toLocaleLowerCase("fr-FR")
-		.trim();
-const matchesFilterSearch = (value: string, search: string) => {
-	const terms = normalizeFilterSearch(search).split(/\s+/).filter(Boolean);
-	const normalizedValue = normalizeFilterSearch(value);
-	return terms.every((term) => normalizedValue.includes(term));
+export const sameId = (first: FilterSelectionId, second: FilterSelectionId) => String(first) === String(second);
+export const toggleSelectionId = (items: FilterSelectionId[], id: FilterSelectionId) => (items.some((item) => sameId(item, id)) ? items.filter((item) => !sameId(item, id)) : [...items, id]);
+export const FILTER_RESULT_LIMIT = 60;
+const OTHER_ROOMS = "Autres salles";
+const CAMPUS_LABELS: Record<string, string> = { "2": "Kremlin-Bicêtre", "10": "La Défense" };
+const isLocationNode = (node: LocationNode) => (node.type || "").toLowerCase().includes("location") || node.id_type === 0;
+const campusLabel = (node: LocationNode) => {
+	const name = (node.name || "").trim();
+	return CAMPUS_LABELS[String(node.id)] || (name ? name.charAt(0).toUpperCase() + name.slice(1) : `Campus #${node.id}`);
 };
-const teacherLabel = (teacher: Teacher) => `${teacher.firstname || ""} ${teacher.name || ""}`.trim() || `Enseignant #${teacher.id}`;
+/** Location id → name of its top-level campus (a building such as Voltaire maps to Kremlin-Bicêtre). */
+const buildCampusByLocation = (roots: LocationNode[]) => {
+	const campusByLocation = new Map<string, string>();
+	const walk = (nodes: LocationNode[], campus?: string) =>
+		nodes.forEach((node) => {
+			if (!isLocationNode(node)) return;
+			const label = campus ?? campusLabel(node);
+			campusByLocation.set(String(node.id), label);
+			walk(node.children || [], label);
+		});
+	walk(roots);
+	return campusByLocation;
+};
+export const teacherLabel = (teacher: Teacher) => `${teacher.firstname || ""} ${teacher.name || ""}`.trim() || `Enseignant #${teacher.id}`;
 
-function FilterAccordion({ title, count, expanded, onToggle, children }: { title: string; count: number; expanded: boolean; onToggle: () => void; children: React.ReactNode }) {
-	const { theme } = useTheme();
-	return (
-		<View style={[filterStyles.accordion, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-			<Pressable
-				style={filterStyles.accordionHead}
-				onPress={onToggle}
-				accessibilityRole="button"
-				accessibilityState={{ expanded }}
-				accessibilityLabel={`${expanded ? "Réduire" : "Développer"} ${title}`}>
-				<View style={filterStyles.accordionTitleRow}>
-					<Text style={[filterStyles.accordionTitle, { color: theme.text }]}>{title}</Text>
-					{count ? <Text style={[filterStyles.accordionCount, { color: theme.accent, backgroundColor: theme.accentSoft }]}>{count}</Text> : null}
-				</View>
-				<View style={[filterStyles.accordionIcon, { backgroundColor: theme.accentSoft }]}>{expanded ? <Minus color={theme.accent} size={17} strokeWidth={2.5} /> : <Plus color={theme.accent} size={17} strokeWidth={2.5} />}</View>
-			</Pressable>
-			{expanded ? <View style={filterStyles.accordionContent}>{children}</View> : null}
-		</View>
-	);
-}
+type FilterTab = keyof FilterSelection;
+
+const FILTER_TABS: Array<{ key: FilterTab; label: string; search: string; noun: string }> = [
+	{ key: "groups", label: "Groupes", search: "Rechercher un groupe", noun: "groupe" },
+	{ key: "rooms", label: "Salles", search: "Rechercher une salle", noun: "salle" },
+	{ key: "teachers", label: "Enseignants", search: "Rechercher un enseignant", noun: "enseignant" },
+];
+export const FILTER_ICONS = { groups: Users, rooms: DoorOpen, teachers: GraduationCap };
 
 export function FiltersModal({
 	visible,
@@ -145,6 +144,7 @@ export function FiltersModal({
 	allGroups,
 	rooms,
 	teachers,
+	locations = [],
 	selectedGroups,
 	selectedRooms,
 	selectedTeachers,
@@ -160,6 +160,7 @@ export function FiltersModal({
 	allGroups: Group[];
 	rooms: Room[];
 	teachers: Teacher[];
+	locations?: LocationNode[];
 	selectedGroups: FilterSelectionId[];
 	selectedRooms: FilterSelectionId[];
 	selectedTeachers: FilterSelectionId[];
@@ -172,121 +173,252 @@ export function FiltersModal({
 }) {
 	const { theme } = useTheme();
 	const insets = useSafeAreaInsets();
+	const onAccent = theme.onAccent;
 	const [draft, setDraft] = useState<FilterSelection>({ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers });
+	const [tab, setTab] = useState<FilterTab>("groups");
 	const [roomSearch, setRoomSearch] = useState("");
 	const [teacherSearch, setTeacherSearch] = useState("");
-	const [expanded, setExpanded] = useState({ groups: true, rooms: false, teachers: false });
+	const [collapsedCampuses, setCollapsedCampuses] = useState<ReadonlySet<string>>(new Set());
 
 	useEffect(() => {
 		if (!visible) return;
 		setDraft({ groups: selectedGroups, rooms: selectedRooms, teachers: selectedTeachers });
+		setTab("groups");
 		setRoomSearch("");
 		setTeacherSearch("");
-		setExpanded({ groups: true, rooms: false, teachers: false });
+		setCollapsedCampuses(new Set());
 	}, [selectedGroups, selectedRooms, selectedTeachers, visible]);
 
 	const groupNames = useMemo(() => new Map(allGroups.map((group) => [String(group.id), group.name])), [allGroups]);
-	const visibleRooms = useMemo(() => rooms.filter((room) => matchesFilterSearch(room.name || "", roomSearch)).slice(0, 60), [roomSearch, rooms]);
-	const visibleTeachers = useMemo(() => teachers.filter((teacher) => matchesFilterSearch(teacherLabel(teacher), teacherSearch)).slice(0, 60), [teacherSearch, teachers]);
+	// MagnifyingGlass keys are computed once per list, not for 2 000 teachers on every keystroke.
+	const roomKeys = useMemo(() => rooms.map((room) => normalizeSearchText(room.name || "")), [rooms]);
+	const teacherKeys = useMemo(() => teachers.map((teacher) => normalizeSearchText(teacherLabel(teacher))), [teachers]);
+	const visibleRooms = useMemo(() => searchByKey(rooms, roomKeys, roomSearch, Infinity), [roomKeys, roomSearch, rooms]);
+	const visibleTeachers = useMemo(() => searchByKey(teachers, teacherKeys, teacherSearch, Infinity), [teacherKeys, teacherSearch, teachers]);
+	const campusByLocation = useMemo(() => buildCampusByLocation(locations), [locations]);
+	const roomSections = useMemo(() => {
+		const sections = new Map<string, Room[]>();
+		visibleRooms.forEach((room) => {
+			const campus = campusByLocation.get(String(room.idLocation)) || OTHER_ROOMS;
+			sections.set(campus, [...(sections.get(campus) || []), room]);
+		});
+		// A search shows every match, even in collapsed campuses.
+		const searching = Boolean(roomSearch.trim());
+		return [...sections]
+			.map(([title, rooms]) => {
+				const collapsed = !searching && collapsedCampuses.has(title);
+				return { title, total: rooms.length, rooms, collapsed, data: collapsed ? [] : rooms };
+			})
+			.sort((a, b) => Number(a.title === OTHER_ROOMS) - Number(b.title === OTHER_ROOMS) || a.title.localeCompare(b.title, "fr"));
+	}, [campusByLocation, collapsedCampuses, roomSearch, visibleRooms]);
+	const toggleCampus = (title: string) =>
+		setCollapsedCampuses((current) => {
+			const next = new Set(current);
+			if (!next.delete(title)) next.add(title);
+			return next;
+		});
+	const draftRoomIds = useMemo(() => new Set(draft.rooms.map(String)), [draft.rooms]);
+	const draftTeacherIds = useMemo(() => new Set(draft.teachers.map(String)), [draft.teachers]);
 	const activeSelections = useMemo(
 		() => [
-			...draft.groups.map((id) => ({ id, type: "groups" as const, label: `Groupe · ${groupNames.get(String(id)) || id}` })),
-			...draft.rooms.map((id) => ({ id, type: "rooms" as const, label: `Salle · ${rooms.find((room) => sameId(room.id, id))?.name || id}` })),
-			...draft.teachers.map((id) => ({ id, type: "teachers" as const, label: `Enseignant · ${teacherLabel(teachers.find((teacher) => sameId(teacher.id, id)) || { id })}` })),
+			...draft.groups.map((id) => ({ id, type: "groups" as const, label: groupNames.get(String(id)) || String(id) })),
+			...draft.rooms.map((id) => ({ id, type: "rooms" as const, label: rooms.find((room) => sameId(room.id, id))?.name || `Salle #${id}` })),
+			...draft.teachers.map((id) => ({ id, type: "teachers" as const, label: teacherLabel(teachers.find((teacher) => sameId(teacher.id, id)) || { id }) })),
 		],
 		[draft, groupNames, rooms, teachers]
 	);
 	const totalSelected = activeSelections.length;
-	const toggle = (type: keyof FilterSelection, id: FilterSelectionId) => setDraft((current) => ({ ...current, [type]: toggleSelectionId(current[type], id) }));
+	const hadFilters = selectedGroups.length + selectedRooms.length + selectedTeachers.length > 0;
+	const canApply = totalSelected > 0 || hadFilters;
+	const toggle = (type: FilterTab, id: FilterSelectionId) => setDraft((current) => ({ ...current, [type]: toggleSelectionId(current[type], id) }));
+
+	const activeTab = FILTER_TABS.find((item) => item.key === tab)!;
+	const search = tab === "groups" ? groupSearch : tab === "rooms" ? roomSearch : teacherSearch;
+	const setSearch = tab === "groups" ? onGroupSearch : tab === "rooms" ? setRoomSearch : setTeacherSearch;
+	const source = tab === "rooms" ? rooms : teachers;
+
+	const selectTab = (next: FilterTab) => {
+		if (next !== "groups") void onLoadFilterOptions();
+		setTab(next);
+	};
+
+	const renderStatus = (text: string, action?: { label: string; onPress: () => void }) => (
+		<View style={filterStyles.status}>
+			<Text style={[filterStyles.statusText, { color: theme.muted }]}>{text}</Text>
+			{action ? (
+				<Pressable style={[filterStyles.statusAction, { borderColor: theme.border }]} onPress={action.onPress}>
+					<ArrowCounterClockwise color={theme.text} size={15} />
+					<Text style={[filterStyles.statusActionText, { color: theme.text }]}>{action.label}</Text>
+				</Pressable>
+			) : null}
+		</View>
+	);
 
 	return (
-		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
 			<View style={[s.modalRoot, { backgroundColor: theme.bg }]}>
 				<ModalHeader title="Mes filtres" onClose={onClose} />
-				<ScrollView contentContainerStyle={filterStyles.filtersBody} keyboardShouldPersistTaps="handled">
-					<View style={[filterStyles.activeCard, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
-						<Text style={[filterStyles.activeTitle, { color: theme.text }]}>Sélections actives</Text>
-						<Text style={[filterStyles.activeSubtitle, { color: theme.muted }]}>Retire un filtre ici sans avoir à le rechercher.</Text>
-						{activeSelections.length ? (
-							<View style={filterStyles.activeChips}>
-								{activeSelections.map((selection) => (
-									<Pressable key={`${selection.type}-${selection.id}`} style={[filterStyles.activeChip, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => toggle(selection.type, selection.id)}>
-										<Text style={[filterStyles.activeChipText, { color: theme.text }]} numberOfLines={1}>
-											{selection.label}
-										</Text>
-										<X color={theme.muted} size={14} />
-									</Pressable>
-								))}
+
+				<View style={[filterStyles.tabs, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]} accessibilityRole="tablist">
+					{FILTER_TABS.map((item) => {
+						const active = item.key === tab;
+						const count = draft[item.key].length;
+						return (
+							<Pressable
+								key={item.key}
+								style={[filterStyles.tab, active && { backgroundColor: theme.accentSoft }]}
+								onPress={() => selectTab(item.key)}
+								accessibilityRole="tab"
+								accessibilityState={{ selected: active }}
+								accessibilityLabel={count ? `${item.label}, ${count} sélectionné${count > 1 ? "s" : ""}` : item.label}>
+								<Text style={[filterStyles.tabText, { color: active ? theme.accent : theme.muted }]} numberOfLines={1}>
+									{item.label}
+								</Text>
+								{count ? <Text style={[filterStyles.tabCount, { color: theme.accent }]}>{count}</Text> : null}
+							</Pressable>
+						);
+					})}
+				</View>
+
+				<View style={[filterStyles.searchBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+					<MagnifyingGlass color={theme.muted} size={18} />
+					<TextInput
+						value={search}
+						onChangeText={setSearch}
+						placeholder={activeTab.search}
+						placeholderTextColor={theme.muted}
+						autoCorrect={false}
+						returnKeyType="search"
+						style={[s.searchInput, { color: theme.text }]}
+					/>
+					{search ? (
+						<Pressable onPress={() => setSearch("")} hitSlop={12} accessibilityRole="button" accessibilityLabel="Effacer la recherche">
+							<X color={theme.muted} size={18} />
+						</Pressable>
+					) : null}
+				</View>
+
+				{tab === "groups" ? (
+					<ScrollView style={filterStyles.list} contentContainerStyle={filterStyles.listContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+						{groups.length ? (
+							<GroupTreeList groups={groups} selected={draft.groups} onToggle={(id) => toggle("groups", id)} searchActive={Boolean(groupSearch.trim())} />
+						) : (
+							renderStatus(groupSearch.trim() ? `Aucun groupe pour « ${groupSearch.trim()} ».` : "Aucun groupe disponible.")
+						)}
+					</ScrollView>
+				) : !source.length ? (
+					<View style={[filterStyles.list, filterStyles.listContent]}>
+						{filterOptionsLoading ? (
+							<View style={filterStyles.status}>
+								<ActivityIndicator color={theme.accent} />
+								<Text style={[filterStyles.statusText, { color: theme.muted }]}>Chargement des {activeTab.noun}s…</Text>
 							</View>
 						) : (
-							<Text style={[filterStyles.emptySelection, { color: theme.muted }]}>Aucun filtre sélectionné</Text>
+							renderStatus(`Impossible de charger les ${activeTab.noun}s.`, { label: "Réessayer", onPress: () => void onLoadFilterOptions() })
 						)}
 					</View>
+				) : tab === "rooms" ? (
+					<SectionList
+						key="rooms"
+						style={filterStyles.list}
+						contentContainerStyle={filterStyles.listContent}
+						sections={roomSections}
+						keyExtractor={(room) => String(room.id)}
+						extraData={draftRoomIds}
+						stickySectionHeadersEnabled
+						keyboardShouldPersistTaps="handled"
+						keyboardDismissMode="on-drag"
+						initialNumToRender={20}
+						windowSize={9}
+						ListEmptyComponent={renderStatus(`Aucune salle pour « ${roomSearch.trim()} ».`)}
+						renderSectionHeader={({ section }) => {
+							if (roomSections.length < 2 && section.title === OTHER_ROOMS) return null;
+							const selectedCount = section.rooms.filter((room) => draftRoomIds.has(String(room.id))).length;
+							const Chevron = section.collapsed ? CaretRight : CaretDown;
+							return (
+								<Pressable
+									style={[filterStyles.sectionHeader, { backgroundColor: theme.bg }]}
+									onPress={() => toggleCampus(section.title)}
+									disabled={Boolean(roomSearch.trim())}
+									accessibilityRole="button"
+									accessibilityState={{ expanded: !section.collapsed }}
+									accessibilityLabel={`${section.title}, ${section.total} salle${section.total > 1 ? "s" : ""}${selectedCount ? `, ${selectedCount} sélectionnée${selectedCount > 1 ? "s" : ""}` : ""}`}>
+									<Chevron color={theme.muted} size={18} weight="bold" />
+									<Text style={[filterStyles.sectionTitle, { color: theme.text }]} numberOfLines={1}>
+										{section.title}
+									</Text>
+									{selectedCount ? (
+										<View style={filterStyles.sectionSelectedRow}>
+											<Check color={theme.accent} size={14} weight="bold" />
+											<Text style={[filterStyles.sectionSelected, { color: theme.accent }]}>{selectedCount}</Text>
+										</View>
+									) : null}
+									<Text style={[filterStyles.sectionCount, { color: theme.muted }]}>{section.total}</Text>
+								</Pressable>
+							);
+						}}
+						renderItem={({ item: room }) => (
+							<FilterOption label={room.name || `Salle #${room.id}`} selected={draftRoomIds.has(String(room.id))} onPress={() => toggle("rooms", room.id)} />
+						)}
+					/>
+				) : (
+					<FlatList
+						key="teachers"
+						style={filterStyles.list}
+						contentContainerStyle={filterStyles.listContent}
+						data={visibleTeachers}
+						keyExtractor={(teacher) => String(teacher.id)}
+						extraData={draftTeacherIds}
+						keyboardShouldPersistTaps="handled"
+						keyboardDismissMode="on-drag"
+						initialNumToRender={20}
+						windowSize={9}
+						ListEmptyComponent={renderStatus(`Aucun enseignant pour « ${teacherSearch.trim()} ».`)}
+						renderItem={({ item: teacher }) => (
+							<FilterOption label={teacherLabel(teacher)} selected={draftTeacherIds.has(String(teacher.id))} onPress={() => toggle("teachers", teacher.id)} />
+						)}
+					/>
+				)}
 
-					<FilterAccordion title="Groupes" count={draft.groups.length} expanded={expanded.groups} onToggle={() => setExpanded((current) => ({ ...current, groups: !current.groups }))}>
-						<View style={[s.searchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
-							<Search color={theme.muted} size={18} />
-							<TextInput value={groupSearch} onChangeText={onGroupSearch} placeholder="Rechercher un groupe" placeholderTextColor={theme.muted} style={[s.searchInput, { color: theme.text }]} />
+				<View style={[filterStyles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+					{totalSelected ? (
+						<View style={filterStyles.selectionRow}>
+							<ScrollView horizontal showsHorizontalScrollIndicator={false} style={filterStyles.chipScroll} contentContainerStyle={filterStyles.chips} keyboardShouldPersistTaps="handled">
+								{activeSelections.map((selection) => {
+									const Icon = FILTER_ICONS[selection.type];
+									return (
+										<Pressable
+											key={`${selection.type}-${selection.id}`}
+											style={[filterStyles.chip, { backgroundColor: theme.accentSoft }]}
+											onPress={() => toggle(selection.type, selection.id)}
+											accessibilityRole="button"
+											accessibilityLabel={`Retirer ${selection.label}`}>
+											<Icon color={theme.accent} size={14} weight="bold" />
+											<Text style={[filterStyles.chipText, { color: theme.text }]} numberOfLines={1}>
+												{selection.label}
+											</Text>
+											<X color={theme.muted} size={14} />
+										</Pressable>
+									);
+								})}
+							</ScrollView>
+							<Pressable onPress={() => setDraft({ groups: [], rooms: [], teachers: [] })} hitSlop={8} style={filterStyles.clearAll} accessibilityRole="button" accessibilityLabel="Retirer tous les filtres">
+								<Text style={[filterStyles.clearAllText, { color: theme.muted }]}>Tout retirer</Text>
+							</Pressable>
 						</View>
-						<GroupTreeList groups={groups} selected={draft.groups} onToggle={(id) => toggle("groups", id)} searchActive={Boolean(groupSearch.trim())} />
-					</FilterAccordion>
-
-					<FilterAccordion
-						title="Salles"
-						count={draft.rooms.length}
-						expanded={expanded.rooms}
-						onToggle={() => {
-							if (!expanded.rooms) void onLoadFilterOptions();
-							setExpanded((current) => ({ ...current, rooms: !current.rooms }));
-						}}>
-						<View style={[s.searchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
-							<Search color={theme.muted} size={18} />
-							<TextInput value={roomSearch} onChangeText={setRoomSearch} placeholder="Rechercher une salle" placeholderTextColor={theme.muted} style={[s.searchInput, { color: theme.text }]} />
-						</View>
-						{filterOptionsLoading && !rooms.length ? (
-							<View style={filterStyles.optionsLoading}>
-								<ActivityIndicator color={theme.accent} />
-								<Text style={[filterStyles.optionsLoadingText, { color: theme.muted }]}>Chargement des salles…</Text>
-							</View>
-						) : null}
-						{visibleRooms.map((room) => (
-							<FilterOption key={String(room.id)} label={room.name} selected={draft.rooms.some((id) => sameId(id, room.id))} onPress={() => toggle("rooms", room.id)} />
-						))}
-					</FilterAccordion>
-
-					<FilterAccordion
-						title="Enseignants"
-						count={draft.teachers.length}
-						expanded={expanded.teachers}
-						onToggle={() => {
-							if (!expanded.teachers) void onLoadFilterOptions();
-							setExpanded((current) => ({ ...current, teachers: !current.teachers }));
-						}}>
-						<View style={[s.searchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
-							<Search color={theme.muted} size={18} />
-							<TextInput value={teacherSearch} onChangeText={setTeacherSearch} placeholder="Rechercher un enseignant" placeholderTextColor={theme.muted} style={[s.searchInput, { color: theme.text }]} />
-						</View>
-						{filterOptionsLoading && !teachers.length ? (
-							<View style={filterStyles.optionsLoading}>
-								<ActivityIndicator color={theme.accent} />
-								<Text style={[filterStyles.optionsLoadingText, { color: theme.muted }]}>Chargement des enseignants…</Text>
-							</View>
-						) : null}
-						{visibleTeachers.map((teacher) => (
-							<FilterOption key={String(teacher.id)} label={teacherLabel(teacher)} selected={draft.teachers.some((id) => sameId(id, teacher.id))} onPress={() => toggle("teachers", teacher.id)} />
-						))}
-					</FilterAccordion>
-				</ScrollView>
-				<View style={[s.groupModalFooter, { backgroundColor: theme.bg, borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 16) }]}>
+					) : null}
 					<Pressable
-						style={[s.groupModalApply, { backgroundColor: totalSelected ? theme.accent : theme.border }]}
-						disabled={!totalSelected}
+						style={[s.groupModalApply, { backgroundColor: canApply ? theme.accent : theme.surface, borderWidth: canApply ? 0 : 1, borderColor: theme.border }]}
+						disabled={!canApply}
+						accessibilityState={{ disabled: !canApply }}
 						onPress={() => {
 							onApply(draft);
 							onClose();
 						}}>
-						<Check color="#fff" size={18} />
-						<Text style={s.primaryText}>Appliquer {totalSelected} filtre{totalSelected > 1 ? "s" : ""}</Text>
+						<Check color={canApply ? onAccent : theme.muted} size={18} />
+						<Text style={[s.primaryText, { color: canApply ? onAccent : theme.muted }]}>
+							{totalSelected ? `Appliquer ${totalSelected} filtre${totalSelected > 1 ? "s" : ""}` : hadFilters ? "Retirer tous les filtres" : "Coche au moins un filtre"}
+						</Text>
 					</Pressable>
 				</View>
 			</View>
@@ -294,11 +426,17 @@ export function FiltersModal({
 	);
 }
 
-function FilterOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+export function FilterOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
 	const { theme } = useTheme();
 	return (
-		<Pressable style={[filterStyles.option, { backgroundColor: theme.surfaceSoft, borderColor: selected ? theme.accent : theme.border }]} onPress={onPress}>
-			<View style={[filterStyles.optionCheck, { backgroundColor: selected ? theme.accent : "transparent", borderColor: selected ? theme.accent : theme.border }]}>{selected ? <Check color="#fff" size={14} /> : null}</View>
+		<Pressable
+			style={[filterStyles.option, { backgroundColor: theme.surface, borderColor: selected ? theme.accent : theme.border }]}
+			onPress={onPress}
+			accessibilityRole="checkbox"
+			accessibilityState={{ checked: selected }}>
+			<View style={[filterStyles.optionCheck, { backgroundColor: selected ? theme.accent : "transparent", borderColor: selected ? theme.accent : theme.border }]}>
+				{selected ? <Check color={theme.onAccent} size={14} weight="bold" /> : null}
+			</View>
 			<Text style={[filterStyles.optionText, { color: theme.text }]} numberOfLines={1}>
 				{label}
 			</Text>
@@ -549,7 +687,7 @@ export function RoomFinderModal({
 						<View pointerEvents="none" style={[s.roomHeroGlow, { backgroundColor: theme.accentSoft }]} />
 						<View style={s.roomHeroTop}>
 							<View style={[s.roomHeroIcon, { backgroundColor: theme.accent }]}>
-								<DoorOpen color="#fff" size={23} />
+								<DoorOpen color={theme.onAccent} size={23} />
 							</View>
 							<View style={s.roomHeroCopy}>
 								<Text style={[s.roomHeroEyebrow, { color: theme.accent }]}>Recherche</Text>
@@ -572,7 +710,7 @@ export function RoomFinderModal({
 								</Text>
 							</View>
 							<View style={[s.roomHeroStat, { backgroundColor: theme.surfaceSoft }]}>
-								<Layers color={theme.accent} size={16} />
+								<Stack color={theme.accent} size={16} />
 								<Text style={[s.roomHeroStatText, { color: theme.text }]} numberOfLines={1}>
 									{selectedRoomTypeLabel}
 								</Text>
@@ -582,7 +720,7 @@ export function RoomFinderModal({
 
 					<Animated.View entering={FadeInDown.delay(50).duration(280)} style={[s.roomSearchCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 						<View style={[s.roomSearchBox, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
-							<Search color={theme.muted} size={18} />
+							<MagnifyingGlass color={theme.muted} size={18} />
 							<TextInput
 								value={roomSearch}
 								onChangeText={setRoomSearch}
@@ -604,7 +742,7 @@ export function RoomFinderModal({
 								<Text style={[s.roomSectionTitle, { color: theme.text }]}>Disponibilité</Text>
 							</View>
 							<Pressable style={[s.roomResetBtn, { borderColor: theme.border }]} onPress={clearFilters}>
-								<RotateCcw color={theme.muted} size={15} />
+								<ArrowCounterClockwise color={theme.muted} size={15} />
 								<Text style={[s.roomResetText, { color: theme.muted }]}>{activeFiltersCount ? `${activeFiltersCount} filtre(s)` : "Reset"}</Text>
 							</Pressable>
 						</View>
@@ -620,7 +758,7 @@ export function RoomFinderModal({
 											{ backgroundColor: active ? theme.accent : theme.surfaceSoft, borderColor: active ? theme.accent : theme.border },
 										]}
 										onPress={() => setDuration(value)}>
-										<Text style={[s.durationPresetText, { color: active ? "#fff" : theme.text }]}>{value} min</Text>
+										<Text style={[s.durationPresetText, { color: active ? theme.onAccent : theme.text }]}>{value} min</Text>
 									</Pressable>
 								);
 							})}
@@ -639,8 +777,8 @@ export function RoomFinderModal({
 								/>
 							</View>
 							<Pressable style={[s.searchRoomBtn, { backgroundColor: theme.accent }]} onPress={search} disabled={loading}>
-								{loading ? <ActivityIndicator color="#fff" /> : <Search color="#fff" size={18} />}
-								<Text style={s.searchRoomText}>Chercher</Text>
+								{loading ? <ActivityIndicator color={theme.onAccent} /> : <MagnifyingGlass color={theme.onAccent} size={18} />}
+								<Text style={[s.searchRoomText, { color: theme.onAccent }]}>Chercher</Text>
 							</Pressable>
 						</View>
 					</Animated.View>
@@ -747,7 +885,7 @@ function RoomCheckboxFilter({
 							style={[s.roomCheckboxItem, { backgroundColor: active ? theme.accentSoft : theme.surfaceSoft, borderColor: active ? theme.accent : theme.border }]}
 							onPress={() => onToggle(item.id)}>
 							<View style={[s.roomCheckboxBox, { backgroundColor: active ? theme.accent : "transparent", borderColor: active ? theme.accent : theme.border }]}>
-								{active ? <Check color="#fff" size={13} /> : null}
+								{active ? <Check color={theme.onAccent} size={13} /> : null}
 							</View>
 							<Text style={[s.roomCheckboxText, { color: active ? theme.text : theme.muted }]} numberOfLines={1}>
 								{item.name}
@@ -805,7 +943,7 @@ function RoomResultCard({
 							</Text>
 						</View>
 						<View style={[s.roomMetaTag, { backgroundColor: theme.surfaceSoft }]}>
-							<Layers color={theme.accent} size={13} />
+							<Stack color={theme.accent} size={13} />
 							<Text style={[s.roomMetaTagText, { color: theme.text }]} numberOfLines={1}>
 								{typeLabel}
 							</Text>
@@ -814,13 +952,13 @@ function RoomResultCard({
 
 					<View style={s.roomActions}>
 						<Pressable style={[s.roomMapAction, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]} onPress={() => openUrl(getRoomMapUrl(name))}>
-							<Navigation color={theme.accent} size={16} />
+							<NavigationArrow color={theme.accent} size={16} />
 							<Text style={[s.roomMapActionText, { color: theme.text }]}>Carte</Text>
 						</Pressable>
 
 						<Pressable style={[s.roomApplyAction, { backgroundColor: theme.accent }]} onPress={() => onApplyRoom(room)}>
-							<Filter color="#fff" size={16} />
-							<Text style={s.roomApplyText}>Voir l'agenda</Text>
+							<Funnel color={theme.onAccent} size={16} />
+							<Text style={[s.roomApplyText, { color: theme.onAccent }]}>Voir l'agenda</Text>
 						</Pressable>
 					</View>
 				</View>
@@ -842,25 +980,34 @@ export function ModalHeader({ title, onClose }: { title: string; onClose: () => 
 	);
 }
 
-const filterStyles = StyleSheet.create({
-	filtersBody: { padding: 16, gap: 12 },
-	activeCard: { borderWidth: 1, borderRadius: 18, padding: 14, gap: 5 },
-	activeTitle: { fontSize: 16, fontWeight: "900" },
-	activeSubtitle: { fontSize: 13, lineHeight: 18 },
-	activeChips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 5 },
-	activeChip: { maxWidth: "100%", minHeight: 34, borderWidth: 1, borderRadius: 17, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 6 },
-	activeChipText: { flexShrink: 1, fontWeight: "700", fontSize: 12 },
-	emptySelection: { fontSize: 13, fontStyle: "italic", marginTop: 3 },
-	accordion: { borderWidth: 1, borderRadius: 18, overflow: "hidden" },
-	accordionHead: { minHeight: 56, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-	accordionTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-	accordionTitle: { fontSize: 16, fontWeight: "900" },
-	accordionCount: { minWidth: 24, height: 24, borderRadius: 12, overflow: "hidden", textAlign: "center", textAlignVertical: "center", fontSize: 12, fontWeight: "900" },
-	accordionIcon: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-	accordionContent: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
-	optionsLoading: { minHeight: 48, borderRadius: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
-	optionsLoadingText: { fontSize: 13, fontWeight: "800" },
-	option: { minHeight: 48, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 10 },
-	optionCheck: { width: 21, height: 21, borderRadius: 6, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-	optionText: { flex: 1, fontWeight: "700" },
+export const filterStyles = StyleSheet.create({
+	// Same look as the Jour / Semaine switch (calendarStyles segment).
+	tabs: { marginHorizontal: 16, marginTop: 14, padding: 3, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, flexDirection: "row" },
+	tab: { flex: 1, minHeight: 44, borderRadius: 11, paddingHorizontal: 6, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+	tabText: { flexShrink: 1, fontSize: 14, fontWeight: "900" },
+	tabCount: { fontSize: 13, fontWeight: "900", fontVariant: ["tabular-nums"] },
+	searchBox: { marginHorizontal: 16, marginTop: 10, marginBottom: 2, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+	list: { flex: 1 },
+	listContent: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 24, gap: 8 },
+	status: { paddingVertical: 32, alignItems: "center", gap: 12 },
+	statusText: { fontSize: 14, fontWeight: "700", textAlign: "center", lineHeight: 20 },
+	statusAction: { minHeight: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 6 },
+	statusActionText: { fontSize: 14, fontWeight: "800" },
+	limitNote: { marginTop: 6, fontSize: 13, lineHeight: 18, textAlign: "center" },
+	sectionHeader: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 8 },
+	sectionTitle: { flex: 1, fontSize: 15, fontWeight: "900" },
+	sectionSelectedRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+	sectionSelected: { fontSize: 13, fontWeight: "900", fontVariant: ["tabular-nums"] },
+	sectionCount: { fontSize: 13, fontWeight: "700", fontVariant: ["tabular-nums"] },
+	option: { minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 10 },
+	optionCheck: { width: 22, height: 22, borderRadius: 6, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+	optionText: { flex: 1, fontWeight: "800" },
+	footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16, paddingTop: 12, gap: 12 },
+	selectionRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+	chipScroll: { flex: 1 },
+	chips: { gap: 6, paddingRight: 4 },
+	chip: { maxWidth: 220, minHeight: 36, borderRadius: 18, paddingLeft: 10, paddingRight: 9, flexDirection: "row", alignItems: "center", gap: 6 },
+	chipText: { flexShrink: 1, fontSize: 13, fontWeight: "700" },
+	clearAll: { minHeight: 36, justifyContent: "center" },
+	clearAllText: { fontSize: 13, fontWeight: "800", textDecorationLine: "underline" },
 });

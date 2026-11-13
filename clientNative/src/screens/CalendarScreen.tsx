@@ -3,7 +3,7 @@ import { Alert, AppState } from "react-native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { usePanGesture } from "react-native-gesture-handler";
 import { useAuth } from "../context/AuthContext";
-import { getCourseType, getGroups, getReservationDetails, getRooms, getTeachers, isAuthReconnectRequiredError } from "../services/api";
+import { getCourseType, getGroups, getLocations, getReservationDetails, getRooms, getTeachers, isAuthReconnectRequiredError } from "../services/api";
 import { CourseNoteSummary, getCourseNoteSummaries, rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getCachedAurigaSyllabus } from "../services/aurigaCache";
 import type { AurigaSyllabus } from "../services/aurigaTypes";
@@ -32,19 +32,20 @@ import {
 } from "../services/notifications";
 import { readCachedSchedule, syncSchedule } from "../services/scheduleRepository";
 import { refreshCourseWidgetsForGroups, syncCourseWidgets } from "../services/widgets";
-import { Group, Room, Teacher, ZeusEvent } from "../types";
+import { Group, LocationNode, Room, Teacher, ZeusEvent } from "../types";
 import { eventOverlapsDay, getWeekRange, startOfDay } from "../utils/calendar";
 import { buildGroupTree, filterGroupTree } from "../utils/groups";
-import { buildScheduleFilterQuery, ScheduleFilters } from "../utils/scheduleFilters";
+import { buildScheduleFilterQuery, ScheduleFilters, sortByLabel } from "../utils/scheduleFilters";
 import { CalendarContent } from "../components/calendar/CalendarContent";
 import { CalendarRouteParams, ScheduleContext, ViewMode, dayKey, getTargetEventKey, minute } from "../components/calendar/calendarModel";
 import { trackEvent } from "../services/analytics";
 
 const FILTER_ROOMS_CACHE_KEY = "filterOptions.rooms";
 const FILTER_TEACHERS_CACHE_KEY = "filterOptions.teachers";
+const FILTER_LOCATIONS_CACHE_KEY = "filterOptions.locations";
 
-const sortRooms = (items: Room[] = []) => [...items].sort((a, b) => (a.name || "").localeCompare(b.name || "", "fr"));
-const sortTeachers = (items: Teacher[] = []) => [...items].sort((a, b) => `${a.firstname || ""} ${a.name || ""}`.localeCompare(`${b.firstname || ""} ${b.name || ""}`, "fr"));
+const sortRooms = (items: Room[] = []) => sortByLabel(items, (room) => room.name || "");
+const sortTeachers = (items: Teacher[] = []) => sortByLabel(items, (teacher) => `${teacher.firstname || ""} ${teacher.name || ""}`);
 
 export default function CalendarScreen() {
 	const { handleAuthExpired } = useAuth();
@@ -56,6 +57,7 @@ export default function CalendarScreen() {
 	const [rooms, setRooms] = useState<Room[]>([]);
 	const [selectedRooms, setSelectedRooms] = useState<(string | number)[]>([]);
 	const [teachers, setTeachers] = useState<Teacher[]>([]);
+	const [locations, setLocations] = useState<LocationNode[]>([]);
 	const [selectedTeachers, setSelectedTeachers] = useState<(string | number)[]>([]);
 	const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
 	const filterOptionsLoadedRef = useRef(false);
@@ -125,9 +127,23 @@ export default function CalendarScreen() {
 		const request = (async () => {
 			setFilterOptionsLoading(true);
 			try {
-				const [cachedRooms, cachedTeachers] = await Promise.all([getJSON<Room[]>(FILTER_ROOMS_CACHE_KEY, []), getJSON<Teacher[]>(FILTER_TEACHERS_CACHE_KEY, [])]);
-				if (cachedRooms.length) setRooms(sortRooms(cachedRooms));
-				if (cachedTeachers.length) setTeachers(sortTeachers(cachedTeachers));
+				const [cachedRooms, cachedTeachers, cachedLocations] = await Promise.all([
+					getJSON<Room[]>(FILTER_ROOMS_CACHE_KEY, []),
+					getJSON<Teacher[]>(FILTER_TEACHERS_CACHE_KEY, []),
+					getJSON<LocationNode[]>(FILTER_LOCATIONS_CACHE_KEY, []),
+				]);
+				// Saved already sorted.
+				if (cachedRooms.length) setRooms(cachedRooms);
+				if (cachedTeachers.length) setTeachers(cachedTeachers);
+				if (cachedLocations.length) setLocations(cachedLocations);
+				// Campus names for grouping rooms: optional, rooms still list without them.
+				void getLocations()
+					.then((items) => {
+						if (!items?.length) return;
+						setLocations(items);
+						void setJSON(FILTER_LOCATIONS_CACHE_KEY, items).catch(() => {});
+					})
+					.catch(() => {});
 
 				// Start both Zeus calls together, but update each list as soon as its
 				// own response arrives instead of waiting for the slower endpoint.
@@ -375,13 +391,13 @@ export default function CalendarScreen() {
 	const filteredGroups = useMemo(() => filterGroupTree(groupTree, groupSearch), [groupTree, groupSearch]);
 
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
+	const extraFilterCount = selectedRooms.length + selectedTeachers.length;
 	const contextLabel =
 		context.type === "group"
 			? selectedLabels.length > 2
 				? `${selectedLabels.slice(0, 2).join(", ")} +${selectedLabels.length - 2}`
-				: selectedLabels.join(", ") || "Aucun groupe choisi"
+				: selectedLabels.join(", ") || (extraFilterCount ? "Mon planning" : "Aucun groupe choisi")
 			: context.label;
-	const extraFilterCount = selectedRooms.length + selectedTeachers.length;
 	const showCacheBanner = usingCache;
 	const selectedEventSyllabus = useMemo(() => (selectedEvent ? findSyllabusForEvent(selectedEvent, syllabusList) : null), [selectedEvent, syllabusList]);
 	const openEventSyllabus = (syllabus: AurigaSyllabus) => {
@@ -646,6 +662,7 @@ export default function CalendarScreen() {
 			selectedTeachers={selectedTeachers}
 			rooms={rooms}
 			teachers={teachers}
+			locations={locations}
 			filterOptionsLoading={filterOptionsLoading}
 			onLoadFilterOptions={loadFilterOptions}
 			setEventChanges={setEventChanges}

@@ -115,7 +115,7 @@ export const s = StyleSheet.create({
 	changeArrow: { fontSize: 13, fontWeight: "900" },
 	changeModalFooter: { position: "absolute", left: 0, right: 0, bottom: 0, padding: 18, borderTopWidth: 1 },
 	clearChangesBtn: { minHeight: 50, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-	clearChangesText: { color: "#fff", fontWeight: "900" },
+	clearChangesText: { fontWeight: "900" },
 	searchBox: { margin: 18, marginBottom: 8, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
 	searchInput: { flex: 1, minHeight: 46, fontSize: 16 },
 	modalMeta: { marginHorizontal: 18, marginBottom: 10, fontWeight: "700" },
@@ -134,7 +134,7 @@ export const s = StyleSheet.create({
 	durationText: { flex: 1, textAlign: "center", fontSize: 20, fontWeight: "900" },
 	input: { borderWidth: 1, borderRadius: 8, minHeight: 46, paddingHorizontal: 12, fontSize: 16 },
 	primaryBtn: { minHeight: 50, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-	primaryText: { color: "#fff", fontWeight: "900" },
+	primaryText: { fontWeight: "900" },
 	roomCard: { marginTop: 0 },
 	roomFinderScroll: { padding: 18, gap: 14, paddingBottom: 56 },
 	roomHeroCard: {
@@ -173,7 +173,7 @@ export const s = StyleSheet.create({
 	capacityField: { flex: 0.95, minHeight: 50, borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
 	capacityInput: { flex: 1, minHeight: 48, fontSize: 15, fontWeight: "800" },
 	searchRoomBtn: { flex: 1, minHeight: 50, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-	searchRoomText: { color: "#fff", fontSize: 15, fontWeight: "900" },
+	searchRoomText: { fontSize: 15, fontWeight: "900" },
 	roomFilterBlock: { gap: 10 },
 	roomFilterTitle: { fontSize: 16, fontWeight: "900" },
 	roomFilterRow: { gap: 8, paddingRight: 18, paddingBottom: 2 },
@@ -226,5 +226,5 @@ export const s = StyleSheet.create({
 	roomMapAction: { minHeight: 42, borderRadius: 13, borderWidth: 1, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
 	roomMapActionText: { fontSize: 13, fontWeight: "900" },
 	roomApplyAction: { flex: 1, minHeight: 42, borderRadius: 13, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
-	roomApplyText: { color: "#fff", fontSize: 13, fontWeight: "900" },
+	roomApplyText: { fontSize: 13, fontWeight: "900" },
 });

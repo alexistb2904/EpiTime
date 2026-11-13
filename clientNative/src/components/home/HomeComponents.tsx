@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ActivityIndicator, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowUpRight, CalendarCheck, CalendarDays, ChevronRight, GraduationCap, MapPin, Plus, RefreshCw, TriangleAlert, Users, WifiOff, X } from "lucide-react-native";
+import { ArrowUpRight, CalendarCheck, CalendarDots, CaretRight, GraduationCap, MapPin, Plus, ArrowsClockwise, Warning, Users, WifiSlash, X } from "phosphor-react-native";
 import DatePickerModal from "../DatePickerModal";
 import SessionExpiredBanner from "../SessionExpiredBanner";
 import { DayTimeline, EventCard, formatEventChangeNotice } from "../calendar/CalendarEvents";
@@ -11,7 +11,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { EventChange } from "../../services/eventsCache";
 import { ZeusEvent } from "../../types";
 import { mixHex } from "../../theme/palettes";
-import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba, readableTextOn } from "../../utils/calendar";
+import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba } from "../../utils/calendar";
 import { formatDuration } from "../../utils/timeline";
 import { formatInputDate, formatStartLabel, formatTime, minute, parseInputDate, UsefulLink } from "./homeHelpers";
 
@@ -122,9 +122,9 @@ export function HomeContent(p: HomeContentProps) {
 					{p.refreshing ? (
 						<ActivityIndicator color={theme.accent} />
 					) : p.showCacheBanner ? (
-						<WifiOff color={theme.warn} size={20} />
+						<WifiSlash color={theme.warn} size={20} />
 					) : (
-						<RefreshCw color={theme.text} size={20} />
+						<ArrowsClockwise color={theme.text} size={20} />
 					)}
 				</Pressable>
 			</View>
@@ -146,14 +146,14 @@ export function HomeContent(p: HomeContentProps) {
 
 			{p.showCacheBanner ? (
 				<View style={[cs.banner, s.bannerGap, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-					<WifiOff color={theme.muted} size={17} />
+					<WifiSlash color={theme.muted} size={17} />
 					<Text style={[cs.bannerText, { color: theme.text }]}>Hors ligne : planning enregistré affiché. Nouvel essai automatique.</Text>
 				</View>
 			) : null}
 
 			{p.eventChanges.length ? (
 				<View style={[cs.banner, s.bannerGap, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
-					<TriangleAlert color={theme.warn} size={17} />
+					<Warning color={theme.warn} size={17} />
 					<Pressable style={cs.bannerBody} onPress={() => p.navigation.navigate("Agenda", { openChangesPanel: true })} accessibilityRole="button">
 						<Text style={[cs.bannerText, { color: theme.text }]} numberOfLines={2}>
 							{formatEventChangeNotice(p.eventChanges)}
@@ -188,8 +188,8 @@ export function HomeContent(p: HomeContentProps) {
 						</Text>
 						{!p.hasGroups ? (
 							<Pressable style={[s.heroEmptyBtn, { backgroundColor: theme.accent }]} onPress={() => p.navigation.navigate("Agenda")} accessibilityRole="button">
-								<Users color={readableTextOn(theme.accent)} size={17} />
-								<Text style={[s.heroEmptyBtnText, { color: readableTextOn(theme.accent) }]}>Choisir mes groupes</Text>
+								<Users color={theme.onAccent} size={17} />
+								<Text style={[s.heroEmptyBtnText, { color: theme.onAccent }]}>Choisir mes groupes</Text>
 							</Pressable>
 						) : null}
 					</View>
@@ -205,7 +205,7 @@ export function HomeContent(p: HomeContentProps) {
 					onPress={() => p.navigation.navigate("Notes")}
 				/>
 				<QuickAction
-					icon={<CalendarDays color={theme.accent} size={20} />}
+					icon={<CalendarDots color={theme.accent} size={20} />}
 					label="Agenda"
 					detail={`${p.weekCount} cette sem.`}
 					onPress={() => p.navigation.navigate("Agenda")}
@@ -395,7 +395,7 @@ function NextCourseCard({
 						{getEventTitle(following)}
 						{followingRooms ? <Text style={{ color: theme.muted }}> · {followingRooms}</Text> : null}
 					</Text>
-					<ChevronRight color={theme.muted} size={18} />
+					<CaretRight color={theme.muted} size={18} />
 				</Pressable>
 			) : null}
 		</View>
@@ -507,7 +507,7 @@ export function ManualEventModal({
 					<View style={s.formField}>
 						<Text style={[s.formLabel, { color: theme.muted }]}>Date</Text>
 						<Pressable style={[s.dateButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={openDatePicker}>
-							<CalendarDays color={theme.accent} size={18} />
+							<CalendarDots color={theme.accent} size={18} />
 							<Text style={[s.dateButtonText, { color: theme.text }]}>
 								{selectedDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
 							</Text>
@@ -519,8 +519,8 @@ export function ManualEventModal({
 					</View>
 					<FormField label="Lieu" value={room} onChangeText={onChangeRoom} placeholder="Salle ou adresse" />
 					<Pressable style={[s.manualSave, { backgroundColor: theme.accent, opacity: saving ? 0.7 : 1 }]} onPress={onSave} disabled={saving}>
-						<Plus color="#fff" size={19} />
-						<Text style={s.manualSaveText}>{saving ? "Ajout..." : "Ajouter l'événement"}</Text>
+						<Plus color={theme.onAccent} size={19} />
+						<Text style={[s.manualSaveText, { color: theme.onAccent }]}>{saving ? "Ajout..." : "Ajouter l'événement"}</Text>
 					</Pressable>
 				</ScrollView>
 				<DatePickerModal
@@ -661,5 +661,5 @@ export const s = StyleSheet.create({
 	dateButton: { minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9 },
 	dateButtonText: { flex: 1, fontSize: 16, fontWeight: "800", textTransform: "capitalize" },
 	manualSave: { minHeight: 52, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, marginTop: 6 },
-	manualSaveText: { color: "#fff", fontSize: 16, fontWeight: "900" },
+	manualSaveText: { fontSize: 16, fontWeight: "900" },
 });

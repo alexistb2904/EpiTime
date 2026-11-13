@@ -1,13 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Easing, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createNavigationContainerRef, NavigationContainer, type LinkingOptions } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createBottomTabNavigator, type BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
+import { useReducedMotion } from "react-native-reanimated";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import { Bell } from "phosphor-react-native";
 import FloatingTabBar from "./src/components/FloatingTabBar";
+import SplashOverlay from "./src/components/SplashOverlay";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { VersionProvider } from "./src/context/VersionContext";
@@ -84,11 +86,24 @@ const linking: LinkingOptions<RootTabParamList> = {
 };
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
+
+// The old page is gone by mid-course so two screens of text never ghost over each other;
+// the slide follows the direction the tab pill travels.
+const TAB_TRANSITION: BottomTabNavigationOptions = {
+	transitionSpec: { animation: "timing", config: { duration: 240, easing: Easing.bezier(0.16, 1, 0.3, 1) } },
+	sceneStyleInterpolator: ({ current }) => ({
+		sceneStyle: {
+			opacity: current.progress.interpolate({ inputRange: [-1, -0.5, 0, 0.5, 1], outputRange: [0, 0, 1, 0, 0] }),
+			transform: [{ translateX: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [-24, 0, 24] }) }],
+		},
+	}),
+};
 const NOTIFICATION_PERMISSION_PROMPT_DISABLED_KEY = "notificationPermissionPromptDisabled";
 
 function Root() {
 	const { session, loading } = useAuth();
 	const { theme, resolvedMode } = useTheme();
+	const reducedMotion = useReducedMotion();
 	const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 	const [onboardingReady, setOnboardingReady] = useState(false);
 	const [notificationPermissionPrompt, setNotificationPermissionPrompt] = useState<{ visible: boolean; missing: RequiredPermissionState[] }>({ visible: false, missing: [] });
@@ -305,7 +320,7 @@ function Root() {
 					},
 				}}>
 				<StatusBar style={resolvedMode === "dark" ? "light" : "dark"} />
-				<Tab.Navigator tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false }}>
+				<Tab.Navigator tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false, ...(reducedMotion ? { animation: "fade" } : TAB_TRANSITION) }}>
 					<Tab.Screen name="Accueil" component={HomeScreen} />
 					<Tab.Screen name="Agenda" component={CalendarScreen} />
 					<Tab.Screen name="Notes" component={GradesScreen} />
@@ -366,6 +381,7 @@ export default function App() {
 						<VersionProvider>
 							<Root />
 						</VersionProvider>
+						<SplashOverlay />
 					</AuthProvider>
 				</ThemeProvider>
 			</SafeAreaProvider>

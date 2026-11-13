@@ -127,7 +127,6 @@ android {
     }
     buildTypes {
         debug {
-            // Installable à côté de la release (signature différente, données séparées)
             applicationIdSuffix ".dev"
             signingConfig = signingConfigs.debug
         }
@@ -206,6 +205,9 @@ dependencies {
 
 if (file("google-services.json").exists()) {
     apply plugin: 'com.google.gms.google-services'
+    if (!file("google-services.json").text.contains("\"${android.defaultConfig.applicationId}.dev\"")) {
+        tasks.matching { it.name == 'processDebugGoogleServices' }.configureEach { enabled = false }
+    }
 } else {
     logger.info("android/app/google-services.json not found; skipping Google services plugin.")
 }

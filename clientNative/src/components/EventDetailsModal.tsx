@@ -1,6 +1,6 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { AlarmClockOff, BookOpen, CalendarDays, ExternalLink, Filter, MapPin, RotateCcw, Trash2, Users, X } from "lucide-react-native";
+import { BellSlash, BookOpen, CalendarDots, ArrowSquareOut, Funnel, MapPin, ArrowCounterClockwise, Trash, Users, X } from "phosphor-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../context/ThemeContext";
 import { isEventCancelled, isEventIgnored, isManualEvent } from "../services/localEvents";
@@ -72,7 +72,7 @@ export default function EventDetailsModal({
 					<Text style={s.eventHeroTitle}>{getEventTitle(event)}</Text>
 
 					<View style={s.eventHeroMeta}>
-						<CalendarDays color="rgba(255,255,255,0.8)" size={16} />
+						<CalendarDots color="rgba(255,255,255,0.8)" size={16} />
 						<Text style={s.eventHeroMetaText}>{formatDateRange(event)}</Text>
 					</View>
 				</View>
@@ -86,7 +86,7 @@ export default function EventDetailsModal({
 					) : null}
 					{ignored ? (
 						<View style={[s.cancelledNotice, { backgroundColor: theme.surfaceSoft, borderColor: theme.muted }]}>
-							<Filter color={theme.muted} size={18} />
+							<Funnel color={theme.muted} size={18} />
 							<Text style={[s.cancelledNoticeText, { color: theme.text }]}>
 								Ce cours reste dans l'agenda, mais il est ignoré par les notifications et les widgets.
 							</Text>
@@ -102,7 +102,7 @@ export default function EventDetailsModal({
 							{event.code ? (
 								<View style={s.eventDataRow}>
 									<View style={[s.eventDataIcon, { backgroundColor: theme.surface }]}>
-										<Filter color={theme.muted} size={18} />
+										<Funnel color={theme.muted} size={18} />
 									</View>
 									<View style={s.eventDataContent}>
 										<Text style={[s.eventDataLabel, { color: theme.muted }]}>Code module</Text>
@@ -113,15 +113,15 @@ export default function EventDetailsModal({
 
 							{event.url ? (
 								<Pressable style={[s.eventLinkBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openUrl(event.url)}>
-									<ExternalLink color={visualColor} size={20} />
+									<ArrowSquareOut color={visualColor} size={20} />
 									<Text style={[s.eventLinkText, { color: theme.text }]}>Ouvrir le lien du cours</Text>
 								</Pressable>
 							) : null}
 
 							{linkedSyllabus ? (
 								<Pressable style={[s.eventLinkBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={() => onOpenSyllabus?.(linkedSyllabus)}>
-									<BookOpen color="#fff" size={20} />
-									<Text style={s.eventPrimaryLinkText}>Voir dans le syllabus</Text>
+									<BookOpen color={theme.onAccent} size={20} />
+									<Text style={[s.eventPrimaryLinkText, { color: theme.onAccent }]}>Voir dans le syllabus</Text>
 								</Pressable>
 							) : null}
 						</View>
@@ -146,10 +146,10 @@ export default function EventDetailsModal({
 													void trackEvent("map_opened", { source: "event_details", service: "epita_maps" });
 													openUrl(getRoomMapUrl(roomName));
 												}}>
-												<ExternalLink color={theme.muted} size={18} />
+												<ArrowSquareOut color={theme.muted} size={18} />
 											</Pressable>
 											<Pressable style={[s.eventItemBtn, { backgroundColor: theme.bg }]} onPress={() => onApplyContext("room", roomId, roomName)}>
-												<Filter color={theme.text} size={14} />
+												<Funnel color={theme.text} size={14} />
 												<Text style={[s.eventItemBtnText, { color: theme.text }]}>Filtrer</Text>
 											</Pressable>
 										</View>
@@ -200,8 +200,8 @@ export default function EventDetailsModal({
 					<View style={s.eventDeleteSection}>
 						{!manual && ignored ? (
 							<Pressable style={[s.eventDeleteBtn, { backgroundColor: theme.accent }]} onPress={() => onReactivate(event)}>
-								<RotateCcw color="#fff" size={19} />
-								<Text style={s.eventDeleteText}>Réactiver tous les cours identiques</Text>
+								<ArrowCounterClockwise color={theme.onAccent} size={19} />
+								<Text style={[s.eventDeleteText, { color: theme.onAccent }]}>Réactiver tous les cours identiques</Text>
 							</Pressable>
 						) : null}
 						{!manual && !ignored ? (
@@ -210,14 +210,14 @@ export default function EventDetailsModal({
 									Les occurrences identiques resteront visibles, mais ne déclencheront plus de notifications ni de widgets.
 								</Text>
 								<Pressable style={[s.eventDeleteBtn, { backgroundColor: theme.accent }]} onPress={() => onIgnore(event)}>
-									<AlarmClockOff color="#fff" size={19} />
-									<Text style={s.eventDeleteText}>Ignorer tous les cours identiques</Text>
+									<BellSlash color={theme.onAccent} size={19} />
+									<Text style={[s.eventDeleteText, { color: theme.onAccent }]}>Ignorer tous les cours identiques</Text>
 								</Pressable>
 							</>
 						) : null}
 						<Pressable style={[s.eventDeleteBtn, { backgroundColor: theme.danger }]} onPress={() => onDelete(event)}>
-							<Trash2 color="#fff" size={19} />
-							<Text style={s.eventDeleteText}>{manual ? "Supprimer définitivement" : "Supprimer cette occurrence"}</Text>
+							<Trash color={theme.onDanger} size={19} />
+							<Text style={[s.eventDeleteText, { color: theme.onDanger }]}>{manual ? "Supprimer définitivement" : "Supprimer cette occurrence"}</Text>
 						</Pressable>
 					</View>
 				</ScrollView>
@@ -249,7 +249,7 @@ const s = StyleSheet.create({
 	eventDataValue: { fontSize: 16, fontWeight: "900", marginTop: 2 },
 	eventLinkBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginTop: 16 },
 	eventLinkText: { fontSize: 15, fontWeight: "900" },
-	eventPrimaryLinkText: { color: "#fff", fontSize: 15, fontWeight: "900" },
+	eventPrimaryLinkText: { fontSize: 15, fontWeight: "900" },
 	eventCardList: { gap: 12 },
 	eventItemCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 16, borderWidth: 1 },
 	eventItemName: { flex: 1, fontSize: 16, fontWeight: "800" },
@@ -263,5 +263,5 @@ const s = StyleSheet.create({
 	eventDeleteSection: { paddingTop: 18, gap: 10 },
 	ignoreHint: { fontSize: 13, fontWeight: "700", lineHeight: 18 },
 	eventDeleteBtn: { minHeight: 50, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
-	eventDeleteText: { color: "#fff", fontSize: 15, fontWeight: "900" },
+	eventDeleteText: { fontSize: 15, fontWeight: "900" },
 });

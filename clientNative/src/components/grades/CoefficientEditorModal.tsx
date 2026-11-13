@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { RotateCcw, X } from "lucide-react-native";
+import { ArrowCounterClockwise, X } from "phosphor-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
-import { readableTextOn } from "../../utils/calendar";
 import { normalizeSubjectCoefficient } from "../../services/gradeCoefficientOverrides";
 
 type CoefficientEditorModalProps = {
@@ -98,13 +97,13 @@ export default function CoefficientEditorModal({ visible, title, value, overridd
 									style={[s.resetButton, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}
 									disabled={saving}
 									onPress={() => void reset()}>
-									<RotateCcw color={theme.text} size={16} />
+									<ArrowCounterClockwise color={theme.text} size={16} />
 									<Text style={[s.resetText, { color: theme.text }]}>Auriga</Text>
 								</Pressable>
 							) : null}
 							<Pressable style={[s.saveButton, { backgroundColor: theme.accent, opacity: saving ? 0.7 : 1 }]} disabled={saving} onPress={() => void save()}>
-								{saving ? <ActivityIndicator color={readableTextOn(theme.accent)} size="small" /> : null}
-								<Text style={[s.saveText, { color: readableTextOn(theme.accent) }]}>{saving ? "Enregistrement..." : "Appliquer"}</Text>
+								{saving ? <ActivityIndicator color={theme.onAccent} size="small" /> : null}
+								<Text style={[s.saveText, { color: theme.onAccent }]}>{saving ? "Enregistrement..." : "Appliquer"}</Text>
 							</Pressable>
 						</View>
 					</View>

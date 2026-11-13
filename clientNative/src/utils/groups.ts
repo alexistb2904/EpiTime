@@ -22,7 +22,12 @@ export function buildGroupTree(groups: Group[]): GroupTreeNode[] {
 		items.forEach((item) => sortNodes(item.children));
 	};
 	sortNodes(roots);
-	return roots;
+	// Top level: EPITA, EPITECH, the other schools, then groups without children.
+	const rootRank = (node: GroupTreeNode) => {
+		const name = node.name.trim().toUpperCase();
+		return name === "EPITA" ? 0 : name === "EPITECH" ? 1 : node.children.length ? 2 : 3;
+	};
+	return roots.sort((first, second) => rootRank(first) - rootRank(second) || compareGroups(first, second));
 }
 
 export function filterGroupTree(nodes: GroupTreeNode[], search: string): GroupTreeNode[] {

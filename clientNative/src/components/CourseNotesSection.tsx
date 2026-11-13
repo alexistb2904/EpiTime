@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { Bell, Camera, Check, Clock3, FileText, Image, Link as LinkIcon, Paperclip, Plus, Trash2, X } from "lucide-react-native";
+import { Bell, Camera, Check, Clock, FileText, Image, Link as LinkIcon, Paperclip, Plus, Trash, X } from "phosphor-react-native";
 import ImagePreviewModal from "./ImagePreviewModal";
 import ReminderSelectorModal from "./ReminderSelectorModal";
 import { useTheme } from "../context/ThemeContext";
@@ -259,8 +259,8 @@ export default function CourseNotesSection({ event, onChanged }: CourseNotesSect
 					<Text style={[s.meta, { color: theme.muted }]}>{notes.length ? `${notes.length} note${notes.length > 1 ? "s" : ""}` : "Aucune note pour ce cours"}</Text>
 				</View>
 				<Pressable style={[s.addBtn, { backgroundColor: theme.accent }]} onPress={createDraft}>
-					<Plus color="#fff" size={18} />
-					<Text style={s.addText}>Ajouter</Text>
+					<Plus color={theme.onAccent} size={18} />
+					<Text style={[s.addText, { color: theme.onAccent }]}>Ajouter</Text>
 				</Pressable>
 			</View>
 
@@ -372,7 +372,7 @@ function NoteEditor({
 						<Check color={theme.accent} size={17} />
 					</Pressable>
 					<Pressable style={[s.iconBtn, { backgroundColor: theme.surfaceSoft }]} onPress={() => onDelete(note)}>
-						<Trash2 color={theme.danger} size={17} />
+						<Trash color={theme.danger} size={17} />
 					</Pressable>
 				</View>
 			</View>
@@ -390,11 +390,11 @@ function NoteEditor({
 
 			<View style={s.reminderRow}>
 				<Pressable style={[s.reminderToggle, { backgroundColor: reminderEnabled ? theme.accent : theme.surfaceSoft, borderColor: theme.border }]} onPress={onOpenReminder}>
-					<Bell color={reminderEnabled ? "#fff" : theme.muted} size={16} />
-					<Text style={[s.reminderToggleText, { color: reminderEnabled ? "#fff" : theme.text }]}>Rappel</Text>
+					<Bell color={reminderEnabled ? theme.onAccent : theme.muted} size={16} />
+					<Text style={[s.reminderToggleText, { color: reminderEnabled ? theme.onAccent : theme.text }]}>Rappel</Text>
 				</Pressable>
 				<Pressable style={[s.reminderPickerBtn, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]} onPress={onOpenReminder}>
-					<Clock3 color={theme.accent} size={16} />
+					<Clock color={theme.accent} size={16} />
 					<Text style={[s.reminderPickerText, { color: theme.text }]}>{formatReminderOffset(reminderOffset)}</Text>
 				</Pressable>
 			</View>
@@ -417,7 +417,7 @@ function NoteEditor({
 					style={[s.linkInput, { color: theme.text }]}
 				/>
 				<Pressable onPress={() => void onAddLink(note)} style={[s.linkAdd, { backgroundColor: theme.accent }]}>
-					<Plus color="#fff" size={15} />
+					<Plus color={theme.onAccent} size={15} />
 				</Pressable>
 			</View>
 
@@ -514,7 +514,7 @@ function NoteStatusBadge({ dirty, saving }: { dirty: boolean; saving: boolean })
 	const { theme } = useTheme();
 	const label = saving ? "Enregistrement..." : dirty ? "Non enregistré" : "Enregistré";
 	const backgroundColor = saving ? theme.accentSoft : dirty ? theme.warn : theme.surfaceSoft;
-	const color = saving ? theme.accent : dirty ? "#fff" : theme.muted;
+	const color = saving ? theme.accent : dirty ? theme.onWarn : theme.muted;
 	const borderColor = saving ? theme.accentSoft : dirty ? theme.warn : theme.border;
 	return (
 		<View style={[s.statusBadge, { backgroundColor, borderColor }]}>
@@ -530,7 +530,7 @@ const s = StyleSheet.create({
 	title: { fontSize: 18, fontWeight: "900" },
 	meta: { marginTop: 3, fontSize: 13, fontWeight: "700", lineHeight: 18 },
 	addBtn: { minHeight: 40, borderRadius: 12, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 },
-	addText: { color: "#fff", fontWeight: "900" },
+	addText: { fontWeight: "900" },
 	loadingRow: { borderWidth: 1, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", gap: 9 },
 	noteCard: { borderWidth: 1, borderRadius: 18, padding: 13, gap: 10 },
 	noteTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },

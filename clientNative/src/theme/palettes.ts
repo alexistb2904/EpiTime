@@ -11,7 +11,7 @@ export function mixHex(a: string, b: string, ratio: number): string {
 export type ResolvedThemeMode = "dark" | "light";
 export type ThemeMode = ResolvedThemeMode | "system";
 
-export type AppTheme = {
+export type BaseTheme = {
 	mode: ResolvedThemeMode;
 	bg: string;
 	surface: string;
@@ -34,7 +34,10 @@ export type AppTheme = {
 	};
 };
 
-export const palettes: Record<ResolvedThemeMode, AppTheme> = {
+/** Text/icon colors that stay readable on accent/danger/warn backgrounds (derived in ThemeContext). */
+export type AppTheme = BaseTheme & { onAccent: string; onDanger: string; onWarn: string };
+
+export const palettes: Record<ResolvedThemeMode, BaseTheme> = {
 	dark: {
 		mode: "dark",
 		bg: "#0f1115",
@@ -82,7 +85,7 @@ export const palettes: Record<ResolvedThemeMode, AppTheme> = {
 	},
 };
 
-export function mapDynamicSchemeToAppTheme(scheme: DynamicScheme, mode: ResolvedThemeMode): AppTheme {
+export function mapDynamicSchemeToAppTheme(scheme: DynamicScheme, mode: ResolvedThemeMode): BaseTheme {
 	return {
 		mode,
 		bg: scheme.background,
