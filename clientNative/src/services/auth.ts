@@ -3,8 +3,9 @@ import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import { MicrosoftProfile, Session } from "../types";
 import { createAuthReconnectRequiredError, exchangeMicrosoftToken, setRefreshSessionHandler } from "./api";
+import { isTerminalAuthFailure } from "./authUtils";
 import { publicConfig } from "./config";
-import { clearSession, getSession, saveSession } from "./storage";
+import { clearSession, getSession, markSessionExpired, saveSession } from "./storage";
 WebBrowser.maybeCompleteAuthSession();
 const clientId = publicConfig.microsoftClientId;
 const tenant = publicConfig.microsoftTenant;
@@ -14,13 +15,6 @@ const discovery = {
 	authorizationEndpoint: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize`,
 	tokenEndpoint: `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
 };
-
-function getMicrosoftExpiresAt(expiresIn?: number | null) {
-	if (typeof expiresIn === "number" && Number.isFinite(expiresIn) && expiresIn > 0) {
-		return Date.now() + Math.max(60_000, expiresIn * 1000 - 5 * 60_000);
-	}
-	return Date.now() + 50 * 60_000;
-}
 
 export function getRedirectUri() {
 	if (Platform.OS === "web") {
@@ -46,7 +40,8 @@ async function getMicrosoftProfile(accessToken: string): Promise<MicrosoftProfil
 		return null;
 	}
 }
-export async function loginWithMicrosoft(): Promise<Session> {
+/** `loginHint` reconnects straight to the account whose session expired, without the account picker. */
+export async function loginWithMicrosoft(loginHint?: string): Promise<Session> {
 	if (!clientId) throw new Error("EXPO_PUBLIC_MICROSOFT_CLIENT_ID manquant");
 	const redirectUri = getRedirectUri();
 	const request = new AuthSession.AuthRequest({
@@ -55,7 +50,7 @@ export async function loginWithMicrosoft(): Promise<Session> {
 		scopes: ["openid", "profile", "User.Read", "offline_access"],
 		responseType: AuthSession.ResponseType.Code,
 		usePKCE: true,
-		prompt: AuthSession.Prompt.SelectAccount,
+		...(loginHint ? { extraParams: { login_hint: loginHint } } : { prompt: AuthSession.Prompt.SelectAccount }),
 	});
 	const result = await request.promptAsync(discovery);
 	if (result.type !== "success" || !result.params.code) throw new Error("Connexion annulée ou refusée");
@@ -69,7 +64,6 @@ export async function loginWithMicrosoft(): Promise<Session> {
 	const session: Session = {
 		microsoftAccessToken: tokenResponse.accessToken,
 		microsoftRefreshToken: tokenResponse.refreshToken || null,
-		microsoftExpiresAt: getMicrosoftExpiresAt(tokenResponse.expiresIn ?? null),
 		zeusToken: zeus.token,
 		zeusRefreshedAt: Date.now(),
 		account,
@@ -84,7 +78,7 @@ export async function refreshSession(): Promise<Session> {
 	const session = await getSession();
 	if (!session?.microsoftRefreshToken) {
 		console.log("[AUTH] refresh unavailable: missing refresh token");
-		await clearSession();
+		await markSessionExpired();
 		throw createAuthReconnectRequiredError();
 	}
 
@@ -105,7 +99,6 @@ export async function refreshSession(): Promise<Session> {
 			...session,
 			microsoftAccessToken: tokenResponse.accessToken,
 			microsoftRefreshToken: tokenResponse.refreshToken || session.microsoftRefreshToken,
-			microsoftExpiresAt: getMicrosoftExpiresAt(tokenResponse.expiresIn ?? null),
 			zeusToken: zeus.token,
 			zeusRefreshedAt: Date.now(),
 		};
@@ -113,7 +106,11 @@ export async function refreshSession(): Promise<Session> {
 		console.log("[AUTH] refresh success");
 		return nextSession;
 	} catch (error) {
-		await clearSession();
+		if (!isTerminalAuthFailure(error)) {
+			console.log("[AUTH] refresh failed temporarily, session kept");
+			throw error;
+		}
+		await markSessionExpired();
 		console.log("[AUTH] session expired, reconnect required");
 		throw createAuthReconnectRequiredError();
 	}

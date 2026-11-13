@@ -84,9 +84,12 @@ export const AuthProvider = ({ children }) => {
 	const [redirectCallback] = useState(hasMicrosoftRedirectResponse);
 	// Online, an expired session is renewed before the calendar shows. Offline, it still opens cached schedules.
 	const [renewAtStartup] = useState(() => Boolean(savedSession?.expired && navigator.onLine));
-	const restored = renewAtStartup ? null : savedSession;
-	const [user, setUser] = useState(restored?.user ?? null);
-	const [zeusToken, setZeusToken] = useState(restored?.token ?? null);
+	const [user, setUser] = useState(savedSession?.user ?? null);
+	const [zeusToken, setZeusToken] = useState(savedSession?.token ?? null);
+	// The session is over and could not be renewed. The user stays on the calendar with its cached weeks
+	// and a "reconnect" notice: the login page would lock them out of their schedule.
+	const [sessionExpired, setSessionExpired] = useState(false);
+	const expired = React.useRef(false);
 	const [loading, setLoading] = useState(redirectCallback || renewAtStartup);
 	const [loadingMessage, setLoadingMessage] = useState(redirectCallback ? "Préparation de la connexion Microsoft…" : RENEWING_MESSAGE);
 	const [error, setError] = useState(null);
@@ -162,6 +165,8 @@ export const AuthProvider = ({ children }) => {
 
 	const saveSession = (token, account) => {
 		lastUser.current = account;
+		expired.current = false;
+		setSessionExpired(false);
 		setZeusToken(token);
 		setUser(account);
 		// The token goes last: other tabs follow its storage event and must find the user already there.
@@ -179,7 +184,7 @@ export const AuthProvider = ({ children }) => {
 				renewal.current = (async () => {
 					try {
 						const username = lastUser.current?.username;
-						if (!username || !navigator.onLine || loggingOut.current) return null;
+						if (!username || !navigator.onLine || loggingOut.current || expired.current) return null;
 						await withDeadline(initializeMsal(), REDIRECT_TIMEOUT_MS);
 						// MSAL's cache is unreadable after a browser restart: then only the iframe is left.
 						const account = msalInstance.current.getAccount({ username });
@@ -222,7 +227,7 @@ export const AuthProvider = ({ children }) => {
 			reconnection.current = (async () => {
 				try {
 					const loginHint = lastUser.current?.username;
-					if (!loginHint || !navigator.onLine || loggingOut.current) return false;
+					if (!loginHint || !navigator.onLine || loggingOut.current || expired.current) return false;
 					// One automatic round trip per cooldown: a session Zeus keeps rejecting must not loop.
 					if (Date.now() - Number(sessionStorage.getItem(AUTO_RECONNECT_AT_KEY)) < AUTO_RECONNECT_COOLDOWN_MS) return false;
 					sessionStorage.setItem(AUTO_RECONNECT_AT_KEY, String(Date.now()));
@@ -288,7 +293,9 @@ export const AuthProvider = ({ children }) => {
 			loggingOut.current = false;
 			await withDeadline(initializeMsal(), REDIRECT_TIMEOUT_MS);
 			// Drain a previously interrupted MSAL redirect before starting another one.
-			const pendingResponse = await withDeadline(msalInstance.current.handleRedirectPromise(REDIRECT_OPTIONS), REDIRECT_TIMEOUT_MS);
+			// MSAL replays the outcome of a redirect already handled on this page: a refused automatic
+			// reconnection must not block the explicit login that follows it.
+			const pendingResponse = await withDeadline(msalInstance.current.handleRedirectPromise(REDIRECT_OPTIONS).catch(() => null), REDIRECT_TIMEOUT_MS);
 			if (pendingResponse) {
 				await exchangeToken(pendingResponse);
 				setLoading(false);
@@ -327,6 +334,7 @@ export const AuthProvider = ({ children }) => {
 					return;
 				}
 			}
+			console.error("Login failed:", err);
 			setError("Erreur connexion: " + err.message);
 			trackEvent("login_failed", {
 				flow: shouldUseRedirectAuth() ? "redirect" : "popup",
@@ -342,6 +350,8 @@ export const AuthProvider = ({ children }) => {
 		});
 		loggingOut.current = true;
 		lastUser.current = null;
+		expired.current = false;
+		setSessionExpired(false);
 		setUser(null);
 		setZeusToken(null);
 		clearSavedSession();
@@ -354,16 +364,17 @@ export const AuthProvider = ({ children }) => {
 		}
 	};
 
+	// Keeps the user, the saved session and the cached schedules: only a logout sends back to the login page.
+	// Once flagged, renewals and automatic reconnections stop until an explicit login.
 	const expireSession = React.useCallback(() => {
-		clearSavedSession();
-		setUser(null);
-		setZeusToken(null);
+		expired.current = true;
+		setSessionExpired(true);
 		setError(null);
 	}, []);
 
 	React.useEffect(() => {
 		// While a redirect or reconnection is being processed, the session is about to be replaced anyway.
-		if (!zeusToken || loading) return;
+		if (!zeusToken || loading || sessionExpired) return;
 		const expiresAt = getZeusTokenExpiresAt(zeusToken);
 		const issuedAt = getZeusTokenIssuedAt(zeusToken);
 		let stale = false;
@@ -395,7 +406,7 @@ export const AuthProvider = ({ children }) => {
 			window.removeEventListener("online", checkSession);
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 		};
-	}, [zeusToken, loading, expireSession, renewSession, redirectToReconnect]);
+	}, [zeusToken, loading, sessionExpired, expireSession, renewSession, redirectToReconnect]);
 
 	React.useEffect(() => {
 		setSessionRenewer(() => renewSession());
@@ -417,6 +428,10 @@ export const AuthProvider = ({ children }) => {
 			if (event.key !== "zeus_token" && event.key !== null) return;
 			const session = readSavedSession();
 			if (session) lastUser.current = session.user;
+			if (!session?.expired) {
+				expired.current = false;
+				setSessionExpired(false);
+			}
 			setUser(session?.user ?? null);
 			setZeusToken(session?.token ?? null);
 		};
@@ -431,14 +446,14 @@ export const AuthProvider = ({ children }) => {
 		if (redirectCallback) startup.current = initMsal();
 		else if (renewAtStartup) {
 			startup.current = (async () => {
-				// The second call only settles if the browser did not leave for Microsoft: back to the login page.
+				// The second call only settles if the browser did not leave for Microsoft.
 				if (!(await renewSession()) && !(await redirectToReconnect())) expireSession();
 				setLoading(false);
 			})();
 		}
 	}, [initMsal, redirectCallback, renewAtStartup, renewSession, redirectToReconnect, expireSession]);
 
-	return <AuthContext.Provider value={{ user, zeusToken, loading, loadingMessage, error, login, logout, initMsal }}>{children}</AuthContext.Provider>;
+	return <AuthContext.Provider value={{ user, zeusToken, sessionExpired, loading, loadingMessage, error, login, logout, initMsal }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

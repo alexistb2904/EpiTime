@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
-import { getSession, clearSession } from "../services/storage";
+import { getSession, clearSession, markSessionExpired } from "../services/storage";
 import { loginWithMicrosoft } from "../services/auth";
 import { unregisterExpoPushToken } from "../services/api";
 import { getExistingPushToken } from "../services/notifications";
@@ -34,14 +34,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	useEffect(() => {
-		if (session) authExpiredPromptedRef.current = false;
+		if (session && !session.reconnectRequired) authExpiredPromptedRef.current = false;
 	}, [session]);
 	const login = useCallback(async () => {
-		setLoading(true);
+		// With a session still on screen this is a reconnection: straight to the same account, and in place
+		// (the loading state would swap the app for the login screen).
+		const expiredAccount = session?.account as { userPrincipalName?: string; mail?: string | null } | null | undefined;
+		if (!session) setLoading(true);
 		void trackEvent("login_started", { method: "microsoft", flow: "unknown" });
 
 		try {
-			const nextSession = await loginWithMicrosoft();
+			const nextSession = await loginWithMicrosoft(expiredAccount?.userPrincipalName || expiredAccount?.mail || undefined);
 
 			if (!nextSession) {
 				throw new Error("Connexion réussie, mais aucune session locale n'a été sauvegardée.");
@@ -60,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	}, [session]);
 
 	const logout = useCallback(async () => {
 		void trackEvent("logout_triggered");
@@ -69,14 +72,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 		setSession(null);
 	}, [session]);
 
+	// Never back to the login screen: the session is flagged, the app stays on its saved planning and
+	// SessionExpiredBanner offers to reconnect.
 	const handleAuthExpired = useCallback(async () => {
-		await unregisterCurrentDevicePush(session).catch(() => {});
-		await clearSession();
-		setSession(null);
+		await markSessionExpired();
+		setSession((current) => (current && !current.reconnectRequired ? { ...current, reconnectRequired: true } : current));
 		if (authExpiredPromptedRef.current) return;
 		authExpiredPromptedRef.current = true;
-		Alert.alert("Session expirée", "Reconnecte-toi pour continuer.");
-	}, [session]);
+		Alert.alert("Session expirée", "Ton planning enregistré reste disponible. Reconnecte-toi pour le mettre à jour.", [
+			{ text: "Plus tard", style: "cancel" },
+			{ text: "Se reconnecter", onPress: () => void login() },
+		]);
+	}, [login]);
 
 	const value = useMemo(() => ({ session, loading, login, logout, handleAuthExpired }), [handleAuthExpired, loading, login, logout, session]);
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

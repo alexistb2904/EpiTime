@@ -6,6 +6,7 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { Bell, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, DoorOpen, ListFilter, TriangleAlert, Users, WifiOff, X } from "lucide-react-native";
 import DatePickerModal from "../DatePickerModal";
 import EventDetailsModal from "../EventDetailsModal";
+import SessionExpiredBanner from "../SessionExpiredBanner";
 import { useTheme } from "../../context/ThemeContext";
 import { getLocalEventKey, isEventCancelled, isEventIgnored } from "../../services/localEvents";
 import { ZeusEvent } from "../../types";
@@ -266,6 +267,8 @@ export function CalendarContent({
 							);
 						})}
 					</View>
+
+					<SessionExpiredBanner />
 
 					{showCacheBanner ? (
 						<View style={[s.banner, { backgroundColor: theme.surface, borderColor: theme.border }]}>

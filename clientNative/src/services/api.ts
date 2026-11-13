@@ -1,8 +1,9 @@
 import { Platform } from "react-native";
 import type { Session } from "../types";
 import { LocationNode, Room, RoomType, Teacher } from "../types";
+import { isZeusTokenExpired } from "./authUtils";
 import { publicConfig } from "./config";
-import { clearSession, getSession } from "./storage";
+import { getSession, markSessionExpired } from "./storage";
 
 const API_BASE = (publicConfig.apiBase || "").replace(/\/$/, "");
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -62,9 +63,9 @@ async function performRequest<T>(path: string, init: RequestInit = {}, withAuth:
 
 	if (withAuth) {
 		const session = await getSession();
-		if (!session?.zeusToken) throw createAuthReconnectRequiredError();
+		if (!session?.zeusToken || session.reconnectRequired) throw createAuthReconnectRequiredError();
 
-		if (session.microsoftRefreshToken && session.microsoftExpiresAt && session.microsoftExpiresAt <= Date.now()) {
+		if (session.microsoftRefreshToken && isZeusTokenExpired(session.zeusToken)) {
 			await refreshSessionOnce();
 		}
 
@@ -90,17 +91,14 @@ async function performRequest<T>(path: string, init: RequestInit = {}, withAuth:
 	}
 
 	if (withAuth && res.status === 401 && !retried && path !== "/api/auth") {
-		try {
-			await refreshSessionOnce();
-			return await performRequest<T>(path, init, true, true);
-		} catch {
-			await clearSession();
-			throw createAuthReconnectRequiredError();
-		}
+		// Throws a reconnect error once the session is really over, and a plain error (session kept)
+		// when the refresh or the replayed request only failed temporarily.
+		await refreshSessionOnce();
+		return performRequest<T>(path, init, true, true);
 	}
 
 	if (withAuth && res.status === 401) {
-		await clearSession();
+		await markSessionExpired();
 		throw createAuthReconnectRequiredError();
 	}
 
@@ -110,7 +108,7 @@ async function performRequest<T>(path: string, init: RequestInit = {}, withAuth:
 async function refreshSessionOnce() {
 	if (refreshPromise) return refreshPromise;
 	if (!refreshSessionImpl) {
-		await clearSession();
+		await markSessionExpired();
 		throw createAuthReconnectRequiredError();
 	}
 	refreshPromise = refreshSessionImpl()

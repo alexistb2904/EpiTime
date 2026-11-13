@@ -135,16 +135,15 @@ export default function HomeScreen() {
 			}
 			void loadGroups(cachedGroups);
 		} catch (error) {
-			if (isAuthReconnectRequiredError(error)) {
-				await handleAuthExpired();
-				return;
-			}
+			// An expired session still shows the saved planning. The retry loop below is for network errors only.
+			const sessionExpired = isAuthReconnectRequiredError(error);
+			if (sessionExpired) await handleAuthExpired();
 			const fallback = ids.length ? await readCachedSchedule(start, end, { groups: ids }, true) : await syncSchedule({ start, end, query: {} });
 			setEvents(fallback.visibleEvents);
 			if (cachedGroups.length) setGroups(cachedGroups);
 			void loadGroups(cachedGroups);
 			void Promise.all([syncCourseWidgets(fallback.visibleEvents), rescheduleCourseNoteReminders(fallback.visibleEvents)]).catch(() => {});
-			setUsingCache(true);
+			setUsingCache(!sessionExpired);
 		} finally {
 			refreshingRef.current = false;
 			setRefreshing(false);

@@ -4,6 +4,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowUpRight, CalendarCheck, CalendarDays, ChevronRight, GraduationCap, MapPin, Plus, RefreshCw, TriangleAlert, Users, WifiOff, X } from "lucide-react-native";
 import DatePickerModal from "../DatePickerModal";
+import SessionExpiredBanner from "../SessionExpiredBanner";
 import { DayTimeline, EventCard, formatEventChangeNotice } from "../calendar/CalendarEvents";
 import { s as cs } from "../calendar/calendarStyles";
 import { useTheme } from "../../context/ThemeContext";
@@ -140,6 +141,8 @@ export function HomeContent(p: HomeContentProps) {
 					</Text>
 				</Pressable>
 			</View>
+
+			<SessionExpiredBanner style={s.bannerGap} />
 
 			{p.showCacheBanner ? (
 				<View style={[cs.banner, s.bannerGap, { backgroundColor: theme.surface, borderColor: theme.border }]}>

@@ -24,6 +24,10 @@ export async function getSession() {
 		return null;
 	}
 }
+export async function markSessionExpired() {
+	const session = await getSession();
+	if (session && !session.reconnectRequired) await saveSession({ ...session, reconnectRequired: true });
+}
 export async function clearSession() {
 	if (canUseSecureStore) {
 		await SecureStore.deleteItemAsync(SESSION_KEY);

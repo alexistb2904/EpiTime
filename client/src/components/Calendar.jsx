@@ -88,7 +88,7 @@ const reconcileEventsWithCache = (freshEvents = [], cachedEvents = []) => {
 };
 
 const Calendar = () => {
-	const { zeusToken, logout, user } = useAuth();
+	const { zeusToken, sessionExpired, error: authError, login, logout, user } = useAuth();
 	const { theme, toggleTheme } = useTheme();
 	const { notificationSettings, shouldNotifyForEvent } = useNotification();
 
@@ -896,6 +896,15 @@ const Calendar = () => {
 										))}
 										{weekExams.length > 3 && <span className="exam-note-more">+{weekExams.length - 3}</span>}
 									</span>
+								</div>
+							)}
+							{sessionExpired && (
+								<div className="error-note" role="status">
+									<AlertTriangle size={18} strokeWidth={2.2} aria-hidden="true" />
+									<span>{authError || "Session expirée : planning enregistré affiché."}</span>
+									<button type="button" className="btn is-small" onClick={login}>
+										Se reconnecter
+									</button>
 								</div>
 							)}
 							{error && (

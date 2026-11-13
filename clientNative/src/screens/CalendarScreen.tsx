@@ -215,15 +215,14 @@ export default function CalendarScreen() {
 				await refreshNoteSummaries();
 				setUsingCache(result.source === "cache");
 			} catch (err: any) {
-				if (isAuthReconnectRequiredError(err)) {
-					await handleAuthExpired();
-					return;
-				}
+				// An expired session still shows the saved planning. The retry loop is for network errors only.
+				const sessionExpired = isAuthReconnectRequiredError(err);
+				if (sessionExpired) await handleAuthExpired();
 				const cached = await readCachedSchedule(start, end, query, true);
 				setEvents(cached.visibleEvents);
 				await rescheduleCourseNoteReminders(cached.visibleEvents);
 				await refreshNoteSummaries();
-				setUsingCache(true);
+				setUsingCache(!sessionExpired);
 				void trackEvent("calendar_load_failed", { error_kind: "unknown", load_ms: Date.now() - startedAt });
 				void trackEvent("offline_cache_used", { resource: "calendar", result: "success" });
 				setError("");
@@ -489,10 +488,7 @@ export default function CalendarScreen() {
 			}
 			setSelectedEvent({ ...event, ...details, courseTypeName });
 		} catch (err) {
-			if (isAuthReconnectRequiredError(err)) {
-				await handleAuthExpired();
-				return;
-			}
+			if (isAuthReconnectRequiredError(err)) await handleAuthExpired();
 			setSelectedEvent(event);
 		}
 	};

@@ -43,8 +43,8 @@ export type MicrosoftProfile = {
 export type Session = {
 	microsoftAccessToken: string;
 	microsoftRefreshToken?: string | null;
-	microsoftExpiresAt?: number | null;
 	zeusToken: string;
 	zeusRefreshedAt?: number | null;
+	reconnectRequired?: boolean;
 	account?: MicrosoftProfile | Record<string, unknown> | null;
 };
