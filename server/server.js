@@ -971,6 +971,32 @@ app.post("/api/rooms/available", async (req, res) => {
 	}
 });
 
+app.get("/api/groups/:id/ics", async (req, res) => {
+	try {
+		const match = (req.headers.authorization || "").match(/^Bearer\s+(.+)/i);
+		const zeusToken = match && match[1];
+		if (!zeusToken) {
+			return res.status(401).json({ error: "Bearer token required" });
+		}
+		if (!/^\d+$/.test(req.params.id)) {
+			return res.status(400).json({ error: "Invalid group id" });
+		}
+
+		const url = `${ZEUS_BASE}/api/group/${req.params.id}/ics`;
+		const upstream = await fetch(url, { headers: { Authorization: `Bearer ${zeusToken}` } });
+		const text = await upstream.text();
+
+		if (!upstream.ok) {
+			return res.status(upstream.status).json({ error: text, upstream: url });
+		}
+
+		res.type("text/calendar").send(text);
+	} catch (err) {
+		console.error("/api/groups/:id/ics error", err);
+		res.status(500).json({ error: "Proxy error" });
+	}
+});
+
 app.get("/api/groups", async (req, res) => {
 	try {
 		const authHeader = req.headers.authorization || "";

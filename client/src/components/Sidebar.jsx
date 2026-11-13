@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactCalendar from "react-calendar";
-import { Bell, ChevronDown, LogOut, Moon, Settings, Sun, X } from "lucide-react";
+import { Bell, ChevronDown, Download, LogOut, Moon, Settings, Sun, X } from "lucide-react";
 import { trackEvent } from "../utils/analyticsTracker";
 import { androidAppDownloadUrl, iosAppDownloadUrl } from "../utils/downloadLinks";
 import { filterCalendarFilterOptions } from "../utils/calendarFilters";
@@ -60,6 +60,7 @@ const Sidebar = ({
 	selectedGroups,
 	groups,
 	toggleGroup,
+	exportGroup,
 	setShowGroupModal,
 	selectedRooms,
 	rooms,
@@ -130,6 +131,14 @@ const Sidebar = ({
 									<li key={id}>
 										<span className="swatch" style={{ background: group?.color || "var(--rule-strong)" }} aria-hidden="true" />
 										<span className="drawer-group-name">{name}</span>
+										<button
+											type="button"
+											className="drawer-remove"
+											onClick={() => exportGroup(id, name)}
+											title="Exporter vers un agenda (.ics)"
+											aria-label={`Exporter ${name} vers un agenda (.ics)`}>
+											<Download size={14} strokeWidth={2.4} aria-hidden="true" />
+										</button>
 										<button type="button" className="drawer-remove" onClick={() => toggleGroup(id)} aria-label={`Retirer ${name}`}>
 											<X size={14} strokeWidth={2.4} aria-hidden="true" />
 										</button>

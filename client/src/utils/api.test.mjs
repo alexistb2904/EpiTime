@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fetchApi } from "./api.js";
+import { fetchApi, setSessionRenewer } from "./api.js";
 
 test("fetchApi aborts a request that exceeds its timeout", async () => {
 	const originalFetch = globalThis.fetch;
-	globalThis.fetch = (_input, { signal }) => new Promise((_resolve, reject) => {
-		signal.addEventListener("abort", () => reject(signal.reason), { once: true });
-	});
+	globalThis.fetch = (_input, { signal }) =>
+		new Promise((_resolve, reject) => {
+			signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+		});
 
 	try {
 		await assert.rejects(fetchApi("/api/slow", {}, 5), /plus de temps que prévu/);
@@ -46,6 +47,41 @@ test("fetchApi signals an expired active Zeus session on HTTP 401", async () => 
 		await fetchApi("/api/groups", { headers: { Authorization: "Bearer old" } });
 		assert.deepEqual(events, ["epitime:session-expired"]);
 	} finally {
+		globalThis.fetch = previousFetch;
+		if (previousWindow === undefined) delete globalThis.window;
+		else globalThis.window = previousWindow;
+		if (previousStorage === undefined) delete globalThis.localStorage;
+		else globalThis.localStorage = previousStorage;
+	}
+});
+
+test("fetchApi renews the Zeus session and replays the request once on HTTP 401", async () => {
+	const previousFetch = globalThis.fetch;
+	const previousWindow = globalThis.window;
+	const previousStorage = globalThis.localStorage;
+	const events = [];
+	const sent = [];
+	globalThis.fetch = async (_input, { headers }) => {
+		const authorization = new Headers(headers).get("Authorization");
+		sent.push(authorization);
+		return { status: authorization === "Bearer fresh" ? 200 : 401 };
+	};
+	globalThis.window = { dispatchEvent: (event) => events.push(event.type) };
+	globalThis.localStorage = { getItem: (key) => (key === "zeus_token" ? "current" : null) };
+
+	try {
+		setSessionRenewer(async () => "fresh");
+		const renewed = await fetchApi("/api/groups", { headers: { Authorization: "Bearer current" } });
+		assert.equal(renewed.status, 200);
+		assert.deepEqual(sent, ["Bearer current", "Bearer fresh"]);
+		assert.deepEqual(events, []);
+
+		setSessionRenewer(async () => null);
+		const expired = await fetchApi("/api/groups", { headers: { Authorization: "Bearer current" } });
+		assert.equal(expired.status, 401);
+		assert.deepEqual(events, ["epitime:session-expired"]);
+	} finally {
+		setSessionRenewer(null);
 		globalThis.fetch = previousFetch;
 		if (previousWindow === undefined) delete globalThis.window;
 		else globalThis.window = previousWindow;

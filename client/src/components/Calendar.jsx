@@ -12,6 +12,7 @@ import { NotificationSettings } from "./NotificationSettings";
 import RoomAvailabilityModal from "./RoomAvailabilityModal";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi } from "../utils/api";
+import { cacheGet, cacheSet } from "../utils/cacheStore";
 import { getDisplayedGroupNames } from "../utils/calendarGroups";
 import { courseHue } from "../utils/courseColor";
 import { buildCalendarFilterParams, buildEffectiveCalendarFilters } from "../utils/calendarFilters";
@@ -202,26 +203,27 @@ const Calendar = () => {
 			const res = await fetchApi("/api/groups", {
 				headers: { Authorization: `Bearer ${zeusToken}` },
 			});
+			// An error body (expired session, Zeus down) must never replace the cached groups.
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 
 			if (data.offline && data.cached === false) {
-				const cachedGroups = localStorage.getItem("zeus_cached_groups");
+				const cachedGroups = await cacheGet("zeus_cached_groups");
 				if (cachedGroups) {
-					const parsedGroups = JSON.parse(cachedGroups);
-					setGroups(parsedGroups);
+					setGroups(cachedGroups);
 					console.log("📦 Groupes chargés depuis le cache local");
 				} else {
 					setError("Aucune donnée en cache disponible");
 				}
 			} else {
 				setGroups(data);
-				localStorage.setItem("zeus_cached_groups", JSON.stringify(data));
+				cacheSet("zeus_cached_groups", data);
 			}
 		} catch (err) {
 			console.error(err);
-			const cachedGroups = localStorage.getItem("zeus_cached_groups");
+			const cachedGroups = await cacheGet("zeus_cached_groups");
 			if (cachedGroups) {
-				setGroups(JSON.parse(cachedGroups));
+				setGroups(cachedGroups);
 				console.log("📦 Groupes chargés depuis le cache local après erreur");
 			} else {
 				setError("Erreur chargement groupes");
@@ -267,12 +269,13 @@ const Calendar = () => {
 			const res = await fetchApi(`/api/events?${params.toString()}`, {
 				headers: { Authorization: `Bearer ${zeusToken}` },
 			});
+			// An error body would otherwise flag every cached course of the week as cancelled.
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 
 			if (data.offline && data.cached === false) {
-				const cachedEvents = localStorage.getItem(cacheKey);
-				if (cachedEvents) {
-					const parsedEvents = JSON.parse(cachedEvents) || [];
+				const parsedEvents = await cacheGet(cacheKey);
+				if (parsedEvents) {
 					setEvents(parsedEvents);
 					trackEvent("calendar_loaded", {
 						source: "cache",
@@ -286,11 +289,11 @@ const Calendar = () => {
 					setError("Aucune donnée en cache disponible pour cette période");
 				}
 			} else {
-				const cachedEvents = JSON.parse(localStorage.getItem(cacheKey) || "[]");
+				const cachedEvents = await cacheGet(cacheKey);
 				const apiEvents = Array.isArray(data) ? data : [];
 				const reconciledEvents = reconcileEventsWithCache(apiEvents, Array.isArray(cachedEvents) ? cachedEvents : []);
 				setEvents(reconciledEvents);
-				localStorage.setItem(cacheKey, JSON.stringify(reconciledEvents));
+				cacheSet(cacheKey, reconciledEvents);
 				trackEvent("calendar_loaded", {
 					source: "api",
 					result: "success",
@@ -299,9 +302,9 @@ const Calendar = () => {
 				});
 			}
 		} catch (err) {
-			const cachedEvents = localStorage.getItem(cacheKey);
+			const cachedEvents = await cacheGet(cacheKey);
 			if (cachedEvents) {
-				setEvents(JSON.parse(cachedEvents) || []);
+				setEvents(cachedEvents);
 				console.log("📦 Événements chargés depuis le cache local après erreur");
 			} else {
 				setError("Erreur chargement événements: " + err.message);
@@ -504,6 +507,26 @@ const Calendar = () => {
 			localStorage.setItem("zeus_selected_groups", JSON.stringify(newSelected));
 			return newSelected;
 		});
+	};
+
+	const exportGroup = async (id, name) => {
+		try {
+			const res = await fetchApi(`/api/groups/${id}/ics`, {
+				headers: { Authorization: `Bearer ${zeusToken}` },
+			});
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			const link = document.createElement("a");
+			link.href = URL.createObjectURL(await res.blob());
+			link.download = `${name}.ics`;
+			link.click();
+			// Safari needs the URL to outlive the click.
+			setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+			trackEvent("calendar_exported", { format: "ics" });
+		} catch (err) {
+			console.error(err);
+			setError("Export du calendrier impossible. Réessaie dans un instant.");
+			trackEvent("calendar_export_failed", { format: "ics" });
+		}
 	};
 
 	const toggleRoom = (id) => {
@@ -806,6 +829,7 @@ const Calendar = () => {
 					selectedGroups={selectedGroups}
 					groups={groups}
 					toggleGroup={toggleGroup}
+					exportGroup={exportGroup}
 					setShowGroupModal={setShowGroupModal}
 					selectedRooms={selectedRooms}
 					rooms={rooms}

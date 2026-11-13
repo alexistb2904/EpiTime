@@ -2,6 +2,13 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
+import { hasMicrosoftRedirectResponse } from "./utils/authSession";
+
+// Hidden-iframe leg of MSAL's silent renewal: hand Microsoft's answer to the main window instead of booting the app.
+const isAuthIframe = window.parent !== window && hasMicrosoftRedirectResponse();
+if (isAuthIframe) {
+	import("@azure/msal-browser/redirect-bridge").then(({ broadcastResponseToMainFrame }) => broadcastResponseToMainFrame()).catch(console.error);
+}
 
 const showPwaUpdateToast = () => {
 	const toast = document.createElement("div");
@@ -31,7 +38,7 @@ const showPwaUpdateToast = () => {
 	}, 2200);
 };
 
-if ("serviceWorker" in navigator) {
+if (!isAuthIframe && "serviceWorker" in navigator) {
 	let hasRefreshed = false;
 	let triggerUpdate = () => {};
 
@@ -62,8 +69,10 @@ if ("serviceWorker" in navigator) {
 	});
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-	<React.StrictMode>
-		<App />
-	</React.StrictMode>
-);
+if (!isAuthIframe) {
+	ReactDOM.createRoot(document.getElementById("root")).render(
+		<React.StrictMode>
+			<App />
+		</React.StrictMode>
+	);
+}

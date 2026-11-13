@@ -1,8 +1,8 @@
 import React, { useState, useContext, createContext } from "react";
-import { PublicClientApplication } from "@azure/msal-browser";
+import { CacheLookupPolicy, PublicClientApplication } from "@azure/msal-browser";
 import { trackEvent } from "../utils/analyticsTracker";
-import { fetchApi } from "../utils/api";
-import { clearSavedSession, getZeusTokenExpiresAt, readSavedSession } from "../utils/authSession";
+import { fetchApi, setSessionRenewer } from "../utils/api";
+import { clearSavedSession, EXPIRY_LEEWAY_MS, getZeusTokenExpiresAt, getZeusTokenIssuedAt, hasMicrosoftRedirectResponse, readSavedSession } from "../utils/authSession";
 
 const AuthContext = createContext();
 const LOGIN_ANALYTICS_FLOW_KEY = "epitime_login_analytics_flow";
@@ -53,13 +53,17 @@ const isPopupIssue = (err) => {
 
 const AUTH_SCOPES = ["openid", "profile", "User.Read"];
 const REDIRECT_TIMEOUT_MS = 6_000;
-const EXPIRY_LEEWAY_MS = 30_000;
-
-const hasMicrosoftRedirectResponse = () => {
-	const search = new URLSearchParams(window.location.search);
-	const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-	return [search, hash].some((params) => params.has("state") && (params.has("code") || params.has("error")));
-};
+// Covers a refresh-token call plus the hidden iframe (iframeBridgeTimeout below).
+const SILENT_TIMEOUT_MS = 10_000;
+// Zeus tokens and Microsoft's SPA refresh token both last 24 h from login: renewing early, while the
+// refresh token still works, pushes the Zeus expiry as far as possible.
+const EARLY_RENEWAL_AFTER_MS = 2 * 3_600_000;
+const RENEWING_MESSAGE = "Renouvellement de ta session…";
+const AUTO_RECONNECT_FLOW = "auto_reconnect";
+const AUTO_RECONNECT_AT_KEY = "epitime_auto_reconnect_at";
+const AUTO_RECONNECT_COOLDOWN_MS = 10 * 60_000;
+// MSAL would otherwise bounce once more to the page the login started from, and lose the response.
+const REDIRECT_OPTIONS = { navigateToLoginRequestUrl: false };
 
 const withDeadline = async (promise, timeoutMs) => {
 	let timeout;
@@ -78,13 +82,21 @@ const withDeadline = async (promise, timeoutMs) => {
 export const AuthProvider = ({ children }) => {
 	const [savedSession] = useState(readSavedSession);
 	const [redirectCallback] = useState(hasMicrosoftRedirectResponse);
-	const [user, setUser] = useState(savedSession?.user ?? null);
-	const [zeusToken, setZeusToken] = useState(savedSession?.token ?? null);
-	const [loading, setLoading] = useState(redirectCallback);
-	const [loadingMessage, setLoadingMessage] = useState("Préparation de la connexion Microsoft…");
+	// Online, an expired session is renewed before the calendar shows. Offline, it still opens cached schedules.
+	const [renewAtStartup] = useState(() => Boolean(savedSession?.expired && navigator.onLine));
+	const restored = renewAtStartup ? null : savedSession;
+	const [user, setUser] = useState(restored?.user ?? null);
+	const [zeusToken, setZeusToken] = useState(restored?.token ?? null);
+	const [loading, setLoading] = useState(redirectCallback || renewAtStartup);
+	const [loadingMessage, setLoadingMessage] = useState(redirectCallback ? "Préparation de la connexion Microsoft…" : RENEWING_MESSAGE);
 	const [error, setError] = useState(null);
 	const loggingOut = React.useRef(false);
 	const startup = React.useRef(null);
+	const renewal = React.useRef(null);
+	const reconnection = React.useRef(null);
+	const earlyRenewalTriedAt = React.useRef(0);
+	// Last signed-in account: looked up in the MSAL cache to renew, and reused as login hint after an expiry.
+	const lastUser = React.useRef(savedSession?.user ?? null);
 
 	const msalConfig = {
 		auth: {
@@ -92,9 +104,9 @@ export const AuthProvider = ({ children }) => {
 			authority: "https://login.microsoftonline.com/epita.fr",
 			redirectUri: window.location.origin,
 			postLogoutRedirectUri: window.location.origin,
-			navigateToLoginRequestUrl: false,
 		},
-		cache: { cacheLocation: "localStorage", storeAuthStateInCookie: true },
+		cache: { cacheLocation: "localStorage" },
+		system: { iframeBridgeTimeout: REDIRECT_TIMEOUT_MS },
 	};
 
 	const msalInstance = React.useRef(null);
@@ -113,41 +125,149 @@ export const AuthProvider = ({ children }) => {
 			if (!navigator.onLine || loggingOut.current) return;
 
 			setLoadingMessage("Finalisation de la connexion Microsoft…");
-			const response = await withDeadline(msalInstance.current.handleRedirectPromise(), REDIRECT_TIMEOUT_MS);
+			const response = await withDeadline(msalInstance.current.handleRedirectPromise(REDIRECT_OPTIONS), REDIRECT_TIMEOUT_MS);
 			if (response) {
 				await exchangeToken(response);
 			} else {
-				setError("La connexion Microsoft n’a pas abouti. Réessaie depuis cette page.");
+				failRedirect("La connexion Microsoft n’a pas abouti. Réessaie depuis cette page.");
 			}
 		} catch (err) {
 			console.error("MSAL Redirect Error:", err);
-			setError("Connexion Microsoft indisponible. Réessaie depuis cette page.");
+			failRedirect("Connexion Microsoft indisponible. Réessaie depuis cette page.");
 		} finally {
 			setLoading(false);
 		}
 	}, [initializeMsal]);
 
+	// Zeus only issues a session from a Microsoft access token (POST /api/User/OfficeLogin): there is no refresh endpoint.
+	const requestZeusToken = async (accessToken) => {
+		const res = await fetchApi(
+			"/api/auth",
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ accessToken }),
+			},
+			REDIRECT_TIMEOUT_MS
+		);
+
+		if (!res.ok) {
+			throw new Error(`Le service de connexion est indisponible (HTTP ${res.status}).`);
+		}
+
+		const data = await res.json();
+		if (!data.token) throw new Error(data.error || "Le service de connexion n’a pas renvoyé de session.");
+		return data.token;
+	};
+
+	const saveSession = (token, account) => {
+		lastUser.current = account;
+		setZeusToken(token);
+		setUser(account);
+		// The token goes last: other tabs follow its storage event and must find the user already there.
+		localStorage.setItem("zeus_user", JSON.stringify(account));
+		localStorage.setItem("zeus_token", token);
+	};
+
+	// `background` also allows Microsoft's own session through a hidden iframe (answered by the bridge in
+	// main.jsx). Where that is blocked or Microsoft has no session, it only fails after iframeBridgeTimeout:
+	// fine while nobody waits, too slow for a loading screen, which falls back to redirectToReconnect.
+	const renewSession = React.useCallback(
+		(background = false) => {
+			// Single flight: the expiry timer and concurrent 401s share one Microsoft + Zeus round trip.
+			if (!renewal.current) {
+				renewal.current = (async () => {
+					try {
+						const username = lastUser.current?.username;
+						if (!username || !navigator.onLine || loggingOut.current) return null;
+						await withDeadline(initializeMsal(), REDIRECT_TIMEOUT_MS);
+						// MSAL's cache is unreadable after a browser restart: then only the iframe is left.
+						const account = msalInstance.current.getAccount({ username });
+						if (!account && !background) return null;
+						const msResponse = await withDeadline(
+							account
+								? msalInstance.current.acquireTokenSilent({
+										scopes: AUTH_SCOPES,
+										account,
+										// Cached token, then refresh token (24 h), then the iframe when allowed.
+										cacheLookupPolicy: background ? CacheLookupPolicy.Default : CacheLookupPolicy.AccessTokenAndRefreshToken,
+									})
+								: msalInstance.current.ssoSilent({ scopes: AUTH_SCOPES, loginHint: username }),
+							SILENT_TIMEOUT_MS
+						);
+						const token = await requestZeusToken(msResponse.accessToken);
+						if (loggingOut.current) return null;
+						// A fresh token that already looks expired means a wrong device clock: renewing again would loop.
+						const expiresAt = getZeusTokenExpiresAt(token);
+						if (expiresAt && expiresAt <= Date.now() + EXPIRY_LEEWAY_MS) return null;
+						saveSession(token, msResponse.account);
+						return token;
+					} catch (err) {
+						console.warn("Silent session renewal failed:", err);
+						return null;
+					}
+				})().finally(() => {
+					renewal.current = null;
+				});
+			}
+			return renewal.current;
+		},
+		[initializeMsal]
+	);
+
+	// Last resort before the login page: a full-page prompt=none round trip. Microsoft's session cookie is
+	// first-party there, so it also works where the iframe is blocked (Safari, Firefox).
+	const redirectToReconnect = React.useCallback(() => {
+		if (!reconnection.current) {
+			reconnection.current = (async () => {
+				try {
+					const loginHint = lastUser.current?.username;
+					if (!loginHint || !navigator.onLine || loggingOut.current) return false;
+					// One automatic round trip per cooldown: a session Zeus keeps rejecting must not loop.
+					if (Date.now() - Number(sessionStorage.getItem(AUTO_RECONNECT_AT_KEY)) < AUTO_RECONNECT_COOLDOWN_MS) return false;
+					sessionStorage.setItem(AUTO_RECONNECT_AT_KEY, String(Date.now()));
+					setLoadingMessage(RENEWING_MESSAGE);
+					setLoading(true);
+					await withDeadline(initializeMsal(), REDIRECT_TIMEOUT_MS);
+					// Drain a previously interrupted MSAL redirect before starting another one.
+					await withDeadline(msalInstance.current.handleRedirectPromise(REDIRECT_OPTIONS), REDIRECT_TIMEOUT_MS);
+					saveLoginAnalyticsFlow(AUTO_RECONNECT_FLOW);
+					// Resolves only if the browser did not leave the page.
+					await msalInstance.current.loginRedirect({ scopes: AUTH_SCOPES, loginHint, prompt: "none" });
+				} catch (err) {
+					console.warn("Automatic reconnection failed:", err);
+				}
+				consumeLoginAnalyticsFlow();
+				setLoading(false);
+				return false;
+			})().finally(() => {
+				reconnection.current = null;
+			});
+		}
+		return reconnection.current;
+	}, [initializeMsal]);
+
+	// Microsoft answered a redirect with an error or nothing usable. After an automatic reconnection this
+	// only means its session is gone too: show the login page, not an error.
+	const failRedirect = (message) => {
+		if (consumeLoginAnalyticsFlow()?.flow !== AUTO_RECONNECT_FLOW) return setError(message);
+		trackEvent("auto_reconnect_failed");
+		expireSession();
+	};
+
+	// After an expiry, go straight back to the same account instead of the account picker.
+	const loginRequest = () => {
+		const loginHint = lastUser.current?.username;
+		return loginHint ? { scopes: AUTH_SCOPES, loginHint } : { scopes: AUTH_SCOPES, prompt: "select_account" };
+	};
+
 	const exchangeToken = async (msResponse, analyticsContext = null) => {
 		if (loggingOut.current) return;
 		setLoadingMessage("Connexion à Zeus…");
 		try {
-			const res = await fetchApi("/api/auth", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ accessToken: msResponse.accessToken }),
-			}, REDIRECT_TIMEOUT_MS);
-
-			if (!res.ok) {
-				throw new Error(`Le service de connexion est indisponible (HTTP ${res.status}).`);
-			}
-
-			const data = await res.json();
-			if (!data.token) throw new Error(data.error || "Le service de connexion n’a pas renvoyé de session.");
+			const token = await requestZeusToken(msResponse.accessToken);
 			if (loggingOut.current) return;
-			setZeusToken(data.token);
-			setUser(msResponse.account);
-			localStorage.setItem("zeus_token", data.token);
-			localStorage.setItem("zeus_user", JSON.stringify(msResponse.account));
+			saveSession(token, msResponse.account);
 			const completedContext = analyticsContext || consumeLoginAnalyticsFlow();
 			if (completedContext) trackEvent("login_completed", completedContext);
 		} catch (err) {
@@ -168,7 +288,7 @@ export const AuthProvider = ({ children }) => {
 			loggingOut.current = false;
 			await withDeadline(initializeMsal(), REDIRECT_TIMEOUT_MS);
 			// Drain a previously interrupted MSAL redirect before starting another one.
-			const pendingResponse = await withDeadline(msalInstance.current.handleRedirectPromise(), REDIRECT_TIMEOUT_MS);
+			const pendingResponse = await withDeadline(msalInstance.current.handleRedirectPromise(REDIRECT_OPTIONS), REDIRECT_TIMEOUT_MS);
 			if (pendingResponse) {
 				await exchangeToken(pendingResponse);
 				setLoading(false);
@@ -181,17 +301,11 @@ export const AuthProvider = ({ children }) => {
 			if (shouldUseRedirectAuth()) {
 				setLoadingMessage("Redirection vers Microsoft…");
 				saveLoginAnalyticsFlow("redirect");
-				await msalInstance.current.loginRedirect({
-					scopes: AUTH_SCOPES,
-					prompt: "select_account",
-				});
+				await msalInstance.current.loginRedirect(loginRequest());
 				return;
 			} else {
 				setLoadingMessage("Connexion à Microsoft…");
-				const resp = await msalInstance.current.loginPopup({
-					scopes: AUTH_SCOPES,
-					prompt: "select_account",
-				});
+				const resp = await msalInstance.current.loginPopup(loginRequest());
 				await exchangeToken(resp, { flow: "popup" });
 				setLoading(false);
 			}
@@ -201,10 +315,7 @@ export const AuthProvider = ({ children }) => {
 				try {
 					setLoadingMessage("Redirection vers Microsoft…");
 					saveLoginAnalyticsFlow("redirect_after_popup_issue");
-					await msalInstance.current.loginRedirect({
-						scopes: AUTH_SCOPES,
-						prompt: "select_account",
-					});
+					await msalInstance.current.loginRedirect(loginRequest());
 					return;
 				} catch (redirectErr) {
 					setError("Erreur connexion: " + redirectErr.message);
@@ -230,6 +341,7 @@ export const AuthProvider = ({ children }) => {
 			flow: shouldUseRedirectAuth() ? "redirect" : "popup",
 		});
 		loggingOut.current = true;
+		lastUser.current = null;
 		setUser(null);
 		setZeusToken(null);
 		clearSavedSession();
@@ -250,38 +362,81 @@ export const AuthProvider = ({ children }) => {
 	}, []);
 
 	React.useEffect(() => {
-		if (!zeusToken) return;
+		// While a redirect or reconnection is being processed, the session is about to be replaced anyway.
+		if (!zeusToken || loading) return;
 		const expiresAt = getZeusTokenExpiresAt(zeusToken);
-		const checkExpiry = () => {
+		const issuedAt = getZeusTokenIssuedAt(zeusToken);
+		let stale = false;
+		const checkSession = async () => {
 			// Offline schedules remain accessible. Re-check when back online.
-			if (navigator.onLine && expiresAt && expiresAt <= Date.now() + EXPIRY_LEEWAY_MS) expireSession();
+			if (!navigator.onLine) return;
+			const now = Date.now();
+			if (expiresAt && expiresAt <= now + EXPIRY_LEEWAY_MS) {
+				// Not expired yet: nobody is waiting, the iframe may take its time.
+				if ((await renewSession(expiresAt > now)) || stale) return;
+				if (!(await redirectToReconnect()) && !stale) expireSession();
+			} else if (issuedAt && now - Math.max(issuedAt, earlyRenewalTriedAt.current) > EARLY_RENEWAL_AFTER_MS) {
+				// Best effort, in the background: a failure changes nothing and is not retried right away.
+				earlyRenewalTriedAt.current = now;
+				renewSession(true);
+			}
 		};
 		const onVisibilityChange = () => {
-			if (!document.hidden) checkExpiry();
+			if (!document.hidden) checkSession();
 		};
-		checkExpiry();
+		checkSession();
 		const delay = expiresAt ? Math.max(0, expiresAt - Date.now() - EXPIRY_LEEWAY_MS) : 0;
-		const timer = delay > 0 ? setTimeout(checkExpiry, delay) : null;
-		window.addEventListener("online", checkExpiry);
+		const timer = delay > 0 ? setTimeout(checkSession, delay) : null;
+		window.addEventListener("online", checkSession);
 		document.addEventListener("visibilitychange", onVisibilityChange);
 		return () => {
+			stale = true;
 			if (timer !== null) clearTimeout(timer);
-			window.removeEventListener("online", checkExpiry);
+			window.removeEventListener("online", checkSession);
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 		};
-	}, [zeusToken, expireSession]);
+	}, [zeusToken, loading, expireSession, renewSession, redirectToReconnect]);
 
 	React.useEffect(() => {
-		window.addEventListener("epitime:session-expired", expireSession);
-		return () => window.removeEventListener("epitime:session-expired", expireSession);
-	}, [expireSession]);
+		setSessionRenewer(() => renewSession());
+		return () => setSessionRenewer(null);
+	}, [renewSession]);
 
 	React.useEffect(() => {
-		// Only process a real Microsoft redirect. Visiting the site must never
-		// initiate a silent Microsoft + Zeus login in the background.
-		if (!redirectCallback || startup.current) return;
-		startup.current = initMsal();
-	}, [initMsal, redirectCallback]);
+		// Zeus rejected the token and the silent renewal did not help.
+		const onSessionExpired = async () => {
+			if (!(await redirectToReconnect())) expireSession();
+		};
+		window.addEventListener("epitime:session-expired", onSessionExpired);
+		return () => window.removeEventListener("epitime:session-expired", onSessionExpired);
+	}, [expireSession, redirectToReconnect]);
+
+	React.useEffect(() => {
+		// Another tab logged in, logged out or renewed the session: follow it.
+		const onStorage = (event) => {
+			if (event.key !== "zeus_token" && event.key !== null) return;
+			const session = readSavedSession();
+			if (session) lastUser.current = session.user;
+			setUser(session?.user ?? null);
+			setZeusToken(session?.token ?? null);
+		};
+		window.addEventListener("storage", onStorage);
+		return () => window.removeEventListener("storage", onStorage);
+	}, []);
+
+	React.useEffect(() => {
+		// Visiting the site never shows a Microsoft prompt on its own: it only finishes a real redirect,
+		// or reconnects a saved session that expired (silently, else through a prompt=none round trip).
+		if (startup.current) return;
+		if (redirectCallback) startup.current = initMsal();
+		else if (renewAtStartup) {
+			startup.current = (async () => {
+				// The second call only settles if the browser did not leave for Microsoft: back to the login page.
+				if (!(await renewSession()) && !(await redirectToReconnect())) expireSession();
+				setLoading(false);
+			})();
+		}
+	}, [initMsal, redirectCallback, renewAtStartup, renewSession, redirectToReconnect, expireSession]);
 
 	return <AuthContext.Provider value={{ user, zeusToken, loading, loadingMessage, error, login, logout, initMsal }}>{children}</AuthContext.Provider>;
 };
