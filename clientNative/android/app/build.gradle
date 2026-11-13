@@ -1,4 +1,6 @@
 apply plugin: "com.android.application"
+// Required because gradle.properties sets android.builtInKotlin=false
+apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 import java.util.Properties
