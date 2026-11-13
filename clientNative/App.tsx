@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { createNavigationContainerRef, NavigationContainer, type LinkingOptions } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
-import { Bell, CalendarDays, GraduationCap, Home, Settings } from "lucide-react-native";
+import { Bell } from "phosphor-react-native";
+import FloatingTabBar from "./src/components/FloatingTabBar";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { VersionProvider } from "./src/context/VersionContext";
@@ -16,8 +17,8 @@ import { getRememberedAurigaCredentials, hasAurigaRefreshToken } from "./src/ser
 import { getAurigaLastSync, isAurigaSyncStale } from "./src/services/aurigaCache";
 import { syncAurigaData } from "./src/services/aurigaClient";
 import { stopLiveCourseNotification } from "./src/services/liveCourse";
-import { getNotificationPermissionStatus, getNotificationSettings, requestNotificationPermission, requestPushToken } from "./src/services/notifications";
-import { openAppPermissionSettings } from "./src/services/permissions";
+import { getNotificationPermissionStatus, getNotificationSettings, requestPushToken } from "./src/services/notifications";
+import { getRequiredAppPermissions, openAppPermissionSettings, requestRequiredAppPermissions, type RequiredPermissionState } from "./src/services/permissions";
 import { getJSON, setJSON } from "./src/services/storage";
 import { hasScheduleFilters } from "./src/utils/scheduleFilters";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -90,7 +91,8 @@ function Root() {
 	const { theme, resolvedMode } = useTheme();
 	const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 	const [onboardingReady, setOnboardingReady] = useState(false);
-	const [notificationPermissionPrompt, setNotificationPermissionPrompt] = useState<{ visible: boolean; canAskAgain: boolean }>({ visible: false, canAskAgain: true });
+	const [notificationPermissionPrompt, setNotificationPermissionPrompt] = useState<{ visible: boolean; missing: RequiredPermissionState[] }>({ visible: false, missing: [] });
+	const [pushRegistrationKey, setPushRegistrationKey] = useState(0);
 	const [requestingNotificationPermission, setRequestingNotificationPermission] = useState(false);
 	const handledNotificationResponseId = useRef<string | null>(null);
 	const aurigaAutoRefreshTriggeredRef = useRef(false);
@@ -138,13 +140,19 @@ function Root() {
 	useEffect(() => {
 		if (!session || !onboardingReady) return;
 		let active = true;
-		(async () => {
-			const [permission, promptDisabled] = await Promise.all([getNotificationPermissionStatus(), getJSON<boolean>(NOTIFICATION_PERMISSION_PROMPT_DISABLED_KEY, false)]);
-			if (!active || promptDisabled || permission.granted || permission.status === "granted") return;
-			setNotificationPermissionPrompt({ visible: true, canAskAgain: permission.canAskAgain });
-		})().catch(() => {});
+		const checkPermissions = async (reveal: boolean) => {
+			const [result, promptDisabled] = await Promise.all([getRequiredAppPermissions({ includeExactAlarms: true }), getJSON<boolean>(NOTIFICATION_PERMISSION_PROMPT_DISABLED_KEY, false)]);
+			if (!active) return;
+			// On return from system settings, keep the prompt open only while something is still missing.
+			setNotificationPermissionPrompt((current) => ({ visible: !promptDisabled && result.missing.length > 0 && (reveal || current.visible), missing: result.missing }));
+		};
+		void checkPermissions(true).catch(() => {});
+		const subscription = AppState.addEventListener("change", (state) => {
+			if (state === "active") void checkPermissions(false).catch(() => {});
+		});
 		return () => {
 			active = false;
+			subscription.remove();
 		};
 	}, [onboardingReady, session]);
 
@@ -156,17 +164,13 @@ function Root() {
 	const requestNotificationPermissionFromPrompt = async () => {
 		setRequestingNotificationPermission(true);
 		try {
-			if (!notificationPermissionPrompt.canAskAgain) {
+			if (notificationPermissionPrompt.missing.some((permission) => !permission.canAskAgain)) {
 				await openAppPermissionSettings();
 				return;
 			}
-			const granted = await requestNotificationPermission();
-			if (granted) {
-				setNotificationPermissionPrompt((current) => ({ ...current, visible: false }));
-				return;
-			}
-			const permission = await getNotificationPermissionStatus();
-			setNotificationPermissionPrompt({ visible: true, canAskAgain: permission.canAskAgain });
+			const result = await requestRequiredAppPermissions({ includeExactAlarms: true });
+			setNotificationPermissionPrompt({ visible: result.missing.length > 0, missing: result.missing });
+			setPushRegistrationKey((key) => key + 1);
 		} finally {
 			setRequestingNotificationPermission(false);
 		}
@@ -189,11 +193,20 @@ function Root() {
 			await registerExpoPushToken(token, userId, groups, settings);
 		};
 
-		void reregisterExpoPushToken().catch(() => {});
+		const run = () => void reregisterExpoPushToken().catch(() => {});
+		run();
+		// Retry on every resume (permission granted in system settings, earlier network failure)
+		// and follow FCM/APNs token rotations so the server never keeps a stale token.
+		const appStateSubscription = AppState.addEventListener("change", (state) => {
+			if (state === "active") run();
+		});
+		const tokenSubscription = Notifications.addPushTokenListener(run);
 		return () => {
 			active = false;
+			appStateSubscription.remove();
+			tokenSubscription.remove();
 		};
-	}, [session, onboardingReady]);
+	}, [session, onboardingReady, pushRegistrationKey]);
 
 	useEffect(() => {
 		if (!session || !onboardingReady || aurigaAutoRefreshTriggeredRef.current) return;
@@ -292,25 +305,12 @@ function Root() {
 					},
 				}}>
 				<StatusBar style={resolvedMode === "dark" ? "light" : "dark"} />
-				<Tab.Navigator
-					screenOptions={{
-						headerShown: false,
-						tabBarStyle: {
-							backgroundColor: theme.surface,
-							borderTopColor: theme.border,
-							height: 72,
-							paddingTop: 8,
-							paddingBottom: 10,
-						},
-						tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
-						tabBarActiveTintColor: theme.accent,
-						tabBarInactiveTintColor: theme.muted,
-					}}>
-					<Tab.Screen name="Accueil" component={HomeScreen} options={{ tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }} />
-					<Tab.Screen name="Agenda" component={CalendarScreen} options={{ tabBarIcon: ({ color, size }) => <CalendarDays color={color} size={size} /> }} />
-					<Tab.Screen name="Notes" component={GradesScreen} options={{ tabBarIcon: ({ color, size }) => <GraduationCap color={color} size={size} /> }} />
-					<Tab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarIcon: ({ color, size }) => <Bell color={color} size={size} /> }} />
-					<Tab.Screen name="Réglages" component={SettingsScreen} options={{ tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> }} />
+				<Tab.Navigator tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false }}>
+					<Tab.Screen name="Accueil" component={HomeScreen} />
+					<Tab.Screen name="Agenda" component={CalendarScreen} />
+					<Tab.Screen name="Notes" component={GradesScreen} />
+					<Tab.Screen name="Notifications" component={NotificationsScreen} />
+					<Tab.Screen name="Réglages" component={SettingsScreen} />
 				</Tab.Navigator>
 			</NavigationContainer>
 			<Modal visible={notificationPermissionPrompt.visible} transparent animationType="fade" onRequestClose={postponeNotificationPermission}>
@@ -324,12 +324,17 @@ function Root() {
 							EpiTime a besoin de cette autorisation pour te prévenir avant un cours et t’informer d’un changement de salle ou de planning. Sans elle, l’application
 							reste utilisable, mais aucun rappel ne pourra être envoyé.
 						</Text>
+						{notificationPermissionPrompt.missing.some((permission) => permission.id === "exactAlarms") ? (
+							<Text style={[s.permissionBody, { color: theme.muted }]}>
+								Autorise aussi les alarmes exactes pour que les rappels arrivent à l’heure, même quand le téléphone est en veille.
+							</Text>
+						) : null}
 						<Pressable
 							style={[s.permissionPrimary, { backgroundColor: theme.accent, opacity: requestingNotificationPermission ? 0.7 : 1 }]}
 							onPress={() => void requestNotificationPermissionFromPrompt()}
 							disabled={requestingNotificationPermission}>
 							<Text style={s.permissionPrimaryText}>
-								{requestingNotificationPermission ? "Vérification…" : notificationPermissionPrompt.canAskAgain ? "Donner les permissions" : "Ouvrir les réglages"}
+								{requestingNotificationPermission ? "Vérification…" : notificationPermissionPrompt.missing.every((permission) => permission.canAskAgain) ? "Donner les permissions" : "Ouvrir les réglages"}
 							</Text>
 						</Pressable>
 						<View style={s.permissionSecondaryActions}>

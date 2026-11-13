@@ -1,6 +1,7 @@
-import { getWeekRange, startOfDay } from "../../utils/calendar";
+import { startOfDay } from "../../utils/calendar";
 
-export type ViewMode = "week" | "day" | "list";
+// "week": day agenda under the week strip (UI label "Jour"); "list": the whole week (UI label "Semaine"). Values are persisted.
+export type ViewMode = "week" | "list";
 export type ScheduleContext = { type: "group" | "single-group" | "teacher" | "room"; ids: (string | number)[]; label: string };
 export type CalendarRouteParams = {
 	targetDate?: string;
@@ -12,16 +13,6 @@ export type CalendarRouteParams = {
 };
 
 export const minute = 60_000;
-
-export const rangeFor = (date: Date, viewMode: ViewMode) => {
-	if (viewMode === "day") {
-		const start = startOfDay(date);
-		const end = new Date(start);
-		end.setDate(end.getDate() + 1);
-		return { start, end };
-	}
-	return getWeekRange(date);
-};
 
 export const dayKey = (date: Date) => startOfDay(date).toISOString();
 

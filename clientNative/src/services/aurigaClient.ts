@@ -1,7 +1,7 @@
-import gradesPayload from "./aurigaPayloads/grades.json";
-import syllabusPayload from "./aurigaPayloads/syllabus.json";
 import { AURIGA_API, AurigaAuthError, forceRefreshAurigaAccessToken, getValidAurigaAccessToken } from "./aurigaAuth";
 import { getCachedAurigaGrades, saveAurigaCoeffs, saveAurigaGrades, saveAurigaLastSync, saveAurigaSyllabus, saveAurigaUser } from "./aurigaCache";
+import gradesPayload from "./aurigaPayloads/grades.json";
+import syllabusPayload from "./aurigaPayloads/syllabus.json";
 import { extractSubjectCode, type AurigaCoeff, type AurigaGrade, type AurigaSyllabus } from "./aurigaTypes";
 import { syncGradeWidgetsFromStoredData } from "./widgets";
 

@@ -1,5 +1,5 @@
+import { Directory, File, Paths } from "expo-file-system";
 import * as Notifications from "expo-notifications";
-import * as FileSystem from "expo-file-system/legacy";
 import { Linking, Platform } from "react-native";
 import { ZeusEvent } from "../types";
 import { getEventTitle, getRoomName } from "../utils/calendar";
@@ -144,19 +144,15 @@ export async function deleteCourseNote(eventKey: string, noteId: string) {
 }
 
 export async function copyCourseNoteAttachment(input: CopyCourseNoteAttachmentInput) {
-	const root = FileSystem.documentDirectory;
+	const dir = new Directory(Paths.document, COURSE_NOTES_DIR, safePathPart(input.eventKey), safePathPart(input.noteId));
 
-	if (!root) throw new Error("Stockage local indisponible.");
-
-	const dir = `${root}${COURSE_NOTES_DIR}/${safePathPart(input.eventKey)}/${safePathPart(input.noteId)}/`;
-
-	await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+	dir.create({ intermediates: true, idempotent: true });
 
 	const name = input.name?.trim() || (input.kind === "photo" ? "photo.jpg" : "fichier");
-	const targetName = `${Date.now()}-${safeFileName(name)}`;
-	const localUri = `${dir}${targetName}`;
+	const target = new File(dir, `${Date.now()}-${safeFileName(name)}`);
 
-	await FileSystem.copyAsync({ from: input.sourceUri, to: localUri });
+	await new File(input.sourceUri).copy(target);
+	const localUri = target.uri;
 
 	return {
 		id: createLocalId("attachment"),
@@ -186,7 +182,7 @@ export async function deleteCourseNoteAttachment(event: ZeusEvent, noteId: strin
 }
 
 export async function openCourseNoteAttachment(attachment: CourseNoteAttachment) {
-	const uri = Platform.OS === "android" ? await FileSystem.getContentUriAsync(attachment.localUri).catch(() => attachment.localUri) : attachment.localUri;
+	const uri = Platform.OS === "android" ? getContentUri(attachment.localUri) : attachment.localUri;
 
 	await Linking.openURL(uri);
 }
@@ -306,7 +302,16 @@ async function writeNotesForEvent(byEvent: CourseNotesByEvent, eventKey: string,
 async function deleteCourseNoteAttachmentFile(attachment: CourseNoteAttachment) {
 	if (!attachment.localUri) return;
 
-	await FileSystem.deleteAsync(attachment.localUri, { idempotent: true });
+	const file = new File(attachment.localUri);
+	if (file.exists) file.delete();
+}
+
+function getContentUri(uri: string) {
+	try {
+		return new File(uri).contentUri;
+	} catch {
+		return uri;
+	}
 }
 
 function normalizeNotes(notes: CourseNote[], eventKey: string) {

@@ -20,13 +20,6 @@ android/app/src/main/java/inline/
 android/**/*.iml
 android/*.hprof
 .kotlin/
-ios/Pods/
-ios/build/
-ios/DerivedData/
-ios/*.xcworkspace/xcuserdata/
-ios/**/*.xcodeproj/xcuserdata/
-ios/**/*.xcuserstate
-ios/**/xcshareddata/WorkspaceSettings.xcsettings
 
 credentials.json
 credentials/

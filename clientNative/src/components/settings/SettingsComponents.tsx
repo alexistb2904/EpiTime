@@ -1,23 +1,27 @@
 import React from "react";
-import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
 	BellRing,
 	Bug,
+	Calculator,
 	ChevronRight,
 	Clock,
 	Code2,
 	Download,
-	Info,
+	ExternalLink,
+	Hourglass,
 	LogOut,
 	Moon,
+	Palette,
 	RefreshCw,
 	RotateCcw,
+	Scale,
 	Send,
-	Shield,
 	ShieldCheck,
 	Smartphone,
 	Square,
 	Sun,
+	Timer,
 	Trash2,
 	User,
 	X,
@@ -26,6 +30,7 @@ import Card from "../Card";
 import { useTheme } from "../../context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { type ScheduledNotificationItem } from "../../services/notifications";
+import { Row, ScreenTitle, Section, Segmented, Stepper, destructiveColor, s as ls } from "./SettingsList";
 
 export function SettingsContent({
 	account,
@@ -42,21 +47,17 @@ export function SettingsContent({
 	deletedEventsCount,
 	disconnectAuriga,
 	logout,
+	materialYouAvailable,
 	materialYouDetails,
 	materialYouEnabled,
-	missingPermissionsCount,
 	mode,
-	modeLabel,
+	resolvedMode,
 	notificationDebugSettings,
 	openLatestRelease,
 	startUpdate,
 	updatePhase,
 	updateProgress,
-	permissionsKnown,
-	permissionsLoading,
 	refreshScheduledNotifications,
-	requestMissingPermissions,
-	resolvedMode,
 	restoreEvents,
 	saveNotificationDebugSettings,
 	scheduleDebugLocal,
@@ -70,403 +71,298 @@ export function SettingsContent({
 	clearDebugNotifications,
 	toggleGradeWeighting,
 	toggleAnalytics,
-	toggleLiveCourseProgress,
 	updateAvailable,
 	updateDebugSettings,
 	useWeightedAverages,
 	versionDetails,
 	versionStatus,
-	liveCourseProgressEnabled,
 }: any) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
+	const updating = updatePhase === "downloading" || updatePhase === "installing";
+	const debugBusy = !!debugBusyAction;
+	const restoreLabel = `${deletedEventsCount} cours supprimé${deletedEventsCount > 1 ? "s" : ""} ou ignoré${deletedEventsCount > 1 ? "s" : ""}`;
+
 	return (
-		<ScrollView style={[s.root, { backgroundColor: theme.bg }]} contentContainerStyle={s.content}>
-			<View style={s.header}>
-				<View style={s.headerText}>
-					<Text style={[s.eyebrow, { color: theme.accent }]}>PROFIL & PRÉFÉRENCES</Text>
-					<Text style={[s.title, { color: theme.text }]}>Réglages</Text>
-				</View>
-			</View>
+		<ScrollView style={[ls.screen, { backgroundColor: theme.bg }]} contentContainerStyle={[ls.screenContent, { paddingTop: insets.top + 16 }]}>
+			<ScreenTitle>Réglages</ScreenTitle>
 
-			<Card style={s.profileCard} glow={true} accent>
-				<View style={[s.avatar, { backgroundColor: theme.bg }]}>
-					<User color={theme.accent} size={28} />
-				</View>
-				<View style={s.profileText}>
-					<Text style={[s.name, { color: theme.text }]} numberOfLines={1}>
-						{account?.displayName || "Microsoft Account"}
-					</Text>
-					<Text style={[s.meta, { color: theme.text, opacity: 0.7 }]} numberOfLines={1}>
-						{account?.userPrincipalName || account?.mail || "Connecté avec succès"}
-					</Text>
-				</View>
-			</Card>
-
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>APPARENCE</Text>
-			<Card style={s.settingCard} variant="default" glow={false}>
-				<View style={s.settingHeader}>
-					<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-						{mode === "system" ? (
-							<Smartphone color={theme.accent} size={20} />
-						) : resolvedMode === "dark" ? (
-							<Moon color={theme.accent} size={20} />
-						) : (
-							<Sun color={theme.accent} size={20} />
-						)}
+			<Section>
+				<View style={s.profile}>
+					<View style={[s.avatar, { backgroundColor: theme.accentSoft }]}>
+						<User color={theme.accent} size={24} />
 					</View>
-					<View style={s.settingBody}>
-						<Text style={[s.settingTitle, { color: theme.text }]}>Mode {modeLabel}</Text>
-						<Text style={[s.meta, { color: theme.muted }]}>Système, clair ou sombre</Text>
+					<View style={s.profileText}>
+						<Text style={[s.name, { color: theme.text }]} numberOfLines={1}>
+							{account?.displayName || "Compte Microsoft"}
+						</Text>
+						<Text style={[s.email, { color: theme.muted }]} numberOfLines={1}>
+							{account?.userPrincipalName || account?.mail || "Connecté"}
+						</Text>
 					</View>
 				</View>
-				<View style={s.modeOptions}>
-					{[
-						{ value: "system" as const, label: "Système" },
-						{ value: "light" as const, label: "Clair" },
-						{ value: "dark" as const, label: "Sombre" },
-					].map((item) => {
-						const active = mode === item.value;
-						return (
-							<Pressable
-								key={item.value}
-								onPress={() => void setThemeMode(item.value)}
-								style={({ pressed }) => [
-									s.modeOption,
-									{
-										backgroundColor: active ? theme.accent : pressed ? theme.surfaceSoft : theme.bg,
-										borderColor: active ? theme.accent : theme.border,
-									},
-								]}>
-								<Text style={[s.modeOptionLabel, { color: active ? "#fff" : theme.text }]}>{item.label}</Text>
-							</Pressable>
-						);
-					})}
-				</View>
-			</Card>
-			<Card style={s.settingRow} variant="default" glow={false}>
-				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-					<Smartphone color={theme.accent} size={20} />
-				</View>
-				<View style={s.settingBody}>
-					<Text style={[s.settingTitle, { color: theme.text }]}>Material You</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>{materialYouDetails}</Text>
-				</View>
-				<Switch
-					value={materialYouEnabled}
-					onValueChange={(enabled) => void setMaterialYouEnabled(enabled)}
-					thumbColor={theme.accent}
-					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
-				/>
-			</Card>
+			</Section>
 
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>CONFIDENTIALITÉ</Text>
-			<Card style={s.settingRow} variant="default" glow={false}>
-				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-					<ShieldCheck color={theme.accent} size={20} />
-				</View>
-				<View style={s.settingBody}>
-					<Text style={[s.settingTitle, { color: theme.text }]}>Mesure d’audience anonyme</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>
-						Analytics auto-hébergés, sans nom, e-mail ni identifiant de compte. Tu peux désactiver ce choix à tout moment.
-					</Text>
-				</View>
-				<Switch
-					value={analyticsEnabled}
-					onValueChange={(enabled) => void toggleAnalytics(enabled)}
-					thumbColor={theme.accent}
-					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
+			<Section title="Apparence">
+				<Row
+					icon={mode === "system" ? Smartphone : resolvedMode === "dark" ? Moon : Sun}
+					title="Thème"
+					below={
+						<Segmented
+							value={mode}
+							onChange={(next) => void setThemeMode(next)}
+							options={[
+								{ value: "system", label: "Système" },
+								{ value: "light", label: "Clair" },
+								{ value: "dark", label: "Sombre" },
+							]}
+						/>
+					}
 				/>
-			</Card>
+				{Platform.OS === "android" ? (
+					<Row
+						icon={Palette}
+						title="Material You"
+						subtitle={materialYouDetails}
+						toggle={{ value: materialYouAvailable && materialYouEnabled, onValueChange: (enabled) => void setMaterialYouEnabled(enabled), disabled: !materialYouAvailable }}
+					/>
+				) : null}
+			</Section>
 
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>COURS EN DIRECT</Text>
-			<Card style={s.settingRow} variant="default" glow={false}>
-				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-					<BellRing color={theme.accent} size={20} />
-				</View>
-				<View style={s.settingBody}>
-					<Text style={[s.settingTitle, { color: theme.text }]}>Notification persistante</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>
-						Progression du cours en direct via une notification persistante. L’accès « Alarmes et rappels » est proposé pour la précision.
-					</Text>
-				</View>
-				<Switch
-					value={liveCourseProgressEnabled}
-					onValueChange={(enabled) => void toggleLiveCourseProgress(enabled)}
-					thumbColor={theme.accent}
-					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
+			<Section title="Notes Auriga">
+				<Row
+					icon={Calculator}
+					title="Moyennes pondérées"
+					subtitle="Coefficients Auriga quand ils existent, sinon 1"
+					toggle={{ value: useWeightedAverages, onValueChange: (enabled) => void toggleGradeWeighting(enabled) }}
 				/>
-			</Card>
-
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>NOTES</Text>
-			<Card style={s.settingRow} variant="default" glow={false}>
-				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-					<Code2 color={theme.accent} size={20} />
-				</View>
-				<View style={s.settingBody}>
-					<Text style={[s.settingTitle, { color: theme.text }]}>Moyennes pondérées</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>Utiliser les coefficients Auriga quand ils existent, sinon coefficient 1</Text>
-				</View>
-				<Switch
-					value={useWeightedAverages}
-					onValueChange={(enabled) => void toggleGradeWeighting(enabled)}
-					thumbColor={theme.accent}
-					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
-				/>
-			</Card>
-			<View style={s.group}>
-				<Action
-					icon={aurigaDisconnecting ? <ActivityIndicator color={theme.danger} /> : <LogOut color={theme.danger} size={20} />}
-					label={aurigaDisconnecting ? "Déconnexion Auriga..." : "Se déconnecter d'Auriga"}
+				<Row
+					icon={LogOut}
+					destructive
+					loading={aurigaDisconnecting}
+					title={aurigaDisconnecting ? "Déconnexion d'Auriga…" : "Se déconnecter d'Auriga"}
+					subtitle="Supprime la session et le cache local"
 					onPress={disconnectAuriga}
-					disabled={aurigaDisconnecting}
 				/>
-			</View>
+			</Section>
 
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>PERMISSIONS</Text>
-			<View style={s.group}>
-				<Action
-					icon={permissionsLoading ? <ActivityIndicator color={theme.accent} /> : <ShieldCheck color={theme.accent} size={20} />}
-					label={
-						permissionsLoading
-							? "Vérification des permissions"
-							: !permissionsKnown
-								? "Vérifier les permissions"
-								: missingPermissionsCount
-									? `Redemander ${missingPermissionsCount} permission${missingPermissionsCount > 1 ? "s" : ""}`
-									: "Toutes les permissions accordées"
-					}
-					onPress={() => void requestMissingPermissions()}
-					disabled={permissionsLoading || (permissionsKnown && !missingPermissionsCount)}
-				/>
-			</View>
-
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>AGENDA</Text>
-			<View style={s.group}>
-				<Action
-					icon={<RotateCcw color={theme.accent} size={20} />}
-					label={
-						deletedEventsCount
-							? `Restaurer ${deletedEventsCount} cours supprimé${deletedEventsCount > 1 ? "s" : ""} ou ignoré${deletedEventsCount > 1 ? "s" : ""}`
-							: "Aucun cours à restaurer"
-					}
+			<Section title="Agenda">
+				<Row
+					icon={RotateCcw}
+					title="Restaurer les cours masqués"
+					subtitle={deletedEventsCount ? restoreLabel : "Aucun cours supprimé ou ignoré"}
 					onPress={() => void restoreEvents()}
 					disabled={!deletedEventsCount}
 				/>
-			</View>
+			</Section>
 
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>APPLICATION</Text>
-			<View style={s.group}>
-				<Card style={s.versionCard} variant="default" glow={false} accent={updateAvailable} accentColor={theme.warn}>
-					<View style={s.infoHeader}>
-						<View style={[s.iconBox, { backgroundColor: updateAvailable ? "rgba(245, 158, 11, 0.14)" : theme.surfaceSoft }]}>
-							<Smartphone color={updateAvailable ? theme.warn : theme.accent} size={20} />
-						</View>
-						<View style={s.settingBody}>
-							<Text style={[s.infoTitle, { color: theme.text }]}>{versionStatus}</Text>
-							<Text style={[s.meta, { color: theme.muted }]}>{versionDetails}</Text>
-						</View>
-					</View>
-					{updateAvailable ? (
-						<>
-							<Pressable
-								disabled={updatePhase === "downloading" || updatePhase === "installing"}
-								onPress={() => void startUpdate()}
-								style={({ pressed }) => [
-									s.downloadButton,
-									{
-										backgroundColor: theme.warn,
-										opacity: updatePhase === "downloading" || updatePhase === "installing" ? 0.68 : pressed ? 0.82 : 1,
-									},
-								]}>
-								{updatePhase === "downloading" || updatePhase === "installing" ? (
-									<ActivityIndicator color="#fff" size="small" />
-								) : (
-									<Download color="#fff" size={18} />
-								)}
-								<Text style={s.downloadText}>
-									{updatePhase === "downloading"
-										? `Téléchargement… ${Math.round(updateProgress * 100)}%`
-										: updatePhase === "permission"
-											? "Autoriser l’installation"
-											: updatePhase === "installing"
-												? "Ouverture de l’installateur…"
-												: updatePhase === "error"
-													? "Réessayer la mise à jour"
-													: "Télécharger et installer"}
-								</Text>
-							</Pressable>
-							<Pressable onPress={() => void openLatestRelease()} style={({ pressed }) => [s.releaseLink, { opacity: pressed ? 0.65 : 1 }]}>
-								<Text style={[s.releaseLinkText, { color: theme.accent }]}>Voir les détails sur GitHub</Text>
-							</Pressable>
-						</>
-					) : null}
-				</Card>
+			<Section title="Confidentialité">
+				<Row
+					icon={ShieldCheck}
+					title="Mesure d’audience anonyme"
+					subtitle="Auto-hébergée, sans nom, e-mail ni identifiant de compte"
+					toggle={{ value: analyticsEnabled, onValueChange: (enabled) => void toggleAnalytics(enabled) }}
+				/>
+				<Row icon={Scale} title="Mentions légales" onPress={() => setCreditsVisible(true)} />
+			</Section>
 
-				<Action
-					icon={checking ? <ActivityIndicator color={theme.accent} /> : <RefreshCw color={theme.accent} size={20} />}
-					label={checking ? "Vérification en cours" : "Vérifier les mises à jour"}
+			<Section title="À propos">
+				<Row
+					icon={updateAvailable ? Download : Smartphone}
+					iconColor={updateAvailable ? theme.warn : undefined}
+					loading={checking}
+					title={checking ? "Vérification…" : versionStatus}
+					subtitle={versionDetails}
 					onPress={() => void checkForUpdates(true)}
 					disabled={checking}
+					trailing={<RefreshCw color={theme.muted} size={18} />}
+					below={
+						updateAvailable ? (
+							<View style={s.updateActions}>
+								<Pressable
+									accessibilityRole="button"
+									disabled={updating}
+									onPress={() => void startUpdate()}
+									style={({ pressed }) => [s.updateButton, { backgroundColor: theme.warn, opacity: updating ? 0.68 : pressed ? 0.82 : 1 }]}>
+									{updating ? <ActivityIndicator color={theme.bg} size="small" /> : <Download color={theme.bg} size={18} />}
+									<Text style={[s.updateText, { color: theme.bg }]}>
+										{updatePhase === "downloading"
+											? `Téléchargement… ${Math.round(updateProgress * 100)}%`
+											: updatePhase === "permission"
+												? "Autoriser l’installation"
+												: updatePhase === "installing"
+													? "Ouverture de l’installateur…"
+													: updatePhase === "error"
+														? "Réessayer la mise à jour"
+														: "Télécharger et installer"}
+									</Text>
+								</Pressable>
+								<Pressable accessibilityRole="link" onPress={() => void openLatestRelease()} style={({ pressed }) => [s.releaseLink, { opacity: pressed ? 0.65 : 1 }]}>
+									<Text style={[s.releaseLinkText, { color: theme.accent }]}>Voir les détails sur GitHub</Text>
+								</Pressable>
+							</View>
+						) : null
+					}
 				/>
-			</View>
-
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>INFORMATIONS</Text>
-			<View style={s.group}>
-				<Card style={s.infoCard} variant="default" glow={false}>
-					<View style={s.infoHeader}>
-						<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-							<Info color={theme.accent} size={20} />
-						</View>
-						<Text style={[s.infoTitle, { color: theme.text }]}>Avertissement</Text>
-					</View>
-					<Text style={[s.meta, { color: theme.muted }]}>EpiTime est un projet étudiant indépendant, non affilié à Zeus, IONIS Education Group ou EPITA.</Text>
-				</Card>
-				<Action icon={<ShieldCheck color={theme.accent} size={20} />} label="Mentions légales & Confidentialité" onPress={() => setCreditsVisible(true)} />
-			</View>
-
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>DÉVELOPPEUR</Text>
-			<View style={s.group}>
-				<Action
-					icon={<Bug color={theme.accent} size={20} />}
-					label="Signaler un bug"
+				<Row
+					icon={Bug}
+					title="Signaler un bug"
+					trailing={<ExternalLink color={theme.muted} size={18} />}
 					onPress={() => Linking.openURL("https://github.com/alexistb2904/EpiTime/issues/new")}
 				/>
-				<Action icon={<Code2 color={theme.accent} size={20} />} label="Code source GitHub" onPress={() => Linking.openURL("https://github.com/alexistb2904/EpiTime")} />
-			</View>
-
-			<Text style={[s.sectionHeader, { color: theme.text, opacity: 0.6 }]}>DEBUG NOTIFICATIONS</Text>
-			<Card style={s.settingRow} variant="default" glow={false}>
-				<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-					<Bug color={theme.accent} size={20} />
-				</View>
-				<View style={s.settingBody}>
-					<Text style={[s.settingTitle, { color: theme.text }]}>Mode debug notifications</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>Jouer avec les notifications programmées et progression</Text>
-				</View>
-				<Switch
-					value={notificationDebugSettings.enabled}
-					onValueChange={(enabled) => void saveNotificationDebugSettings({ ...notificationDebugSettings, enabled })}
-					thumbColor={theme.accent}
-					trackColor={{ false: theme.surfaceSoft, true: theme.accentSoft }}
+				<Row
+					icon={Code2}
+					title="Code source"
+					subtitle="GitHub, licence MIT"
+					trailing={<ExternalLink color={theme.muted} size={18} />}
+					onPress={() => Linking.openURL("https://github.com/alexistb2904/EpiTime")}
 				/>
-			</Card>
-			{notificationDebugSettings.enabled ? (
-				<View style={s.group}>
-					<Card style={s.debugCard} variant="default" glow={false}>
-						<View style={s.infoHeader}>
-							<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>
-								<Clock color={theme.accent} size={20} />
+			</Section>
+
+			<Section title="Développeur">
+				<Row
+					icon={Bug}
+					title="Debug notifications"
+					subtitle="Programmer des notifications et progressions de test"
+					toggle={{ value: notificationDebugSettings.enabled, onValueChange: (enabled) => void saveNotificationDebugSettings({ ...notificationDebugSettings, enabled }) }}
+				/>
+				{notificationDebugSettings.enabled ? (
+					<Row
+						icon={Clock}
+						title="Heure cible"
+						subtitle={debugTargetLabel}
+						below={
+							<View style={s.debugSteppers}>
+								<DebugStepper
+									label="Heure"
+									value={String(notificationDebugSettings.targetHour).padStart(2, "0")}
+									onDecrease={() => updateDebugSettings({ targetHour: wrapNumber(notificationDebugSettings.targetHour - 1, 0, 23) })}
+									onIncrease={() => updateDebugSettings({ targetHour: wrapNumber(notificationDebugSettings.targetHour + 1, 0, 23) })}
+								/>
+								<DebugStepper
+									label="Minute"
+									value={String(notificationDebugSettings.targetMinute).padStart(2, "0")}
+									onDecrease={() => updateDebugSettings({ targetMinute: wrapNumber(notificationDebugSettings.targetMinute - 1, 0, 59) })}
+									onIncrease={() => updateDebugSettings({ targetMinute: wrapNumber(notificationDebugSettings.targetMinute + 1, 0, 59) })}
+								/>
 							</View>
-							<View style={s.settingBody}>
-								<Text style={[s.infoTitle, { color: theme.text }]}>Scénario cible</Text>
-								<Text style={[s.meta, { color: theme.muted }]}>Prochaine cible : {debugTargetLabel}</Text>
-							</View>
-						</View>
-						<View style={s.debugStepperGrid}>
-							<DebugStepper
-								label="Heure"
-								value={String(notificationDebugSettings.targetHour).padStart(2, "0")}
-								onDecrease={() => updateDebugSettings({ targetHour: wrapNumber(notificationDebugSettings.targetHour - 1, 0, 23) })}
-								onIncrease={() => updateDebugSettings({ targetHour: wrapNumber(notificationDebugSettings.targetHour + 1, 0, 23) })}
-							/>
-							<DebugStepper
-								label="Minute"
-								value={String(notificationDebugSettings.targetMinute).padStart(2, "0")}
-								onDecrease={() => updateDebugSettings({ targetMinute: wrapNumber(notificationDebugSettings.targetMinute - 1, 0, 59) })}
-								onIncrease={() => updateDebugSettings({ targetMinute: wrapNumber(notificationDebugSettings.targetMinute + 1, 0, 59) })}
-							/>
-							<DebugStepper
-								label="Durée"
+						}
+					/>
+				) : null}
+				{notificationDebugSettings.enabled ? (
+					<Row
+						icon={Hourglass}
+						title="Durée"
+						subtitle="Progression de test"
+						trailing={
+							<Stepper
+								label="la durée"
 								value={`${notificationDebugSettings.progressDurationMinutes} min`}
 								onDecrease={() => updateDebugSettings({ progressDurationMinutes: Math.max(1, notificationDebugSettings.progressDurationMinutes - 15) })}
 								onIncrease={() => updateDebugSettings({ progressDurationMinutes: Math.min(240, notificationDebugSettings.progressDurationMinutes + 15) })}
 							/>
-						</View>
-						{debugStatus ? <Text style={[s.debugStatus, { color: theme.text }]}>{debugStatus}</Text> : null}
-					</Card>
-					<Action
-						icon={debugBusyAction === "local" ? <ActivityIndicator color={theme.accent} /> : <Send color={theme.accent} size={20} />}
-						label="Programmer une notification à l'heure cible"
-						onPress={scheduleDebugLocal}
-						disabled={!!debugBusyAction}
+						}
 					/>
-					<Action
-						icon={debugBusyAction === "progress" ? <ActivityIndicator color={theme.accent} /> : <BellRing color={theme.accent} size={20} />}
-						label="Programmer une progression fake à l'heure cible"
+				) : null}
+				{notificationDebugSettings.enabled ? (
+					<Row icon={Send} title="Programmer une notification" subtitle="À l'heure cible" loading={debugBusyAction === "local"} disabled={debugBusy} onPress={scheduleDebugLocal} />
+				) : null}
+				{notificationDebugSettings.enabled ? (
+					<Row
+						icon={BellRing}
+						title="Programmer une progression"
+						subtitle="À l'heure cible"
+						loading={debugBusyAction === "progress"}
+						disabled={debugBusy}
 						onPress={scheduleDebugProgress}
-						disabled={!!debugBusyAction}
 					/>
-					<Action
-						icon={debugBusyAction === "showProgress" ? <ActivityIndicator color={theme.accent} /> : <Clock color={theme.accent} size={20} />}
-						label="Afficher une progression fake maintenant"
-						onPress={showDebugProgress}
-						disabled={!!debugBusyAction}
-					/>
-					<Action
-						icon={debugBusyAction === "clear" ? <ActivityIndicator color={theme.accent} /> : <Square color={theme.accent} size={20} />}
-						label="Annuler les scénarios debug"
-						onPress={clearDebugNotifications}
-						disabled={!!debugBusyAction}
-					/>
-					<Card style={s.debugCard} variant="default" glow={false}>
-						<View style={s.scheduledHeader}>
-							<View style={s.settingBody}>
-								<Text style={[s.infoTitle, { color: theme.text }]}>Notifications programmées</Text>
-								<Text style={[s.meta, { color: theme.muted }]}>
-									{scheduledNotificationsLoading
-										? "Chargement..."
-										: `${scheduledNotifications.length} notification${scheduledNotifications.length > 1 ? "s" : ""} locale${scheduledNotifications.length > 1 ? "s" : ""}`}
-								</Text>
+				) : null}
+				{notificationDebugSettings.enabled ? (
+					<Row icon={Timer} title="Afficher une progression maintenant" loading={debugBusyAction === "showProgress"} disabled={debugBusy} onPress={showDebugProgress} />
+				) : null}
+				{notificationDebugSettings.enabled ? (
+					<Row icon={Square} title="Annuler les scénarios debug" loading={debugBusyAction === "clear"} disabled={debugBusy} onPress={clearDebugNotifications} />
+				) : null}
+			</Section>
+			{notificationDebugSettings.enabled && debugStatus ? <Text style={[ls.sectionFooter, { color: theme.muted }]}>{debugStatus}</Text> : null}
+
+			{notificationDebugSettings.enabled ? (
+				<Section title="Notifications programmées">
+					<Row
+						title={
+							scheduledNotificationsLoading
+								? "Chargement…"
+								: `${scheduledNotifications.length} notification${scheduledNotifications.length > 1 ? "s" : ""} locale${scheduledNotifications.length > 1 ? "s" : ""}`
+						}
+						trailing={
+							<View style={s.iconActions}>
+								<IconAction
+									label="Actualiser"
+									onPress={() => void refreshScheduledNotifications()}
+									disabled={scheduledNotificationsLoading || debugBusy}
+									icon={scheduledNotificationsLoading ? <ActivityIndicator color={theme.accent} /> : <RefreshCw color={theme.accent} size={18} />}
+								/>
+								<IconAction
+									label="Tout supprimer"
+									onPress={deleteAllScheduledNotifications}
+									disabled={!scheduledNotifications.length || debugBusy}
+									icon={<Trash2 color={destructiveColor(theme)} size={18} />}
+								/>
 							</View>
-							<Pressable
-								onPress={() => void refreshScheduledNotifications()}
-								disabled={scheduledNotificationsLoading || !!debugBusyAction}
-								style={({ pressed }) => [s.iconAction, { backgroundColor: pressed ? theme.surfaceSoft : theme.bg, borderColor: theme.border }]}>
-								{scheduledNotificationsLoading ? <ActivityIndicator color={theme.accent} /> : <RefreshCw color={theme.accent} size={18} />}
-							</Pressable>
-							<Pressable
-								onPress={deleteAllScheduledNotifications}
-								disabled={!scheduledNotifications.length || !!debugBusyAction}
-								style={({ pressed }) => [
-									s.iconAction,
-									{
-										backgroundColor: pressed ? theme.surfaceSoft : theme.bg,
-										borderColor: theme.border,
-										opacity: !scheduledNotifications.length || debugBusyAction ? 0.5 : 1,
-									},
-								]}>
-								<Trash2 color={theme.danger} size={18} />
-							</Pressable>
-						</View>
-						<View style={s.scheduledList}>
-							{scheduledNotifications.length ? (
-								scheduledNotifications.map((notification: ScheduledNotificationItem) => (
-									<ScheduledNotificationRow
-										key={notification.id}
-										notification={notification}
-										disabled={!!debugBusyAction}
-										onDelete={() => deleteScheduledNotification(notification)}
-									/>
-								))
-							) : (
-								<Text style={[s.meta, { color: theme.muted }]}>Aucune notification locale programmée.</Text>
-							)}
-						</View>
-					</Card>
-				</View>
+						}
+					/>
+					{scheduledNotifications.map((notification: ScheduledNotificationItem) => (
+						<Row
+							key={notification.id}
+							title={notification.title}
+							subtitle={[notification.body, `${notification.trigger} · ${notification.type}`].filter(Boolean).join("\n")}
+							trailing={
+								<IconAction
+									label="Supprimer"
+									onPress={() => deleteScheduledNotification(notification)}
+									disabled={debugBusy}
+									icon={<Trash2 color={destructiveColor(theme)} size={18} />}
+								/>
+							}
+						/>
+					))}
+				</Section>
 			) : null}
 
-			<View style={s.footer}>
-				<Pressable onPress={logout} style={({ pressed }) => [s.logoutButton, { backgroundColor: theme.danger, opacity: pressed ? 0.8 : 1 }]}>
-					<LogOut color="#fff" size={20} />
-					<Text style={s.logoutText}>Se déconnecter</Text>
-				</Pressable>
-				<View style={s.brandFooter}>
-					<Text style={[s.versionText, { color: theme.muted }]}>EpiTime • Made by Alexis Thierry-Bellefond</Text>
-				</View>
-			</View>
+			<Section>
+				<Row icon={LogOut} destructive title="Se déconnecter" onPress={logout} />
+			</Section>
+
+			<Text style={[s.footer, { color: theme.muted }]}>
+				EpiTime est un projet étudiant indépendant, non affilié à Zeus, IONIS Education Group ou EPITA.{"\n"}Fait par Alexis Thierry-Bellefond
+			</Text>
 			<CreditsModal visible={creditsVisible} onClose={() => setCreditsVisible(false)} />
 		</ScrollView>
+	);
+}
+
+function DebugStepper({ label, value, onDecrease, onIncrease }: { label: string; value: string; onDecrease: () => void; onIncrease: () => void }) {
+	const { theme } = useTheme();
+	return (
+		<View style={s.debugStepper}>
+			<Text style={[s.debugStepperLabel, { color: theme.muted }]}>{label}</Text>
+			<Stepper label={label.toLowerCase()} value={value} onDecrease={onDecrease} onIncrease={onIncrease} />
+		</View>
+	);
+}
+
+function IconAction({ label, icon, onPress, disabled }: { label: string; icon: React.ReactNode; onPress: () => void; disabled?: boolean }) {
+	const { theme } = useTheme();
+	return (
+		<Pressable
+			accessibilityRole="button"
+			accessibilityLabel={label}
+			hitSlop={4}
+			onPress={onPress}
+			disabled={disabled}
+			style={({ pressed }) => [s.iconAction, { backgroundColor: pressed ? theme.surfaceSoft : "transparent", borderColor: theme.border, opacity: disabled ? 0.5 : 1 }]}>
+			{icon}
+		</Pressable>
 	);
 }
 
@@ -477,11 +373,10 @@ export function CreditsModal({ visible, onClose }: { visible: boolean; onClose: 
 		<Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
 			<View style={[s.creditsRoot, { backgroundColor: theme.bg }]}>
 				<View style={[s.creditsHeader, { borderBottomColor: theme.border, paddingTop: Math.max(insets.top, 18) }]}>
-					<View style={s.settingBody}>
-						<Text style={[s.eyebrow, { color: theme.accent }]}>TRANSPARENCE</Text>
-						<Text style={[s.infoTitle, { color: theme.text }]}>Légal</Text>
-					</View>
-					<Pressable style={[s.iconAction, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={onClose}>
+					<Text accessibilityRole="header" style={[s.creditsTitle, { color: theme.text }]}>
+						Mentions légales
+					</Text>
+					<Pressable accessibilityRole="button" accessibilityLabel="Fermer" style={[s.iconAction, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={onClose}>
 						<X color={theme.text} size={18} />
 					</Pressable>
 				</View>
@@ -520,11 +415,9 @@ export function CreditsModal({ visible, onClose }: { visible: boolean; onClose: 
 							"React Navigation",
 							"React Native Reanimated",
 							"Lucide React Native",
-							"React Native WebView",
 							"Expo Auth Session, Secure Store, Notifications",
 							"Async Storage",
 							"React Native Android Widget",
-							"Material 3 Theme",
 						]}
 					/>
 				</ScrollView>
@@ -550,65 +443,6 @@ export function CreditSection({ title, items }: { title: string; items: string[]
 	);
 }
 
-export function ScheduledNotificationRow({ notification, disabled, onDelete }: { notification: ScheduledNotificationItem; disabled: boolean; onDelete: () => void }) {
-	const { theme } = useTheme();
-	return (
-		<View style={[s.scheduledRow, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-			<View style={s.settingBody}>
-				<Text style={[s.scheduledTitle, { color: theme.text }]} numberOfLines={1}>
-					{notification.title}
-				</Text>
-				{notification.body ? (
-					<Text style={[s.scheduledBody, { color: theme.muted }]} numberOfLines={2}>
-						{notification.body}
-					</Text>
-				) : null}
-				<Text style={[s.scheduledMeta, { color: theme.muted }]} numberOfLines={1}>
-					{notification.trigger} · {notification.type}
-				</Text>
-			</View>
-			<Pressable
-				onPress={onDelete}
-				disabled={disabled}
-				style={({ pressed }) => [s.iconAction, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface, borderColor: theme.border, opacity: disabled ? 0.5 : 1 }]}>
-				<Trash2 color={theme.danger} size={18} />
-			</Pressable>
-		</View>
-	);
-}
-
-export function DebugStepper({ label, value, onDecrease, onIncrease }: { label: string; value: string; onDecrease: () => void; onIncrease: () => void }) {
-	const { theme } = useTheme();
-	return (
-		<View style={[s.debugStepper, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-			<Text style={[s.debugStepperLabel, { color: theme.muted }]}>{label}</Text>
-			<View style={s.debugStepperControls}>
-				<Pressable style={({ pressed }) => [s.debugStepButton, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface }]} onPress={onDecrease}>
-					<Text style={[s.debugStepText, { color: theme.text }]}>-</Text>
-				</Pressable>
-				<Text style={[s.debugStepperValue, { color: theme.text }]}>{value}</Text>
-				<Pressable style={({ pressed }) => [s.debugStepButton, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface }]} onPress={onIncrease}>
-					<Text style={[s.debugStepText, { color: theme.text }]}>+</Text>
-				</Pressable>
-			</View>
-		</View>
-	);
-}
-
-export function Action({ icon, label, onPress, disabled = false }: { icon: React.ReactNode; label: string; onPress: () => void; disabled?: boolean }) {
-	const { theme } = useTheme();
-	return (
-		<Pressable
-			disabled={disabled}
-			onPress={onPress}
-			style={({ pressed }) => [s.actionItem, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface, borderColor: theme.border, opacity: disabled ? 0.65 : 1 }]}>
-			<View style={[s.iconBox, { backgroundColor: theme.surfaceSoft }]}>{icon}</View>
-			<Text style={[s.actionText, { color: theme.text }]}>{label}</Text>
-			<ChevronRight color={theme.muted} size={20} />
-		</Pressable>
-	);
-}
-
 export function buildNextDebugTargetDate(hour: number, minute: number) {
 	const target = new Date();
 	target.setHours(hour, minute, 0, 0);
@@ -628,92 +462,34 @@ export function wrapNumber(value: number, min: number, max: number) {
 }
 
 export const s = StyleSheet.create({
-	root: { flex: 1 },
-	content: { padding: 20, paddingTop: 60, paddingBottom: 120 },
-	header: { marginBottom: 24 },
-	headerText: { gap: 4 },
-	eyebrow: { fontSize: 13, fontWeight: "800", letterSpacing: 1 },
-	title: { fontSize: 34, fontWeight: "900", letterSpacing: -0.5 },
+	profile: { flexDirection: "row", alignItems: "center", gap: 14, padding: 16 },
+	avatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+	profileText: { flex: 1, gap: 2 },
+	name: { fontSize: 18, fontWeight: "800" },
+	email: { fontSize: 14 },
 
-	profileCard: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 32, padding: 20 },
-	avatar: { width: 56, height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-	profileText: { flex: 1, gap: 4 },
-	name: { fontSize: 19, fontWeight: "800" },
+	updateActions: { gap: 4 },
+	updateButton: { minHeight: 48, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+	updateText: { fontSize: 15, fontWeight: "800" },
+	releaseLink: { alignSelf: "flex-start", minHeight: 40, justifyContent: "center" },
+	releaseLinkText: { fontSize: 14, fontWeight: "700" },
 
-	sectionHeader: { fontSize: 12, fontWeight: "800", letterSpacing: 1, marginTop: 12, marginBottom: 12, paddingLeft: 4 },
-	group: { gap: 12, marginBottom: 24 },
+	debugSteppers: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+	debugStepper: { gap: 6 },
+	debugStepperLabel: { fontSize: 13, fontWeight: "700" },
+	iconActions: { flexDirection: "row", gap: 8 },
+	iconAction: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 
-	settingCard: { gap: 16, marginBottom: 12 },
-	settingHeader: { flexDirection: "row", alignItems: "center", gap: 16 },
-	settingRow: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 24 },
-	iconBox: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-	settingBody: { flex: 1, gap: 2 },
-	settingTitle: { fontWeight: "800", fontSize: 16 },
-	modeOptions: { flexDirection: "row", gap: 8 },
-	modeOption: { flex: 1, minHeight: 40, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
-	modeOptionLabel: { fontSize: 13, fontWeight: "800" },
-
-	infoCard: { padding: 20 },
-	infoHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
-	infoTitle: { fontSize: 17, fontWeight: "800" },
-	versionCard: { padding: 20 },
-	debugCard: { padding: 20, gap: 14 },
-	debugStepperGrid: { gap: 10 },
-	debugStepper: { borderWidth: 1, borderRadius: 12, padding: 10, gap: 8 },
-	debugStepperLabel: { fontSize: 12, fontWeight: "800", textTransform: "uppercase" },
-	debugStepperControls: { flexDirection: "row", alignItems: "center", gap: 10 },
-	debugStepButton: { width: 40, height: 38, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-	debugStepText: { fontSize: 20, fontWeight: "900" },
-	debugStepperValue: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "900" },
-	debugStatus: { fontSize: 14, lineHeight: 20, fontWeight: "700" },
-	scheduledHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-	iconAction: { width: 40, height: 40, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-	scheduledList: { gap: 10 },
-	scheduledRow: { borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 12 },
-	scheduledTitle: { fontSize: 15, fontWeight: "900" },
-	scheduledBody: { marginTop: 4, fontSize: 13, lineHeight: 18 },
-	scheduledMeta: { marginTop: 6, fontSize: 12, fontWeight: "700" },
-	downloadButton: {
-		minHeight: 48,
-		borderRadius: 12,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 9,
-		marginTop: 6,
-	},
-	downloadText: { color: "#fff", fontSize: 15, fontWeight: "900" },
-	releaseLink: { alignSelf: "center", minHeight: 36, justifyContent: "center", paddingHorizontal: 8 },
-	releaseLinkText: { fontSize: 13, fontWeight: "800" },
-
-	actionItem: { borderWidth: 1, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", gap: 16 },
-	actionText: { flex: 1, fontSize: 16, fontWeight: "700" },
+	footer: { fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 32, paddingHorizontal: 16 },
 
 	meta: { fontSize: 14, lineHeight: 20 },
-
-	footer: { marginTop: 20, gap: 24 },
-	logoutButton: {
-		minHeight: 56,
-		borderRadius: 16,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 10,
-		elevation: 2,
-		shadowColor: "#000",
-		shadowOpacity: 0.1,
-		shadowRadius: 8,
-		shadowOffset: { width: 0, height: 4 },
-	},
-	logoutText: { color: "#fff", fontWeight: "800", fontSize: 16, letterSpacing: 0.5 },
-
-	brandFooter: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, opacity: 0.7 },
-	versionText: { fontSize: 13, fontWeight: "600" },
+	infoTitle: { fontSize: 17, fontWeight: "800" },
 	creditsRoot: { flex: 1 },
 	creditsHeader: { minHeight: 76, borderBottomWidth: 1, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
+	creditsTitle: { flex: 1, fontSize: 20, fontWeight: "900" },
 	creditsContent: { padding: 18, paddingBottom: 42, gap: 14 },
 	creditsCard: { gap: 12 },
-	legalLink: { minHeight: 44, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+	legalLink: { minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
 	legalLinkText: { fontSize: 14, fontWeight: "800" },
 	creditList: { gap: 8 },
 	creditRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },

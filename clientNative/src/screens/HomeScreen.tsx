@@ -18,22 +18,9 @@ import { getJSON, setJSON } from "../services/storage";
 import { EventChange } from "../services/eventsCache";
 import { syncCourseWidgets } from "../services/widgets";
 import { Group, ZeusEvent } from "../types";
-import { eventOverlapsDay, formatDateRange, getEventTitle, getRoomName, startOfDay, getCourseColor } from "../utils/calendar";
+import { eventOverlapsDay, getRoomName, startOfDay } from "../utils/calendar";
 import { HomeContent } from "../components/home/HomeComponents";
-import {
-	formatAverage,
-	formatDuration,
-	formatDurationHumanLong,
-	formatEndSuffix,
-	formatInputDate,
-	formatStartLabel,
-	formatTime,
-	formatUntilSuffix,
-	day,
-	minute,
-	parseLocalDateTime,
-	usefulLinks,
-} from "../components/home/homeHelpers";
+import { formatAverage, formatDurationHumanLong, formatInputDate, formatTime, day, minute, parseLocalDateTime, usefulLinks } from "../components/home/homeHelpers";
 
 type HomeTab = "today" | "next";
 
@@ -275,10 +262,8 @@ export default function HomeScreen() {
 	const upcomingEvents = useMemo(() => sorted.filter((event) => new Date(event.endDate).getTime() > nowMs).slice(0, 8), [nowMs, sorted]);
 	const currentEvent = activeScheduleEvents.find((event) => new Date(event.startDate).getTime() <= nowMs && new Date(event.endDate).getTime() > nowMs);
 	const nextEvent = currentEvent || activeScheduleEvents.find((event) => new Date(event.startDate).getTime() > nowMs);
-	const visibleEvents = homeTab === "today" ? todayEvents : upcomingEvents;
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
 	const nextStart = nextEvent ? new Date(nextEvent.startDate) : null;
-	const nextEnd = nextEvent ? new Date(nextEvent.endDate) : null;
 	const isLive = Boolean(currentEvent && nextEvent?.idReservation === currentEvent.idReservation && nextEvent?.startDate === currentEvent.startDate);
 	const nextRooms = nextEvent?.rooms?.map(getRoomName).filter(Boolean).join(", ");
 	const progress = currentEvent
@@ -297,63 +282,19 @@ export default function HomeScreen() {
 		const start = new Date(event.startDate).getTime();
 		return start >= startOfDay(now).getTime() && start < startOfDay(now).getTime() + 7 * day;
 	}).length;
-	const showCacheBanner = usingCache;
 	const statusLabel = usingCache ? "Mémoire locale" : selectedGroups.length ? "Synchronisé" : "Groupes à choisir";
 	const nextKicker = !nextEvent ? "Planning libre" : isLive ? "En cours" : `Dans ${formatDurationHumanLong(nextStart!.getTime() - nowMs)}`;
-	const freeLabel = currentEvent
-		? `Fin ${formatEndSuffix(new Date(currentEvent.endDate), now)}`
-		: nextStart
-			? `Libre jusqu'${formatUntilSuffix(nextStart, now)}`
-			: "Aucune contrainte à venir";
 	const firstToday = todayEvents[0] ? new Date(todayEvents[0].startDate) : null;
 	const lastToday = todayEvents.length ? new Date(todayEvents[todayEvents.length - 1].endDate) : null;
-	const dayRange = firstToday && lastToday ? `${formatTime(firstToday)} - ${formatTime(lastToday)}` : "Aucun cours";
-	const dayIntensity = todayActiveCount === 0 ? "Journée libre" : todayActiveCount <= 3 ? "Journée légère" : todayActiveCount <= 6 ? "Journée normale" : "Journée chargée";
-	const upcomingActiveEvents = upcomingEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event));
-	const nextTimelineEvent = upcomingActiveEvents[0] || upcomingEvents[0] || null;
-	const nextTimelineStart = nextTimelineEvent ? new Date(nextTimelineEvent.startDate) : null;
-	const nextTimeLabel = nextEvent && nextStart && nextEnd ? `${formatTime(nextStart)} - ${formatTime(nextEnd)}` : "À configurer";
-	const selectedGroupsLabel = selectedLabels.length ? selectedLabels.slice(0, 3).join(", ") : "Choisis tes groupes";
-	const planningHint = selectedLabels.length
-		? `${selectedLabels.length} groupe${selectedLabels.length > 1 ? "s" : ""} suivi${selectedLabels.length > 1 ? "s" : ""}`
-		: "Planning non personnalisé";
-	const changedCount = eventChanges.length;
-	const heroSubtitle = nextEvent
-		? `${nextTimeLabel} · ${formatDateRange(nextEvent).split("·")[0].trim()}`
-		: "Pas de cours à venir. Ajoute tes groupes pour remplir la liste automatiquement.";
-	const sectionEyebrow = homeTab === "today" ? "Planning" : "Projection";
-	const sectionTitle = homeTab === "today" ? "Aujourd'hui" : "À venir";
-	const primaryInsightTitle = homeTab === "today" ? dayIntensity : `${upcomingActiveEvents.length} cours à venir`;
-	const primaryInsightBody =
-		homeTab === "today"
-			? todayActiveCount
-				? `${todayActiveCount} cours actifs, de ${dayRange}.`
-				: "Aucune contrainte prévue aujourd'hui."
-			: nextTimelineStart
-				? `Prochain repère : ${formatStartLabel(nextTimelineStart, now)}.`
-				: "Aucun cours à venir dans le planning chargé.";
-	const secondaryInsightTitle =
-		homeTab === "today"
-			? changedCount
-				? `${changedCount} changement${changedCount > 1 ? "s" : ""}`
-				: "Planning stable"
-			: nextTimelineEvent
-				? getEventTitle(nextTimelineEvent)
-				: "Planning libre";
-	const secondaryInsightBody =
-		homeTab === "today"
-			? changedCount
-				? "Vérifie les salles avant de partir."
-				: "Aucune modification détectée."
-			: nextTimelineEvent
-				? `${nextTimelineEvent.rooms?.map(getRoomName).filter(Boolean).join(", ") || "Lieu à confirmer"} · ${formatDateRange(nextTimelineEvent).split("·")[0].trim()}`
-				: "Aucune échéance à afficher.";
+	const dayRange = firstToday && lastToday ? `${formatTime(firstToday)} – ${formatTime(lastToday)}` : "Aucun cours";
+	const upcomingActiveCount = upcomingEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event)).length;
+	const followingEvent = nextEvent ? activeScheduleEvents.find((event) => +new Date(event.startDate) > +new Date(nextEvent.startDate)) || null : null;
 	const emptyTitle = selectedGroups.length ? (homeTab === "today" ? "Rien aujourd'hui" : "Rien à venir") : "Planning à connecter";
 	const emptyText = selectedGroups.length
 		? homeTab === "today"
 			? "Passe sur À venir pour voir les prochains cours."
-			: "Bascule sur l'agenda pour explorer une autre période."
-		: "Ajoute tes groupes pour remplir la home automatiquement.";
+			: "Ouvre l'agenda pour explorer une autre période."
+		: "Choisis tes groupes dans l'agenda pour remplir l'accueil.";
 	const openEventInCalendar = (event?: ZeusEvent | null) => {
 		if (!event) {
 			navigation.navigate("Agenda");
@@ -394,14 +335,12 @@ export default function HomeScreen() {
 	return (
 		<HomeContent
 			aurigaAverage={aurigaAverage}
-			currentEvent={currentEvent}
-			dayIntensity={dayIntensity}
 			dayRange={dayRange}
 			emptyText={emptyText}
 			emptyTitle={emptyTitle}
 			eventChanges={eventChanges}
-			freeLabel={freeLabel}
-			heroSubtitle={heroSubtitle}
+			followingEvent={followingEvent}
+			hasGroups={selectedGroups.length > 0}
 			homeTab={homeTab}
 			isLive={isLive}
 			manualDate={manualDate}
@@ -410,24 +349,16 @@ export default function HomeScreen() {
 			manualStart={manualStart}
 			manualTitle={manualTitle}
 			navigation={navigation}
-			nextEvent={nextEvent}
+			nextEvent={nextEvent || null}
 			nextKicker={nextKicker}
 			nextRooms={nextRooms}
 			now={now}
 			openEventInCalendar={openEventInCalendar}
-			planningHint={planningHint}
-			primaryInsightBody={primaryInsightBody}
-			primaryInsightTitle={primaryInsightTitle}
 			progress={progress}
 			refresh={refresh}
 			refreshing={refreshing}
 			saveManualEvent={saveManualEvent}
 			savingManual={savingManual}
-			secondaryInsightBody={secondaryInsightBody}
-			secondaryInsightTitle={secondaryInsightTitle}
-			sectionEyebrow={sectionEyebrow}
-			sectionTitle={sectionTitle}
-			selectedGroupsLabel={selectedGroupsLabel}
 			selectedLabels={selectedLabels}
 			setEventChanges={setEventChanges}
 			setHomeTab={setHomeTab}
@@ -437,12 +368,14 @@ export default function HomeScreen() {
 			setManualStart={setManualStart}
 			setManualTitle={setManualTitle}
 			setShowManualEvent={setShowManualEvent}
-			showCacheBanner={showCacheBanner}
+			showCacheBanner={usingCache}
 			showManualEvent={showManualEvent}
 			statusLabel={statusLabel}
 			todayActiveCount={todayActiveCount}
+			todayEvents={todayEvents}
+			upcomingActiveCount={upcomingActiveCount}
+			upcomingEvents={upcomingEvents}
 			usefulLinks={usefulLinks}
-			visibleEvents={visibleEvents}
 			weekCount={weekCount}
 		/>
 	);

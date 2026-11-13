@@ -1,7 +1,7 @@
-import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as AuthSession from "expo-auth-session";
 import * as SecureStore from "expo-secure-store";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 import type { AurigaTokenSet } from "./aurigaTypes";
 
 export { type AurigaTokenSet } from "./aurigaTypes";

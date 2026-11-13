@@ -400,7 +400,8 @@ const sendExpoPushMessages = async (messages) => {
 					"Accept-encoding": "gzip, deflate",
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify(chunk),
+				// High priority lets Android deliver immediately instead of batching until Doze ends.
+				body: JSON.stringify(chunk.map((message) => ({ priority: "high", ...message }))),
 			});
 			const text = await response.text();
 			const parsed = text ? JSON.parse(text) : {};

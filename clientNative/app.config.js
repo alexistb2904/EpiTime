@@ -45,7 +45,6 @@ module.exports = ({ config }) => {
 	if (isReleaseBuild && apiBase && !/^https:\/\//i.test(apiBase)) {
 		throw new Error("EXPO_PUBLIC_API_BASE must use HTTPS for preview and production Android builds.");
 	}
-	const appGroupIdentifier = "group.fr.alexistb2904.epitime";
 	const blockedAndroidPermissions = [...new Set([...(config.android?.blockedPermissions || []), "android.permission.SYSTEM_ALERT_WINDOW"])];
 	const androidWidgetConfig = {
 		widgets: [
@@ -118,19 +117,14 @@ module.exports = ({ config }) => {
 					microphonePermission: false,
 				},
 			],
+			"expo-asset",
+			"expo-status-bar",
+			"expo-web-browser",
 			"expo-document-picker",
 			"expo-file-system",
-			"expo-sharing",
 			"expo-background-task",
 			["react-native-android-widget", androidWidgetConfig],
 		],
-		ios: {
-			...config.ios,
-			entitlements: {
-				...config.ios?.entitlements,
-				"com.apple.security.application-groups": [appGroupIdentifier],
-			},
-		},
 		extra: {
 			...extra,
 			apiBase,

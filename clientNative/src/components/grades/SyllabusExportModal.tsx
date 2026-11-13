@@ -1,8 +1,9 @@
 import React from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { CalendarRange, FileDown, X } from "lucide-react-native";
+import { FileDown, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../context/ThemeContext";
+import { readableTextOn } from "../../utils/calendar";
 import type { SyllabusExportDetail } from "../../services/syllabusExport";
 
 type Props = {
@@ -36,26 +37,31 @@ export default function SyllabusExportModal({
 			<Pressable style={[s.backdrop, { paddingTop: Math.max(insets.top, 22), paddingBottom: Math.max(insets.bottom, 22) }]} onPress={exporting ? undefined : onClose}>
 				<Pressable style={[s.sheet, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={(event) => event.stopPropagation()}>
 					<View style={s.header}>
-						<View style={[s.icon, { backgroundColor: theme.accentSoft }]}>
-							<CalendarRange color={theme.accent} size={21} />
-						</View>
 						<View style={s.headerCopy}>
 							<Text style={[s.title, { color: theme.text }]}>Exporter le syllabus</Text>
 							<Text style={[s.subtitle, { color: theme.muted }]}>Choisis les semestres à inclure.</Text>
 						</View>
-						<Pressable accessibilityRole="button" accessibilityLabel="Fermer" disabled={exporting} onPress={onClose} hitSlop={10}>
-							<X color={theme.muted} size={21} />
+						<Pressable style={[s.close, { borderColor: theme.border }]} accessibilityRole="button" accessibilityLabel="Fermer" disabled={exporting} onPress={onClose}>
+							<X color={theme.text} size={20} />
 						</Pressable>
 					</View>
 
 					<SemesterSelector label="Semestre de début" semesters={semesters} selectedSemester={selectedStartSemester} onSelect={onChangeStartSemester} />
-					<SemesterSelector label="Semestre de fin" semesters={endSemesters.length ? endSemesters : [selectedStartSemester]} selectedSemester={selectedEndSemester} onSelect={onChangeEndSemester} />
+					<SemesterSelector
+						label="Semestre de fin"
+						semesters={endSemesters.length ? endSemesters : [selectedStartSemester]}
+						selectedSemester={selectedEndSemester}
+						onSelect={onChangeEndSemester}
+					/>
 
 					<View style={s.actions}>
 						<Pressable
 							disabled={exporting}
 							onPress={() => onGenerate("minimal")}
-							style={({ pressed }) => [s.secondaryAction, { borderColor: theme.border, backgroundColor: theme.surfaceSoft, opacity: exporting || pressed ? 0.72 : 1 }]}>
+							style={({ pressed }) => [
+								s.secondaryAction,
+								{ borderColor: theme.border, backgroundColor: theme.surfaceSoft, opacity: exporting || pressed ? 0.72 : 1 },
+							]}>
 							{exporting ? <ActivityIndicator color={theme.accent} size="small" /> : <FileDown color={theme.accent} size={18} />}
 							<Text style={[s.secondaryActionText, { color: theme.text }]}>Génération minimale</Text>
 						</Pressable>
@@ -63,8 +69,8 @@ export default function SyllabusExportModal({
 							disabled={exporting}
 							onPress={() => onGenerate("complete")}
 							style={({ pressed }) => [s.primaryAction, { backgroundColor: theme.accent, opacity: exporting || pressed ? 0.72 : 1 }]}>
-							{exporting ? <ActivityIndicator color="#fff" size="small" /> : <FileDown color="#fff" size={18} />}
-							<Text style={s.primaryActionText}>Génération complète</Text>
+							{exporting ? <ActivityIndicator color={readableTextOn(theme.accent)} size="small" /> : <FileDown color={readableTextOn(theme.accent)} size={18} />}
+							<Text style={[s.primaryActionText, { color: readableTextOn(theme.accent) }]}>Génération complète</Text>
 						</Pressable>
 					</View>
 				</Pressable>
@@ -73,7 +79,17 @@ export default function SyllabusExportModal({
 	);
 }
 
-function SemesterSelector({ label, semesters, selectedSemester, onSelect }: { label: string; semesters: number[]; selectedSemester: number; onSelect: (semester: number) => void }) {
+function SemesterSelector({
+	label,
+	semesters,
+	selectedSemester,
+	onSelect,
+}: {
+	label: string;
+	semesters: number[];
+	selectedSemester: number;
+	onSelect: (semester: number) => void;
+}) {
 	const { theme } = useTheme();
 	return (
 		<View style={s.selector}>
@@ -82,7 +98,12 @@ function SemesterSelector({ label, semesters, selectedSemester, onSelect }: { la
 				{semesters.map((semester) => {
 					const active = semester === selectedSemester;
 					return (
-						<Pressable key={semester} accessibilityRole="button" onPress={() => onSelect(semester)} style={[s.choice, { borderColor: active ? theme.accent : theme.border, backgroundColor: active ? theme.accentSoft : theme.bg }]}>
+						<Pressable
+							key={semester}
+							accessibilityRole="button"
+							accessibilityState={{ selected: active }}
+							onPress={() => onSelect(semester)}
+							style={[s.choice, active ? { borderColor: "transparent", backgroundColor: theme.accentSoft } : { borderColor: theme.border }]}>
 							<Text style={[s.choiceText, { color: active ? theme.accent : theme.text }]}>S{semester}</Text>
 						</Pressable>
 					);
@@ -93,21 +114,21 @@ function SemesterSelector({ label, semesters, selectedSemester, onSelect }: { la
 }
 
 const s = StyleSheet.create({
-	backdrop: { flex: 1, justifyContent: "center", padding: 22, backgroundColor: "rgba(2, 25, 43, 0.48)" },
-	sheet: { borderWidth: 1, borderRadius: 24, padding: 18, shadowColor: "#001f3d", shadowOpacity: 0.22, shadowRadius: 24, elevation: 10 },
+	backdrop: { flex: 1, justifyContent: "center", padding: 22, backgroundColor: "rgba(0, 0, 0, 0.5)" },
+	sheet: { borderWidth: 1, borderRadius: 22, padding: 16, shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 22, shadowOffset: { width: 0, height: 12 }, elevation: 8 },
 	header: { flexDirection: "row", alignItems: "center", gap: 11 },
-	icon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+	close: { width: 44, height: 44, borderWidth: 1, borderRadius: 22, alignItems: "center", justifyContent: "center" },
 	headerCopy: { flex: 1, minWidth: 0 },
-	title: { fontSize: 17, fontWeight: "900", letterSpacing: -0.2 },
-	subtitle: { marginTop: 2, fontSize: 12, fontWeight: "700" },
+	title: { fontSize: 20, lineHeight: 25, fontWeight: "900" },
+	subtitle: { marginTop: 2, fontSize: 14, fontWeight: "700" },
 	selector: { marginTop: 18 },
-	selectorLabel: { marginBottom: 8, fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.3 },
+	selectorLabel: { marginBottom: 8, fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
 	choices: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-	choice: { minWidth: 54, minHeight: 42, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
+	choice: { minWidth: 56, minHeight: 44, borderWidth: 1, borderRadius: 22, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
 	choiceText: { fontSize: 14, fontWeight: "900" },
 	actions: { gap: 9, marginTop: 22 },
 	secondaryAction: { minHeight: 48, borderWidth: 1, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, paddingHorizontal: 14 },
-	secondaryActionText: { fontSize: 14, fontWeight: "900" },
+	secondaryActionText: { fontSize: 15, fontWeight: "900" },
 	primaryAction: { minHeight: 50, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, paddingHorizontal: 14 },
-	primaryActionText: { color: "#fff", fontSize: 14, fontWeight: "900" },
+	primaryActionText: { fontSize: 15, fontWeight: "900" },
 });

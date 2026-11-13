@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system/legacy";
+import { Directory, File, Paths } from "expo-file-system";
 import { NativeModules, Platform } from "react-native";
 import type { VersionCheckResult } from "./version";
 import { normalizeVersion } from "./versionUtils";
@@ -26,85 +26,67 @@ function requireAndroidUpdater() {
 }
 
 function getUpdateDirectory() {
-	if (!FileSystem.cacheDirectory) throw new Error("Le cache local EpiTime n'est pas disponible.");
-	return `${FileSystem.cacheDirectory}updates/`;
+	return new Directory(Paths.cache, "updates");
 }
 
 function getDestination(update: VersionCheckResult) {
 	const version = normalizeVersion(update.latestVersion).replace(/[^0-9A-Za-z._-]/g, "-");
-	return `${getUpdateDirectory()}EpiTime-${version}.apk`;
+	return new File(getUpdateDirectory(), `EpiTime-${version}.apk`);
 }
 
-async function ensureUpdateDirectory() {
-	await FileSystem.makeDirectoryAsync(getUpdateDirectory(), { intermediates: true });
+function removeQuietly(file: File) {
+	try {
+		if (file.exists) file.delete();
+	} catch {}
 }
 
-async function removeQuietly(uri: string) {
-	await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => {});
-}
-
-function hasExpectedSize(info: FileSystem.FileInfo, expectedSize?: number) {
-	if (!info.exists) return false;
+function hasExpectedSize(file: File, expectedSize?: number) {
+	if (!file.exists) return false;
 	if (!expectedSize) return true;
-	return "size" in info && info.size === expectedSize;
+	return file.size === expectedSize;
 }
 
 export function isIntegratedUpdateSupported() {
 	return Platform.OS === "android" && Boolean(nativeUpdater);
 }
 
-export async function downloadUpdateApk(
-	update: VersionCheckResult,
-	onProgress?: (progress: UpdateDownloadProgress) => void
-) {
+export async function downloadUpdateApk(update: VersionCheckResult, onProgress?: (progress: UpdateDownloadProgress) => void) {
 	if (!update.downloadUrl || !update.apkAvailable) {
 		throw new Error("La release GitHub ne contient pas d'APK Android installable.");
 	}
 
 	requireAndroidUpdater();
-	await ensureUpdateDirectory();
+	getUpdateDirectory().create({ intermediates: true, idempotent: true });
 	const destination = getDestination(update);
-	const existing = await FileSystem.getInfoAsync(destination);
 
-	if (hasExpectedSize(existing, update.apkSize)) {
-		onProgress?.({
-			progress: 1,
-			writtenBytes: update.apkSize || ("size" in existing ? existing.size : 0),
-			totalBytes: update.apkSize || ("size" in existing ? existing.size : 0),
-		});
-		return destination;
+	if (hasExpectedSize(destination, update.apkSize)) {
+		const size = update.apkSize || destination.size;
+		onProgress?.({ progress: 1, writtenBytes: size, totalBytes: size });
+		return destination.uri;
 	}
 
-	if (existing.exists) await removeQuietly(destination);
+	removeQuietly(destination);
 
-	const download = FileSystem.createDownloadResumable(
-		update.downloadUrl,
-		destination,
-		{
-			headers: {
-				Accept: "application/octet-stream",
+	let result: File;
+	try {
+		result = await File.downloadFileAsync(update.downloadUrl, destination, {
+			headers: { Accept: "application/octet-stream" },
+			onProgress: ({ bytesWritten, totalBytes: reportedTotal }) => {
+				const totalBytes = reportedTotal || update.apkSize || 0;
+				onProgress?.({
+					progress: totalBytes > 0 ? Math.min(1, bytesWritten / totalBytes) : 0,
+					writtenBytes: bytesWritten,
+					totalBytes,
+				});
 			},
-		},
-		(snapshot) => {
-			const totalBytes = snapshot.totalBytesExpectedToWrite || update.apkSize || 0;
-			const writtenBytes = snapshot.totalBytesWritten || 0;
-			onProgress?.({
-				progress: totalBytes > 0 ? Math.min(1, writtenBytes / totalBytes) : 0,
-				writtenBytes,
-				totalBytes,
-			});
-		}
-	);
-
-	const result = await download.downloadAsync();
-	if (!result?.uri) {
-		await removeQuietly(destination);
+		});
+	} catch {
+		removeQuietly(destination);
 		throw new Error("Le téléchargement de la mise à jour n'a pas abouti.");
 	}
 
-	const info = await FileSystem.getInfoAsync(result.uri);
-	if (!hasExpectedSize(info, update.apkSize)) {
-		await removeQuietly(result.uri);
+	if (!hasExpectedSize(result, update.apkSize)) {
+		removeQuietly(result);
 		throw new Error("L'APK téléchargé est incomplet. Réessaie le téléchargement.");
 	}
 

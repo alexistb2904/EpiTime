@@ -1,50 +1,52 @@
 import React from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { Bell, CalendarDays, ChevronLeft, ChevronRight, DoorOpen, Filter, MapPin, Users, WifiOff, X } from "lucide-react-native";
-import Card from "../Card";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { Bell, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, DoorOpen, ListFilter, TriangleAlert, Users, WifiOff, X } from "lucide-react-native";
 import DatePickerModal from "../DatePickerModal";
 import EventDetailsModal from "../EventDetailsModal";
 import { useTheme } from "../../context/ThemeContext";
-import { isEventCancelled, getLocalEventKey } from "../../services/localEvents";
-import { getCourseColor, getEventTitle, hexToRgba, startOfDay } from "../../utils/calendar";
-import { ChangeHistoryModal, EventCard, formatEventChangeNotice } from "./CalendarEvents";
+import { getLocalEventKey, isEventCancelled, isEventIgnored } from "../../services/localEvents";
+import { ZeusEvent } from "../../types";
+import { getCourseColor, readableTextOn, startOfDay } from "../../utils/calendar";
+import { ChangeHistoryModal, DayTimeline, EventCard, formatEventChangeNotice } from "./CalendarEvents";
 import { FiltersModal, RoomFinderModal } from "./CalendarSelectionModals";
 import { s } from "./calendarStyles";
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+const isActive = (event: ZeusEvent) => !isEventCancelled(event) && !isEventIgnored(event);
+const countLabel = (events: ZeusEvent[]) => {
+	const active = events.filter(isActive).length;
+	if (active) return `${active} cours`;
+	if (!events.length) return "Libre";
+	return events.some(isEventCancelled) ? "Cours annulés" : "Cours ignorés";
+};
 
 export function CalendarContent({
 	applyContext,
 	applyDate,
 	changeHistory,
 	clearChanges,
-	compactDate,
 	context,
 	contextLabel,
 	currentDate,
-	dateButtonLabel,
 	dayKey,
 	days,
 	deleteEvent,
 	error,
 	eventChanges,
 	eventsByDay,
+	extraFilterCount,
 	groups,
 	filteredGroups,
 	focusedDay,
 	groupSearch,
-	headerTitle,
 	highlightedEventKey,
 	ignoreEvent,
 	loading,
 	move,
-	nextEvent,
-	nextEventColor,
-	nextEventEndTime,
-	nextEventIsNow,
-	nextEventProgress,
-	nextEventRooms,
-	nextEventStartTime,
 	noteSummaries,
 	now,
 	openDetails,
@@ -53,21 +55,17 @@ export function CalendarContent({
 	reactivateEvent,
 	refreshNoteSummaries,
 	resetContext,
-	selectedDay,
-	selectedDayStatus,
+	selectDay,
 	selectedEvent,
 	selectedEventSyllabus,
 	selectedGroups,
 	selectedRooms,
 	selectedTeachers,
-	selectedLabels,
 	rooms,
 	teachers,
 	filterOptionsLoading,
 	onLoadFilterOptions,
-	setCurrentDate,
 	setEventChanges,
-	setFocusedDay,
 	setGroupSearch,
 	setMode,
 	setPickerMonth,
@@ -87,212 +85,297 @@ export function CalendarContent({
 	visibleEvents,
 }: any) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
+	const today = startOfDay(new Date(now));
+	const isDayView = viewMode !== "list";
+	const onAccent = readableTextOn(theme.accent);
+	const eventsOf = (day: Date): ZeusEvent[] => eventsByDay.get(dayKey(day)) || [];
+	// Weekends only take room in the strip when they hold a course (or are the selected day).
+	const shownDays: Date[] = days.filter((day: Date, index: number) => index < 5 || eventsOf(day).length > 0 || sameDay(day, focusedDay));
+	const weekHasToday = days.some((day: Date) => sameDay(day, today));
+	const onToday = isDayView ? sameDay(focusedDay, today) : weekHasToday;
+	const monthLabel = capitalize((isDayView ? focusedDay : days[0]).toLocaleDateString("fr-FR", { month: "long", year: "numeric" }));
+	const noGroups = context.type === "group" && !selectedGroups.length;
+	const nextDayWithCourses = shownDays.find((day) => day > focusedDay && eventsOf(day).some(isActive));
+	const openPicker = () => {
+		setPickerMonth(currentDate);
+		setShowDatePicker(true);
+	};
+	const renderEvent = (event: ZeusEvent, railFirst: boolean, railLast: boolean) => (
+		<EventCard
+			key={`${event.idReservation || event.id}-${event.startDate}`}
+			event={event}
+			railFirst={railFirst}
+			railLast={railLast}
+			highlighted={highlightedEventKey === getLocalEventKey(event)}
+			noteSummary={noteSummaries[getLocalEventKey(event)]}
+			now={now}
+			selectedGroups={selectedGroups}
+			availableGroups={groups}
+			onPress={() => openDetails(event)}
+		/>
+	);
+	const renderTimeline = (dayEvents: ZeusEvent[], day: Date) => <DayTimeline events={dayEvents} now={now} isToday={sameDay(day, today)} renderEvent={renderEvent} />;
+
 	return (
 		<GestureDetector gesture={swipeGesture}>
 			<View style={[s.root, { backgroundColor: theme.bg }]}>
-				<ScrollView contentContainerStyle={s.content}>
-					<View pointerEvents="none" style={[s.topBand, { backgroundColor: theme.mode === "dark" ? "#171923" : "#e8edf6" }]} />
-
-					<Animated.View entering={FadeInUp.duration(380)} style={s.header}>
-						<View style={s.headerCopy}>
-							<Text style={[s.eyebrow, { color: theme.accent }]}>Agenda</Text>
-							<Text style={[s.title, { color: theme.text }]} numberOfLines={2}>
-								{headerTitle}
+				<ScrollView contentContainerStyle={[s.content, { paddingTop: insets.top + 12 }]}>
+					<View style={s.header}>
+						<Pressable style={s.monthBtn} onPress={openPicker} accessibilityRole="button" accessibilityLabel={`${monthLabel}, choisir une date`}>
+							<Text style={[s.monthText, { color: theme.text }]} numberOfLines={1}>
+								{monthLabel}
 							</Text>
-						</View>
+							<ChevronDown color={theme.muted} size={20} />
+							{loading ? <ActivityIndicator size="small" color={theme.muted} style={s.headerSpinner} /> : null}
+						</Pressable>
 						<View style={s.headerActions}>
-							<Pressable style={[s.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setShowChangesPanel(true)}>
-								<Bell color={changeHistory.length ? theme.warn : theme.text} size={20} />
+							<Pressable
+								style={({ pressed }) => [s.toolBtn, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface }]}
+								onPress={() => setShowChangesPanel(true)}
+								accessibilityRole="button"
+								accessibilityLabel={changeHistory.length ? `Modifications du planning, ${changeHistory.length} nouvelles` : "Modifications du planning"}>
+								<Bell color={theme.text} size={20} />
 								{changeHistory.length ? (
-									<View style={[s.changeBadge, { backgroundColor: theme.warn }]}>
-										<Text style={s.changeBadgeText}>{Math.min(changeHistory.length, 9)}</Text>
+									<View style={[s.badge, { backgroundColor: theme.warn, borderColor: theme.bg }]}>
+										<Text style={[s.badgeText, { color: readableTextOn(theme.warn) }]}>{Math.min(changeHistory.length, 9)}</Text>
 									</View>
 								) : null}
 							</Pressable>
-							<Pressable style={[s.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setShowGroups(true)}>
-								<Users color={theme.text} size={21} />
-							</Pressable>
-							<Pressable style={[s.iconBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={() => setShowRooms(true)}>
-								<DoorOpen color="#fff" size={20} />
+							<Pressable
+								style={({ pressed }) => [s.toolBtn, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface }]}
+								onPress={() => setShowGroups(true)}
+								accessibilityRole="button"
+								accessibilityLabel={extraFilterCount ? `Groupes et filtres, ${extraFilterCount} filtres actifs` : "Groupes et filtres"}>
+								<ListFilter color={theme.text} size={20} />
+								{extraFilterCount ? (
+									<View style={[s.badge, { backgroundColor: theme.accent, borderColor: theme.bg }]}>
+										<Text style={[s.badgeText, { color: onAccent }]}>{Math.min(extraFilterCount, 9)}</Text>
+									</View>
+								) : null}
 							</Pressable>
 						</View>
-					</Animated.View>
+					</View>
 
-					<Animated.View entering={FadeInDown.delay(55).duration(400)} style={[s.overviewCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.cardShadow }]}>
-						<View style={s.overviewTop}>
-							<View style={[s.dateTile, { backgroundColor: nextEvent ? hexToRgba(nextEventColor, 0.16) : theme.accentSoft }]}>
-								<Text style={[s.dateTileMonth, { color: nextEventColor }]}>{selectedDay.toLocaleDateString("fr-FR", { month: "short" })}</Text>
-								<Text style={[s.dateTileDay, { color: theme.text }]}>{selectedDay.getDate()}</Text>
-							</View>
-							<View style={s.overviewCopy}>
-								<Text style={[s.overviewLabel, { color: theme.muted }]} numberOfLines={1}>
-									{compactDate} · {contextLabel}
-								</Text>
-								<Text style={[s.overviewTitle, { color: theme.text }]} numberOfLines={2}>
-									{selectedDayStatus}
-								</Text>
-							</View>
-						</View>
-						{nextEvent ? (
-							<View style={[s.nextStrip, nextEventIsNow && s.nextStripLive, { backgroundColor: hexToRgba(nextEventColor, 0.13), borderColor: hexToRgba(nextEventColor, 0.34) }]}>
-								{nextEventIsNow ? (
-									<>
-										<View style={s.nextLiveTop}>
-											<View style={[s.nextDot, { backgroundColor: nextEventColor }]} />
-											<View style={s.nextCopy}>
-												<Text style={[s.nextLabel, { color: nextEventColor }]}>Maintenant jusqu'à {nextEventEndTime}</Text>
-												<Text style={[s.nextTitle, { color: theme.text }]} numberOfLines={1}>
-													{getEventTitle(nextEvent)}
-												</Text>
-											</View>
-										</View>
-										<View style={s.nextLiveMeta}>
-											<View style={[s.nextLivePill, { backgroundColor: hexToRgba(nextEventColor, 0.14) }]}>
-												<MapPin color={nextEventColor} size={14} />
-												<Text style={[s.nextLivePillText, { color: theme.text }]} numberOfLines={1}>
-													{nextEventRooms || "Lieu à confirmer"}
-												</Text>
-											</View>
-										</View>
-										<View style={[s.nextProgressTrack, { backgroundColor: hexToRgba(nextEventColor, 0.16) }]}>
-											<View style={[s.nextProgressFill, { width: `${nextEventProgress}%`, backgroundColor: nextEventColor }]} />
-										</View>
-									</>
-								) : (
-									<>
-										<View style={[s.nextDot, { backgroundColor: nextEventColor }]} />
-										<View style={s.nextCopy}>
-											<Text style={[s.nextLabel, { color: nextEventColor }]}>Prochain</Text>
-											<Text style={[s.nextTitle, { color: theme.text }]} numberOfLines={1}>
-												{getEventTitle(nextEvent)}
-											</Text>
-										</View>
-										<View style={{ backgroundColor: hexToRgba(nextEventColor, 0.14), borderRadius: 8, padding: 2, flexDirection: "column", alignItems: "flex-start" }}>
-											<Text style={[s.nextTime, { color: theme.text }]}>{nextEventStartTime}</Text>
-											<Text style={[s.nextTime, { color: theme.text, fontSize: 12 }]}>{nextEventEndTime}</Text>
-										</View>
-									</>
-								)}
-							</View>
-						) : null}
-					</Animated.View>
-
-					<Animated.View entering={FadeInDown.delay(95).duration(380)} style={s.toolbar}>
-						<Pressable style={[s.navBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => move(-1)}>
-							<ChevronLeft color={theme.text} size={20} />
-						</Pressable>
+					<View style={s.contextRow}>
 						<Pressable
-							style={[s.todayBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-							onPress={() => {
-								setPickerMonth(currentDate);
-								setShowDatePicker(true);
-							}}>
-							<CalendarDays color={theme.accent} size={17} />
-							<Text style={[s.todayText, { color: theme.text }]} numberOfLines={1}>
-								{dateButtonLabel}
+							style={s.contextLabelBtn}
+							onPress={() => setShowGroups(true)}
+							accessibilityRole="button"
+							accessibilityLabel={`Planning affiché : ${contextLabel}. Modifier`}>
+							{context.type === "room" ? <DoorOpen color={theme.muted} size={15} /> : <Users color={theme.muted} size={15} />}
+							<Text style={[s.contextText, { color: theme.muted }]} numberOfLines={1}>
+								{contextLabel}
 							</Text>
 						</Pressable>
-						<Pressable style={[s.navBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => move(1)}>
-							<ChevronRight color={theme.text} size={20} />
+						{context.type !== "group" ? (
+							<Pressable
+								style={[s.chipBtn, { borderColor: theme.border }]}
+								onPress={resetContext}
+								hitSlop={6}
+								accessibilityRole="button"
+								accessibilityLabel="Revenir à mes groupes">
+								<X color={theme.text} size={14} />
+								<Text style={[s.chipText, { color: theme.text }]}>Mes groupes</Text>
+							</Pressable>
+						) : null}
+						<Pressable style={[s.chipBtn, { borderColor: theme.border }]} onPress={() => setShowRooms(true)} hitSlop={6} accessibilityRole="button">
+							<DoorOpen color={theme.muted} size={15} />
+							<Text style={[s.chipText, { color: theme.text }]}>Salles libres</Text>
 						</Pressable>
-					</Animated.View>
-
-					{showCacheBanner ? (
-						<Animated.View entering={FadeInDown.duration(300)} style={[s.offline, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
-							<WifiOff color={theme.accent} size={17} />
-							<Text style={[s.offlineText, { color: theme.text }]}>Agenda chargé depuis le cache. Synchronisation en nouvel essai.</Text>
-						</Animated.View>
-					) : null}
-
-					{eventChanges.length ? (
-						<Animated.View entering={FadeInDown.duration(300)} style={[s.roomChange, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
-							<MapPin color={theme.warn} size={17} />
-							<Pressable style={s.roomChangeBody} onPress={() => setShowChangesPanel(true)}>
-								<Text style={[s.roomChangeText, { color: theme.text }]} numberOfLines={2}>
-									{formatEventChangeNotice(eventChanges)}
-								</Text>
-								<Text style={[s.roomChangeHint, { color: theme.muted }]}>Voir toutes les modifications</Text>
+						{!onToday ? (
+							<Pressable
+								style={[s.chipBtn, { backgroundColor: theme.accentSoft, borderColor: "transparent" }]}
+								onPress={() => applyDate(new Date())}
+								hitSlop={6}
+								accessibilityRole="button">
+								<Text style={[s.chipText, { color: theme.accent }]}>Aujourd'hui</Text>
 							</Pressable>
-							<Pressable style={s.roomChangeClose} onPress={() => setEventChanges([])}>
-								<X color={theme.muted} size={16} />
-							</Pressable>
-						</Animated.View>
-					) : null}
+						) : null}
+					</View>
 
-					<Animated.View entering={FadeInDown.delay(130).duration(380)} style={[s.segment, { backgroundColor: theme.surfaceSoft }]}>
-						{(["week", "day", "list"] as const).map((mode) => (
-							<Pressable key={mode} style={[s.segmentItem, viewMode === mode && { backgroundColor: theme.surface }]} onPress={() => setMode(mode)}>
-								<Text style={[s.segmentText, { color: viewMode === mode ? theme.text : theme.muted }]}>{mode === "week" ? "Semaine" : mode === "day" ? "Jour" : "Liste"}</Text>
-							</Pressable>
-						))}
-					</Animated.View>
-
-					{context.type !== "group" ? (
-						<Card style={s.contextCard} variant="compact" accent accentColor={theme.warn}>
-							<Filter color={theme.accent} size={18} />
-							<Text style={[s.contextText, { color: theme.text }]} numberOfLines={1}>
-								{context.label}
-							</Text>
-							<Pressable onPress={resetContext}>
-								<X color={theme.muted} size={20} />
-							</Pressable>
-						</Card>
-					) : null}
-
-					{viewMode === "week" ? (
-						<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.daysStrip}>
-							{days.map((day: Date) => {
-								const active = day.toDateString() === focusedDay.toDateString();
-								const dayEvents = eventsByDay.get(dayKey(day)) || [];
+					<View style={s.toolbar}>
+						<View style={[s.segment, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]} accessibilityRole="tablist">
+							{(
+								[
+									["week", "Jour"],
+									["list", "Semaine"],
+								] as const
+							).map(([mode, label]) => {
+								const active = viewMode === mode;
 								return (
 									<Pressable
-										key={day.toISOString()}
-										style={[s.dayPill, { backgroundColor: active ? theme.accent : theme.surface, borderColor: active ? theme.accent : theme.border }]}
-										onPress={() => {
-											const selectedDay = startOfDay(day);
-											setFocusedDay(selectedDay);
-											setCurrentDate(selectedDay);
-										}}>
-										<Text style={[s.dayName, { color: active ? "#fff" : theme.muted }]}>{day.toLocaleDateString("fr-FR", { weekday: "short" })}</Text>
-										<Text style={[s.dayNum, { color: active ? "#fff" : theme.text }]}>{day.getDate()}</Text>
-										<View style={s.dayDots}>
-											{dayEvents.slice(0, 4).map((event: any, index: number) => (
-												<View
-													key={`${event.idReservation || event.id || index}`}
-													style={[s.dayDot, isEventCancelled(event) && s.dayDotCancelled, { backgroundColor: active ? "#fff" : isEventCancelled(event) ? theme.muted : getCourseColor(event) }]}
-												/>
-											))}
-										</View>
-										<Text style={[s.dayCount, { color: active ? "#fff" : theme.muted }]}>{dayEvents.length}</Text>
+										key={mode}
+										style={[s.segmentItem, active && { backgroundColor: theme.accentSoft }]}
+										onPress={() => !active && setMode(mode)}
+										accessibilityRole="tab"
+										accessibilityState={{ selected: active }}>
+										<Text style={[s.segmentText, { color: active ? theme.accent : theme.muted }]}>{label}</Text>
 									</Pressable>
 								);
 							})}
-						</ScrollView>
+						</View>
+						<Pressable
+							style={({ pressed }) => [s.navBtn, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface }]}
+							onPress={() => move(-1)}
+							accessibilityRole="button"
+							accessibilityLabel="Semaine précédente">
+							<ChevronLeft color={theme.text} size={20} />
+						</Pressable>
+						<Pressable
+							style={({ pressed }) => [s.navBtn, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface }]}
+							onPress={() => move(1)}
+							accessibilityRole="button"
+							accessibilityLabel="Semaine suivante">
+							<ChevronRight color={theme.text} size={20} />
+						</Pressable>
+					</View>
+
+					<View style={s.strip}>
+						{shownDays.map((day) => {
+							const dayEvents = eventsOf(day);
+							const selected = isDayView && sameDay(day, focusedDay);
+							const isToday = sameDay(day, today);
+							const textColor = selected || isToday ? theme.accent : theme.text;
+							return (
+								<Pressable
+									key={day.toISOString()}
+									style={[
+										s.stripDay,
+										selected && s.stripDaySelected,
+										{ backgroundColor: selected ? theme.accentSoft : theme.surface, borderColor: selected || isToday ? theme.accent : theme.border },
+									]}
+									onPress={() => selectDay(day)}
+									accessibilityRole="button"
+									accessibilityState={{ selected }}
+									accessibilityLabel={`${day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}${isToday ? ", aujourd'hui" : ""}, ${countLabel(dayEvents)}`}>
+									<Text style={[s.stripWeekday, { color: selected || isToday ? theme.accent : theme.muted }]}>
+										{day.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")}
+									</Text>
+									<Text style={[s.stripNum, { color: textColor }]}>{day.getDate()}</Text>
+									{dayEvents.length ? (
+										<View style={s.stripPills}>
+											{dayEvents.slice(0, 4).map((event, index) => (
+												<View key={index} style={[s.stripPill, { backgroundColor: isActive(event) ? getCourseColor(event) : theme.border }]} />
+											))}
+										</View>
+									) : (
+										<Text style={[s.stripCount, { color: selected ? theme.accent : theme.muted }]}>libre</Text>
+									)}
+								</Pressable>
+							);
+						})}
+					</View>
+
+					{showCacheBanner ? (
+						<View style={[s.banner, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+							<WifiOff color={theme.muted} size={17} />
+							<Text style={[s.bannerText, { color: theme.text }]}>Hors ligne : planning enregistré affiché. Nouvel essai automatique.</Text>
+						</View>
 					) : null}
 
-					{error ? <Text style={[s.error, { color: theme.warn }]}>{error}</Text> : null}
-					{loading ? <ActivityIndicator color={theme.accent} style={s.loader} /> : null}
-					{visibleEvents.length === 0 && !loading ? (
-						<Card style={s.emptyCard}>
-							<CalendarDays color={theme.accent} size={26} />
-							<Text style={[s.emptyTitle, { color: theme.text }]}>Aucun cours</Text>
-							<Text style={[s.meta, { color: theme.muted }]}>Change de date, de groupe ou synchronise tes préférences.</Text>
-						</Card>
-					) : (
-						visibleEvents.map((event: any, index: number) => (
-							<EventCard
-								key={`${event.idReservation || event.id || index}-${event.startDate}`}
-								event={event}
-								index={index}
-								highlighted={highlightedEventKey === getLocalEventKey(event)}
-								noteSummary={noteSummaries[getLocalEventKey(event)]}
-								now={now}
-								selectedGroups={selectedGroups}
-								availableGroups={groups}
-								onPress={() => openDetails(event)}
-							/>
-						))
-					)}
+					{eventChanges.length ? (
+						<View style={[s.banner, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
+							<TriangleAlert color={theme.warn} size={17} />
+							<Pressable style={s.bannerBody} onPress={() => setShowChangesPanel(true)} accessibilityRole="button">
+								<Text style={[s.bannerText, { color: theme.text }]} numberOfLines={2}>
+									{formatEventChangeNotice(eventChanges)}
+								</Text>
+								<Text style={[s.bannerHint, { color: theme.accent }]}>Voir les modifications</Text>
+							</Pressable>
+							<Pressable style={s.bannerClose} onPress={() => setEventChanges([])} accessibilityRole="button" accessibilityLabel="Masquer">
+								<X color={theme.muted} size={18} />
+							</Pressable>
+						</View>
+					) : null}
+
+					{error ? (
+						<View style={[s.banner, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
+							<TriangleAlert color={theme.warn} size={17} />
+							<Text style={[s.bannerText, { color: theme.text }]}>{error}</Text>
+						</View>
+					) : null}
+
+					<Animated.View key={isDayView ? dayKey(focusedDay) : `week-${dayKey(days[0])}`} entering={FadeIn.duration(180)}>
+						{loading && !visibleEvents.length ? (
+							<View style={s.skeleton}>
+								{[0, 1, 2].map((index) => (
+									<View key={index} style={[s.skeletonBlock, { backgroundColor: theme.surface, borderColor: theme.border }]} />
+								))}
+							</View>
+						) : isDayView ? (
+							<>
+								<View style={s.dayHeading}>
+									<Text style={[s.dayHeadingTitle, { color: theme.text }]} numberOfLines={1}>
+										{capitalize(focusedDay.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}
+									</Text>
+									<Text style={[s.dayHeadingMeta, { color: theme.muted }]}>{countLabel(visibleEvents)}</Text>
+								</View>
+								{visibleEvents.length ? (
+									renderTimeline(visibleEvents, focusedDay)
+								) : (
+									<View style={[s.empty, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+										<View style={[s.emptyIcon, { backgroundColor: theme.accentSoft }]}>
+											<CalendarDays color={theme.accent} size={24} />
+										</View>
+										<Text style={[s.emptyTitle, { color: theme.text }]}>{noGroups ? "Aucun groupe choisi" : "Pas de cours ce jour-là"}</Text>
+										<Text style={[s.emptyText, { color: theme.muted }]}>
+											{noGroups
+												? "Choisis tes groupes pour afficher ton planning."
+												: nextDayWithCourses
+													? "Ton prochain cours de la semaine est plus loin."
+													: "Plus rien de prévu cette semaine."}
+										</Text>
+										{noGroups ? (
+											<Pressable style={[s.emptyAction, { backgroundColor: theme.accent }]} onPress={() => setShowGroups(true)} accessibilityRole="button">
+												<Text style={[s.emptyActionText, { color: onAccent }]}>Choisir mes groupes</Text>
+											</Pressable>
+										) : nextDayWithCourses ? (
+											<Pressable
+												style={[s.emptyAction, { backgroundColor: theme.accentSoft }]}
+												onPress={() => selectDay(nextDayWithCourses)}
+												accessibilityRole="button">
+												<Text style={[s.emptyActionText, { color: theme.accent }]}>
+													Voir {nextDayWithCourses.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" })}
+												</Text>
+												<ChevronRight color={theme.accent} size={16} />
+											</Pressable>
+										) : (
+											<Pressable style={[s.emptyAction, { backgroundColor: theme.accentSoft }]} onPress={() => move(1)} accessibilityRole="button">
+												<Text style={[s.emptyActionText, { color: theme.accent }]}>Semaine suivante</Text>
+												<ChevronRight color={theme.accent} size={16} />
+											</Pressable>
+										)}
+									</View>
+								)}
+							</>
+						) : (
+							shownDays.map((day) => {
+								const dayEvents = eventsOf(day);
+								const isToday = sameDay(day, today);
+								return (
+									<View key={day.toISOString()} style={s.weekDay}>
+										<Pressable
+											style={[s.weekDayHeading, { borderBottomColor: theme.border }]}
+											onPress={() => selectDay(day)}
+											accessibilityRole="button"
+											accessibilityLabel={`Ouvrir ${day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" })}`}>
+											<Text style={[s.weekDayTitle, { color: isToday ? theme.accent : theme.text }]}>
+												{capitalize(day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" }))}
+											</Text>
+											{isToday ? (
+												<View style={[s.todayTag, { backgroundColor: theme.accentSoft }]}>
+													<Text style={[s.todayTagText, { color: theme.accent }]}>Aujourd'hui</Text>
+												</View>
+											) : null}
+											<Text style={[s.dayHeadingMeta, s.weekDayMeta, { color: theme.muted }]}>{countLabel(dayEvents)}</Text>
+										</Pressable>
+										{renderTimeline(dayEvents, day)}
+									</View>
+								);
+							})
+						)}
+					</Animated.View>
 				</ScrollView>
 
 				<FiltersModal
@@ -314,7 +397,15 @@ export function CalendarContent({
 						setGroupSearch("");
 					}}
 				/>
-				<DatePickerModal visible={showDatePicker} currentDate={currentDate} pickerMonth={pickerMonth} onChangeMonth={setPickerMonth} onSelectDate={applyDate} onToday={() => applyDate(new Date())} onClose={() => setShowDatePicker(false)} />
+				<DatePickerModal
+					visible={showDatePicker}
+					currentDate={currentDate}
+					pickerMonth={pickerMonth}
+					onChangeMonth={setPickerMonth}
+					onSelectDate={applyDate}
+					onToday={() => applyDate(new Date())}
+					onClose={() => setShowDatePicker(false)}
+				/>
 				<EventDetailsModal
 					event={selectedEvent}
 					selectedGroups={selectedGroups}

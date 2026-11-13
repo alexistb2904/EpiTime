@@ -1,5 +1,5 @@
-import { getJSON, removeJSON, setJSON } from "./storage";
 import type { AurigaCoeff, AurigaGrade, AurigaSyllabus } from "./aurigaTypes";
+import { getJSON, removeJSON, setJSON } from "./storage";
 
 const AURIGA_GRADES_KEY = "auriga.grades";
 const AURIGA_SYLLABUS_KEY = "auriga.syllabus";

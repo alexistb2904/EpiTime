@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { useColorScheme } from "react-native";
-import { isDynamicThemeSupported, useMaterial3Theme } from "@pchmn/expo-material3-theme";
+import { NativeModules, useColorScheme } from "react-native";
 import { getJSON, setJSON } from "../services/storage";
-import { mapMaterial3SchemeToAppTheme, palettes, type AppTheme, type ResolvedThemeMode, type ThemeMode } from "../theme/palettes";
+import { mapDynamicSchemeToAppTheme, palettes, type DynamicScheme, type AppTheme, type ResolvedThemeMode, type ThemeMode } from "../theme/palettes";
 
 type ThemeContextValue = {
 	theme: AppTheme;
@@ -19,6 +18,8 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 const THEME_MODE_KEY = "themeMode";
 const MATERIAL_YOU_ENABLED_KEY = "materialYouEnabled";
+const dynamicSchemes = NativeModules.EpiTimeDynamicColors?.getConstants?.() as Partial<Record<ResolvedThemeMode, DynamicScheme>> | undefined;
+const isDynamicThemeSupported = Boolean(dynamicSchemes?.light && dynamicSchemes?.dark);
 
 function normalizeThemeMode(value: unknown): ThemeMode {
 	return value === "light" || value === "dark" || value === "system" ? value : "system";
@@ -26,7 +27,6 @@ function normalizeThemeMode(value: unknown): ThemeMode {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
 	const systemColorScheme = useColorScheme();
-	const { theme: material3Theme } = useMaterial3Theme({ fallbackSourceColor: palettes.light.accent, colorFidelity: true });
 	const [mode, setMode] = useState<ThemeMode>("system");
 	const [materialYouEnabled, setMaterialYouEnabledState] = useState(true);
 	const resolvedMode: ResolvedThemeMode = mode === "system" ? (systemColorScheme === "dark" ? "dark" : "light") : mode;
@@ -53,9 +53,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 	};
 
 	const theme = useMemo(() => {
-		if (!materialYouActive) return palettes[resolvedMode];
-		return mapMaterial3SchemeToAppTheme(material3Theme[resolvedMode], resolvedMode);
-	}, [material3Theme, materialYouActive, resolvedMode]);
+		const scheme = dynamicSchemes?.[resolvedMode];
+		return materialYouActive && scheme ? mapDynamicSchemeToAppTheme(scheme, resolvedMode) : palettes[resolvedMode];
+	}, [materialYouActive, resolvedMode]);
 
 	const toggleTheme = async () => {
 		const next = resolvedMode === "dark" ? "light" : "dark";

@@ -1,12 +1,12 @@
 import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
+import { isAuthReconnectRequiredError } from "./api";
 import { AurigaAuthError, getRememberedAurigaCredentials, hasAurigaRefreshToken } from "./aurigaAuth";
 import { getCachedAurigaGrades, saveAurigaGrades } from "./aurigaCache";
 import { fetchAurigaGrades } from "./aurigaClient";
 import type { AurigaGrade } from "./aurigaTypes";
 import { rescheduleCourseNoteReminders } from "./courseNotes";
-import { isAuthReconnectRequiredError } from "./api";
 import { isEventCancelled, isEventIgnored } from "./localEvents";
 import {
 	getNotificationSettings,

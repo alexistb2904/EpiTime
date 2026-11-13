@@ -91,6 +91,13 @@ export function hexToRgba(hex: string, alpha: number) {
 	return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// Black or white text, whichever reads better on a solid hex background.
+export function readableTextOn(hex: string) {
+	const value = parseInt(hex.replace("#", "").slice(0, 6), 16);
+	const luminance = (0.299 * ((value >> 16) & 255) + 0.587 * ((value >> 8) & 255) + 0.114 * (value & 255)) / 255;
+	return luminance > 0.5 ? "#111318" : "#ffffff";
+}
+
 export function getCourseColor(event: ZeusEvent) {
 	const seed = event.courseTypeName || event.typeName || event.code || getEventTitle(event);
 	return coursePalette[hashString(seed) % coursePalette.length];

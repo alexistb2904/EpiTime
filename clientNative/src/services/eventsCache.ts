@@ -129,11 +129,7 @@ export function reconcileEventsWithCache(freshEvents: ZeusEvent[], cachedEvents:
 	return freshEvents;
 }
 
-export function findEventChanges(
-	cachedEvents?: ZeusEvent[] | null,
-	freshEvents?: ZeusEvent[] | null,
-	options: { now?: number; windowDays?: number } = {}
-): EventChange[] {
+export function findEventChanges(cachedEvents?: ZeusEvent[] | null, freshEvents?: ZeusEvent[] | null, options: { now?: number; windowDays?: number } = {}): EventChange[] {
 	if (!cachedEvents?.length || !freshEvents) return [];
 
 	const now = options.now ?? Date.now();
@@ -316,16 +312,18 @@ function pruneEventsCacheStore(store: EventsCacheStore): EventsCacheStore {
 function findBestFallbackEntry(entries: EventsCacheEntry[], start: Date, end: Date, query: NormalizedEventsCacheQuery) {
 	const startMs = start.getTime();
 	const endMs = end.getTime();
-	return entries
-		.filter((entry) => sameQuery(entry.query, query))
-		.map((entry) => {
-			const entryStart = new Date(entry.start).getTime();
-			const entryEnd = new Date(entry.end).getTime();
-			const overlap = Math.max(0, Math.min(endMs, entryEnd) - Math.max(startMs, entryStart));
-			return { entry, overlap, fetchedAt: new Date(entry.fetchedAt).getTime() };
-		})
-		.filter((item) => item.overlap > 0)
-		.sort((a, b) => b.overlap - a.overlap || b.fetchedAt - a.fetchedAt)[0]?.entry ?? null;
+	return (
+		entries
+			.filter((entry) => sameQuery(entry.query, query))
+			.map((entry) => {
+				const entryStart = new Date(entry.start).getTime();
+				const entryEnd = new Date(entry.end).getTime();
+				const overlap = Math.max(0, Math.min(endMs, entryEnd) - Math.max(startMs, entryStart));
+				return { entry, overlap, fetchedAt: new Date(entry.fetchedAt).getTime() };
+			})
+			.filter((item) => item.overlap > 0)
+			.sort((a, b) => b.overlap - a.overlap || b.fetchedAt - a.fetchedAt)[0]?.entry ?? null
+	);
 }
 
 function eventOverlapsRange(event: ZeusEvent, start: Date, end: Date) {
@@ -418,12 +416,7 @@ function buildEventChange(
 	};
 }
 
-function normalizeChangeDetails(
-	oldEvent: ZeusEvent | null,
-	newEvent: ZeusEvent | null,
-	details: EventChangeDetail[] | string[],
-	kind: EventChange["kind"]
-): EventChangeDetail[] {
+function normalizeChangeDetails(oldEvent: ZeusEvent | null, newEvent: ZeusEvent | null, details: EventChangeDetail[] | string[], kind: EventChange["kind"]): EventChangeDetail[] {
 	if (details.length && typeof details[0] !== "string") return details as EventChangeDetail[];
 	if (kind === "created" && newEvent) {
 		const createdDetails: EventChangeDetail[] = [
@@ -480,7 +473,11 @@ function listTeachers(event: ZeusEvent) {
 }
 
 function listGroups(event: ZeusEvent) {
-	return (event.groups || []).map((group) => group.name || String(group.id || "")).map(normalizeText).filter(Boolean).sort();
+	return (event.groups || [])
+		.map((group) => group.name || String(group.id || ""))
+		.map(normalizeText)
+		.filter(Boolean)
+		.sort();
 }
 
 function listSignature(values: string[]) {
@@ -492,7 +489,10 @@ function formatList(values: string[]) {
 }
 
 function normalizeText(value?: string | number | null) {
-	return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+	return String(value ?? "")
+		.trim()
+		.replace(/\s+/g, " ")
+		.toLowerCase();
 }
 
 function formatChangeDate(rawDate: string) {

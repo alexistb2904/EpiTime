@@ -1,3 +1,5 @@
+import { ZeusEvent } from "../types";
+import { startOfDay } from "../utils/calendar";
 import { getEvents, isAuthReconnectRequiredError } from "./api";
 import {
 	EventChange,
@@ -12,8 +14,6 @@ import {
 } from "./eventsCache";
 import { isEventCancelled, isEventIgnored, mergeEventsWithLocal } from "./localEvents";
 import { getJSON } from "./storage";
-import { ZeusEvent } from "../types";
-import { startOfDay } from "../utils/calendar";
 
 export type ScheduleSource = "network" | "cache" | "local";
 

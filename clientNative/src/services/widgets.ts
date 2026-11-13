@@ -1,29 +1,19 @@
-import React from "react";
 import { NativeModules, Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
-import { publicConfig } from "./config";
+import { ZeusEvent } from "../types";
+import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, startOfDay } from "../utils/calendar";
+import { courseWidgets, renderCourseWidget, type CourseWidgetName } from "../widgets/renderCourseWidget";
 import { isAuthReconnectRequiredError } from "./api";
-import { readEventsCache, reconcileEventsWithCache, writeEventsCache } from "./eventsCache";
-import { isEventCancelled, isEventIgnored, mergeEventsWithLocal } from "./localEvents";
-import { syncSchedule } from "./scheduleRepository";
-import { getSession, getJSON, setJSON } from "./storage";
 import { getCachedAurigaGrades, getCachedAurigaSyllabus } from "./aurigaCache";
+import { publicConfig } from "./config";
+import { readEventsCache, reconcileEventsWithCache, writeEventsCache } from "./eventsCache";
 import { getSubjectCoefficientOverrides } from "./gradeCoefficientOverrides";
 import { getUseWeightedAverages } from "./gradePreferences";
 import { buildGradesPeriods, type DisplayGrade, type GradesPeriod } from "./gradesService";
+import { isEventCancelled, isEventIgnored, mergeEventsWithLocal } from "./localEvents";
 import { getManualGrades } from "./manualGrades";
-import { ZeusEvent } from "../types";
-import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, startOfDay } from "../utils/calendar";
-import { NextCourseWidget } from "../widgets/NextCourseWidget";
-import { SemesterGradesWidget } from "../widgets/SemesterGradesWidget";
-import { SemesterOverviewWidget } from "../widgets/SemesterOverviewWidget";
-import { UpcomingCoursesWidget } from "../widgets/UpcomingCoursesWidget";
-
-const WidgetData = NativeModules.EpiTimeWidgetData as
-	| {
-			updateCourses?: (rawJson: string) => Promise<boolean>;
-	  }
-	| undefined;
+import { syncSchedule } from "./scheduleRepository";
+import { getJSON, getSession, setJSON } from "./storage";
 
 const CourseWidgets = NativeModules.EpiTimeCourseWidgets as
 	| {
@@ -68,7 +58,6 @@ export type CourseWidgetPayload = {
 };
 
 export const COURSE_WIDGET_PAYLOAD_KEY = "epitime.courseWidgetPayload";
-export const COURSE_WIDGET_REFRESH_ACTION = "REFRESH_WIDGET";
 
 type SyncCourseWidgetsOptions = {
 	requestAndroidUpdate?: boolean;
@@ -76,7 +65,7 @@ type SyncCourseWidgetsOptions = {
 };
 
 export async function syncCourseWidgets(events: ZeusEvent[], options: SyncCourseWidgetsOptions = {}) {
-	if (Platform.OS !== "android" && Platform.OS !== "ios") return;
+	if (Platform.OS !== "android") return;
 	const courses = normalizeWidgetCourses(events);
 	try {
 		const [session, groups, storedPayload] = await Promise.all([getSession(), getJSON<(string | number)[]>("selectedGroups", []), getStoredCourseWidgetPayload()]);
@@ -113,7 +102,7 @@ export async function getStoredCourseWidgetPayload() {
 }
 
 export async function updateGradeWidgetSummary(gradeSummary?: WidgetGradeSummary | null) {
-	if (Platform.OS !== "android" && Platform.OS !== "ios") return;
+	if (Platform.OS !== "android") return;
 	const stored = await getStoredCourseWidgetPayload();
 	const payload: CourseWidgetPayload = {
 		generatedAt: Date.now(),
@@ -137,7 +126,7 @@ export async function clearGradeWidgetSummary() {
  * no Auriga credential or academic result is sent to the shared backend.
  */
 export async function syncGradeWidgetsFromStoredData() {
-	if (Platform.OS !== "android" && Platform.OS !== "ios") return;
+	if (Platform.OS !== "android") return;
 
 	const [grades, syllabus, manualGrades, useWeightedAverages, subjectCoefficientOverrides] = await Promise.all([
 		getCachedAurigaGrades(),
@@ -269,11 +258,6 @@ export function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
 async function persistCourseWidgetPayload(payload: CourseWidgetPayload, requestAndroidUpdate: boolean) {
 	await setJSON(COURSE_WIDGET_PAYLOAD_KEY, payload);
 
-	if (Platform.OS === "ios" && WidgetData?.updateCourses) {
-		await WidgetData.updateCourses(JSON.stringify(payload));
-		return;
-	}
-
 	if (Platform.OS === "android") {
 		await syncNativeCourseWidgetRefreshes(payload);
 	}
@@ -293,40 +277,15 @@ async function syncNativeCourseWidgetRefreshes(payload: CourseWidgetPayload) {
 }
 
 export async function requestCourseWidgetUpdates(payload: CourseWidgetPayload) {
-	await Promise.all([
-		requestWidgetUpdate({
-			widgetName: "NextCourse",
-			renderWidget: () => ({
-				light: React.createElement(NextCourseWidget, { payload, theme: "light" }),
-				dark: React.createElement(NextCourseWidget, { payload, theme: "dark" }),
-			}),
-			widgetNotFound: () => {},
-		}),
-		requestWidgetUpdate({
-			widgetName: "UpcomingCourses",
-			renderWidget: () => ({
-				light: React.createElement(UpcomingCoursesWidget, { payload, theme: "light" }),
-				dark: React.createElement(UpcomingCoursesWidget, { payload, theme: "dark" }),
-			}),
-			widgetNotFound: () => {},
-		}),
-		requestWidgetUpdate({
-			widgetName: "SemesterGrades",
-			renderWidget: () => ({
-				light: React.createElement(SemesterGradesWidget, { payload, theme: "light" }),
-				dark: React.createElement(SemesterGradesWidget, { payload, theme: "dark" }),
-			}),
-			widgetNotFound: () => {},
-		}),
-		requestWidgetUpdate({
-			widgetName: "SemesterOverview",
-			renderWidget: () => ({
-				light: React.createElement(SemesterOverviewWidget, { payload, theme: "light" }),
-				dark: React.createElement(SemesterOverviewWidget, { payload, theme: "dark" }),
-			}),
-			widgetNotFound: () => {},
-		}),
-	]);
+	await Promise.all(
+		(Object.keys(courseWidgets) as CourseWidgetName[]).map((widgetName) =>
+			requestWidgetUpdate({
+				widgetName,
+				renderWidget: (info) => renderCourseWidget(widgetName, payload, info),
+				widgetNotFound: () => {},
+			})
+		)
+	);
 }
 
 async function fetchWidgetEvents(apiBase: string, zeusToken: string, start: Date, end: Date, groups: string[]) {

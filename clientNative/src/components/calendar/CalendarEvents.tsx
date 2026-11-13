@@ -1,8 +1,7 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
-import Animated, { FadeInDown, Layout } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Bell, Clock, Filter, MapPin, Paperclip, StickyNote, Trash2, Users, X } from "lucide-react-native";
+import { Bell, Clock, Coffee, MapPin, Paperclip, StickyNote, Trash2, User, Users, Video, X } from "lucide-react-native";
 import Card from "../Card";
 import { useTheme } from "../../context/ThemeContext";
 import { CourseNoteSummary } from "../../services/courseNotes";
@@ -10,16 +9,13 @@ import { EventChange } from "../../services/eventsCache";
 import { isEventCancelled, isEventIgnored } from "../../services/localEvents";
 import { EventChangeHistoryItem } from "../../services/notifications";
 import { ZeusEvent } from "../../types";
-import { formatDateRange, getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba } from "../../utils/calendar";
+import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba } from "../../utils/calendar";
 import { getDisplayedGroupNames } from "../../utils/groups";
+import { mixHex } from "../../theme/palettes";
+import { buildTimeline, elapsedShare, formatDuration } from "../../utils/timeline";
+import { getCourseProgress, minute } from "./calendarModel";
 import { s } from "./calendarStyles";
 
-const getCourseProgress = (startMillis: number, endMillis: number, now: number) => {
-	const duration = endMillis - startMillis;
-	if (!Number.isFinite(duration) || duration <= 0) return 0;
-	const progress = ((now - startMillis) / duration) * 100;
-	return Math.max(0, Math.min(100, Math.round(progress)));
-};
 export function formatEventChangeNotice(changes: EventChange[]) {
 	const first = changes[0];
 	const start = new Date(first.startDate);
@@ -119,18 +115,91 @@ function ChangeHistoryCard({ change }: { change: EventChangeHistoryItem }) {
 	);
 }
 
+const formatTime = (date: Date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+export function Rail({ fill, head, first, last }: { fill: number; head?: "fill" | "center"; first?: boolean; last?: boolean }) {
+	const { theme } = useTheme();
+	const percent = Math.round(fill * 100);
+	const caps = [first && s.railCapTop, last && s.railCapBottom];
+	const showHead = head === "center" || (fill > 0 && fill < 1);
+	return (
+		<View style={s.rail}>
+			<View style={[s.railTrack, ...caps, { backgroundColor: theme.border }]} />
+			{fill > 0 ? (
+				<View style={[s.railFill, first && s.railCapTop, fill === 1 && last && s.railCapBottom, { height: `${percent}%`, backgroundColor: theme.accent }]} />
+			) : null}
+			{showHead ? (
+				<View pointerEvents="none" style={[s.railHead, { top: head === "center" ? "50%" : `${percent}%`, backgroundColor: theme.accent, borderColor: theme.bg }]} />
+			) : null}
+		</View>
+	);
+}
+
+const isActiveEvent = (event: ZeusEvent) => !isEventCancelled(event) && !isEventIgnored(event);
+
+export function DayTimeline({
+	events,
+	now,
+	isToday,
+	renderEvent,
+}: {
+	events: ZeusEvent[];
+	now: number;
+	isToday: boolean;
+	renderEvent: (event: ZeusEvent, railFirst: boolean, railLast: boolean) => React.ReactNode;
+}) {
+	const { theme } = useTheme();
+	return (
+		<>
+			{buildTimeline<ZeusEvent>(events, now, isToday, isActiveEvent).map((item, index, items) =>
+				item.kind === "event" ? (
+					renderEvent(item.event, index === 0, index === items.length - 1)
+				) : item.kind === "break" ? (
+					<View key={item.key} style={s.breakRow}>
+						<View style={s.breakSpacer} />
+						<Rail fill={elapsedShare(item.start, item.end, now)} />
+						<View style={s.breakContent}>
+							<View style={[s.breakLine, { borderColor: theme.border }]} />
+							<Coffee color={theme.muted} size={14} />
+							<Text style={[s.breakText, { color: theme.muted }]}>Pause · {formatDuration(item.minutes)}</Text>
+							<View style={[s.breakLine, { borderColor: theme.border }]} />
+						</View>
+					</View>
+				) : (
+					<View key="now" style={s.nowRow} accessibilityLabel={`Il est ${formatTime(new Date(now))}`}>
+						<Text style={[s.nowTime, { color: theme.accent }]}>{formatTime(new Date(now))}</Text>
+						<Rail fill={0.5} head="center" first={index === 0} last={index === items.length - 1} />
+						<View style={[s.nowLine, { backgroundColor: theme.accent }]} />
+					</View>
+				)
+			)}
+		</>
+	);
+}
+
+function InfoLine({ icon, value, strong, color }: { icon: React.ReactNode; value: string; strong?: boolean; color: string }) {
+	return (
+		<View style={s.infoLine}>
+			<View style={s.infoLineIcon}>{icon}</View>
+			<Text style={[strong ? s.infoLineStrong : s.infoLineText, { color }]}>{value}</Text>
+		</View>
+	);
+}
+
 export function EventCard({
 	event,
-	index,
 	highlighted,
 	noteSummary,
 	now,
 	selectedGroups,
 	availableGroups,
+	railFirst,
+	railLast,
 	onPress,
 }: {
 	event: ZeusEvent;
-	index: number;
+	railFirst?: boolean;
+	railLast?: boolean;
 	highlighted?: boolean;
 	noteSummary?: CourseNoteSummary;
 	now: number;
@@ -140,123 +209,80 @@ export function EventCard({
 }) {
 	const { theme } = useTheme();
 	const activeGroupNames = (selectedGroups?.length || 0) > 1 ? getDisplayedGroupNames(event.groups, selectedGroups || [], availableGroups) : [];
-	const rooms = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
-	const teachers = event.teachers?.map(getTeacherName).filter(Boolean).slice(0, 2).join(", ");
+	const rooms = (event.rooms?.map(getRoomName).filter(Boolean) || []).join(", ");
+	const teachers = (event.teachers?.map(getTeacherName).filter(Boolean) || []).join(", ");
 	const color = getCourseColor(event);
 	const start = new Date(event.startDate);
 	const end = new Date(event.endDate);
 	const startMillis = start.getTime();
 	const endMillis = end.getTime();
-	const typeName = getCourseTypeLabel(event);
 	const cancelled = isEventCancelled(event);
 	const ignored = isEventIgnored(event);
 	const inactive = cancelled || ignored;
 	const isNow = !inactive && startMillis <= now && endMillis > now;
+	const isPast = !inactive && endMillis <= now;
 	const progress = getCourseProgress(startMillis, endMillis, now);
-	const visualColor = cancelled || ignored ? theme.muted : color;
+	const dark = theme.mode === "dark";
+	const title = getEventTitle(event);
+	const accent = inactive ? theme.muted : dark ? color : mixHex(color, "#000000", 0.35);
 	return (
-		<Animated.View entering={FadeInDown.delay(Math.min(index, 12) * 35).duration(320)} layout={Layout.springify()}>
-			<Card
+		<Pressable
+			onPress={onPress}
+			accessibilityRole="button"
+			accessibilityLabel={`${title}, de ${formatTime(start)} à ${formatTime(end)}${rooms ? `, salle ${rooms}` : ""}`}
+			style={({ pressed }) => [s.eventRow, pressed && s.eventRowPressed]}>
+			<View style={[s.eventTimeCol, (isPast || ignored) && s.eventPast]}>
+				<Text style={[s.eventStart, { color: inactive ? theme.muted : theme.text }]}>{formatTime(start)}</Text>
+				<Text style={[s.eventEnd, { color: theme.muted }]}>{formatTime(end)}</Text>
+			</View>
+			<Rail fill={elapsedShare(startMillis, endMillis, now)} first={railFirst} last={railLast} />
+			<View
 				style={[
-					s.eventCard,
-					inactive && s.eventCardCancelled,
-					highlighted && s.eventCardHighlighted,
-					{ borderColor: inactive ? theme.muted : highlighted || isNow ? color : theme.border, backgroundColor: inactive ? theme.surfaceSoft : theme.surface },
-				]}
-				variant="flat"
-				accent
-				accentColor={visualColor}
-				onPress={onPress}>
-				<View style={s.eventShell}>
-					<View style={[s.timeBlock, { backgroundColor: inactive ? theme.bg : hexToRgba(color, theme.mode === "dark" ? 0.18 : 0.12) }]}>
-						<Text style={[s.eventTime, { color: visualColor }]}>{start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</Text>
-						<Text style={[s.eventEnd, { color: theme.muted }]}>{end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</Text>
-					</View>
-					<View style={s.eventContent}>
-						<View style={s.eventTop}>
-							{cancelled ? (
-								<View style={[s.cancelledChip, { backgroundColor: theme.bg, borderColor: theme.muted }]}>
-									<X color={theme.muted} size={13} />
-									<Text style={[s.cancelledText, { color: theme.muted }]}>Annulé</Text>
-								</View>
-							) : ignored ? (
-								<View style={[s.cancelledChip, { backgroundColor: theme.bg, borderColor: theme.muted }]}>
-									<Filter color={theme.muted} size={13} />
-									<Text style={[s.cancelledText, { color: theme.muted }]}>Ignoré</Text>
-								</View>
-							) : (
-								<View style={[s.typeChip, { backgroundColor: hexToRgba(color, 0.14) }]}>
-									<Text style={[s.typeText, { color }]} numberOfLines={1}>
-										{typeName}
-									</Text>
-								</View>
-							)}
-							<View style={s.eventIndicators}>
-								{activeGroupNames.length ? (
-									<View style={[s.groupChip, { backgroundColor: theme.accentSoft }]}>
-										<Users color={theme.accent} size={13} />
-										<Text style={[s.groupChipText, { color: theme.accent }]} numberOfLines={1}>
-											{activeGroupNames.join(", ")}
-										</Text>
-									</View>
-								) : null}
-								{event.isOnline ? (
-									<View style={[s.onlineChip, { backgroundColor: theme.accentSoft }]}>
-										<Bell color={theme.accent} size={13} />
-										<Text style={[s.onlineText, { color: theme.accent }]}>En ligne</Text>
-									</View>
-								) : null}
-								{noteSummary?.count ? (
-									<View style={[s.noteIndicator, { backgroundColor: theme.surfaceSoft }]}>
-										<StickyNote color={visualColor} size={13} />
-										<Text style={[s.noteIndicatorText, { color: visualColor }]}>{noteSummary.count}</Text>
-									</View>
-								) : null}
-								{noteSummary?.hasAttachments ? (
-									<View style={[s.noteIconIndicator, { backgroundColor: theme.surfaceSoft }]}>
-										<Paperclip color={visualColor} size={13} />
-									</View>
-								) : null}
-								{noteSummary?.hasReminder ? (
-									<View style={[s.noteIconIndicator, { backgroundColor: theme.surfaceSoft }]}>
-										<Bell color={visualColor} size={13} />
-									</View>
-								) : null}
-							</View>
-						</View>
-						<Text style={[s.eventTitle, cancelled && s.eventTitleCancelled, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={2}>
-							{getEventTitle(event)}
-						</Text>
-						<Text style={[s.meta, { color: theme.muted }]} numberOfLines={1}>
-							{cancelled ? `Cours annulé · ${formatDateRange(event)}` : formatDateRange(event)}
-						</Text>
-						<View style={s.eventMetaGrid}>
-							{rooms ? (
-								<View style={s.inlineMeta}>
-									<MapPin color={visualColor} size={15} />
-									<Text style={[s.inlineText, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={1}>
-										{rooms}
-									</Text>
-								</View>
-							) : null}
-							{teachers ? (
-								<View style={s.inlineMeta}>
-									<Users color={visualColor} size={15} />
-									<Text style={[s.inlineText, { color: cancelled ? theme.muted : theme.text }]} numberOfLines={1}>
-										{teachers}
-									</Text>
-								</View>
-							) : null}
-						</View>
-						{isNow && !cancelled ? (
-							<View style={[s.nowBar, { backgroundColor: hexToRgba(color, 0.16) }]}>
-								<View style={[s.nowFill, { width: `${progress}%`, backgroundColor: color }]} />
-								<Text style={[s.nowText, { backgroundColor: theme.surface, color }]}>En cours</Text>
+					s.eventBlock,
+					(isPast || ignored) && s.eventPast,
+					inactive
+						? { backgroundColor: theme.surfaceSoft, borderColor: theme.border, borderStyle: "dashed" }
+						: { backgroundColor: hexToRgba(color, dark ? 0.15 : 0.09), borderColor: hexToRgba(color, isNow ? 0.9 : dark ? 0.4 : 0.3) },
+					(highlighted || isNow) && s.eventBlockStrong,
+					highlighted && { borderColor: theme.accent },
+				]}>
+				<View style={s.eventTop}>
+					<Text style={[s.eventType, { color: accent }]} numberOfLines={1}>
+						{cancelled ? "Annulé" : ignored ? "Ignoré" : getCourseTypeLabel(event)}
+					</Text>
+					<Text style={[s.eventDuration, { color: theme.muted }]}>· {formatDuration((endMillis - startMillis) / minute)}</Text>
+					<View style={s.eventIndicators}>
+						{event.isOnline ? <Video color={theme.muted} size={15} /> : null}
+						{noteSummary?.count ? (
+							<View style={s.eventIndicator}>
+								<StickyNote color={theme.muted} size={15} />
+								<Text style={[s.eventIndicatorText, { color: theme.muted }]}>{noteSummary.count}</Text>
 							</View>
 						) : null}
+						{noteSummary?.hasAttachments ? <Paperclip color={theme.muted} size={15} /> : null}
+						{noteSummary?.hasReminder ? <Bell color={theme.muted} size={15} /> : null}
 					</View>
 				</View>
-			</Card>
-		</Animated.View>
+				<Text style={[s.eventTitle, cancelled && s.eventTitleCancelled, { color: inactive ? theme.muted : theme.text }]}>{title}</Text>
+				{rooms || teachers || activeGroupNames.length ? (
+					<View style={s.eventInfo}>
+						{rooms ? <InfoLine icon={<MapPin color={accent} size={15} />} value={rooms} strong color={inactive ? theme.muted : theme.text} /> : null}
+						{teachers ? <InfoLine icon={<User color={accent} size={15} />} value={teachers} color={theme.muted} /> : null}
+						{activeGroupNames.length ? <InfoLine icon={<Users color={accent} size={15} />} value={activeGroupNames.join(", ")} color={theme.muted} /> : null}
+					</View>
+				) : null}
+				{isNow ? (
+					<View style={s.eventNow}>
+						<View style={s.eventNowHeader}>
+							<Text style={[s.eventNowText, { color: theme.text }]}>En cours · encore {formatDuration((endMillis - now) / minute)}</Text>
+							<Text style={[s.eventNowText, { color: theme.muted }]}>{progress}%</Text>
+						</View>
+						<View style={[s.eventNowTrack, { backgroundColor: hexToRgba(color, 0.22) }]}>
+							<View style={[s.eventNowFill, { width: `${progress}%`, backgroundColor: color }]} />
+						</View>
+					</View>
+				) : null}
+			</View>
+		</Pressable>
 	);
 }

@@ -107,20 +107,6 @@ const relativeDayOffset = (date: Date, reference: Date) => Math.round((startOfDa
 
 const formatShortDay = (date: Date) => date.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 
-export const formatUntilSuffix = (date: Date, reference: Date) => {
-	const offset = relativeDayOffset(date, reference);
-	if (offset === 0) return `à ${formatTime(date)}`;
-	if (offset === 1) return `à demain ${formatTime(date)}`;
-	return `au ${formatShortDay(date)} à ${formatTime(date)}`;
-};
-
-export const formatEndSuffix = (date: Date, reference: Date) => {
-	const offset = relativeDayOffset(date, reference);
-	if (offset === 0) return `à ${formatTime(date)}`;
-	if (offset === 1) return `demain à ${formatTime(date)}`;
-	return `le ${formatShortDay(date)} à ${formatTime(date)}`;
-};
-
 export const formatStartLabel = (date: Date, reference: Date) => {
 	const offset = relativeDayOffset(date, reference);
 	if (offset === 0) return `Aujourd'hui à ${formatTime(date)}`;

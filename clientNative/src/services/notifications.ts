@@ -1,6 +1,6 @@
+import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
 import { NativeModules, Platform } from "react-native";
 import { ZeusEvent } from "../types";
 import { getEventTitle, getRoomName } from "../utils/calendar";
@@ -144,13 +144,7 @@ export async function requestNotificationPermission() {
 	if (Platform.OS === "web") return true;
 	const { status: existing } = await Notifications.getPermissionsAsync();
 	if (existing === "granted") return true;
-	const { status } = await Notifications.requestPermissionsAsync({
-		ios: {
-			allowAlert: true,
-			allowSound: true,
-		},
-		android: {},
-	});
+	const { status } = await Notifications.requestPermissionsAsync();
 	return status === "granted";
 }
 
@@ -360,11 +354,7 @@ export async function notifyAurigaGradeChanges(changes: AurigaGradeNotificationC
 	const channelId = gradeChannelId(notificationType);
 	await Notifications.scheduleNotificationAsync({
 		content: {
-			title: multipleChanges
-				? `${freshChanges.length} notes Auriga mises à jour`
-				: firstChange.kind === "new"
-					? "Nouvelle note Auriga"
-					: "Note Auriga modifiée",
+			title: multipleChanges ? `${freshChanges.length} notes Auriga mises à jour` : firstChange.kind === "new" ? "Nouvelle note Auriga" : "Note Auriga modifiée",
 			body: multipleChanges ? "Ouvre l’onglet Notes pour voir les changements." : formatAurigaGradeNotificationBody(firstChange),
 			data: {
 				type: "auriga-grade",
@@ -400,9 +390,7 @@ export async function clearAurigaGradeNotificationHistory() {
 
 export async function getEventChangeHistory() {
 	const history = await getJSON<EventChangeHistoryItem[]>(EVENT_CHANGE_HISTORY_KEY, []);
-	return history
-		.filter((item) => item?.key && item?.title && item?.startDate)
-		.sort((a, b) => new Date(b.notifiedAt).getTime() - new Date(a.notifiedAt).getTime());
+	return history.filter((item) => item?.key && item?.title && item?.startDate).sort((a, b) => new Date(b.notifiedAt).getTime() - new Date(a.notifiedAt).getTime());
 }
 
 export async function clearEventChangeHistory() {

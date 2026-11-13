@@ -1,5 +1,4 @@
 apply plugin: "com.android.application"
-apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
 import java.util.Properties
@@ -95,12 +94,12 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
-    ndkVersion rootProject.ext.ndkVersion
+    ndkVersion = rootProject.ext.ndkVersion
 
-    buildToolsVersion rootProject.ext.buildToolsVersion
-    compileSdk rootProject.ext.compileSdkVersion
+    buildToolsVersion = rootProject.ext.buildToolsVersion
+    compileSdk = rootProject.ext.compileSdkVersion
 
-    namespace 'fr.alexistb2904.epitime'
+    namespace = 'fr.alexistb2904.epitime'
     defaultConfig {
         applicationId 'fr.alexistb2904.epitime'
         minSdkVersion rootProject.ext.minSdkVersion
@@ -128,30 +127,30 @@ android {
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            // Installable à côté de la release (signature différente, données séparées)
+            applicationIdSuffix ".dev"
+            signingConfig = signingConfigs.debug
         }
         release {
             if (hasReleaseKeystore) {
-                signingConfig signingConfigs.release
-            } else {
-                logger.lifecycle("Release signing is not configured. Release builds will fail until android/keystore.properties is configured.")
+                signingConfig = signingConfigs.release
             }
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
-            shrinkResources enableShrinkResources.toBoolean()
-            minifyEnabled enableMinifyInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            shrinkResources = enableShrinkResources.toBoolean()
+            minifyEnabled = enableMinifyInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
-            crunchPngs enablePngCrunchInRelease.toBoolean()
+            crunchPngs = enablePngCrunchInRelease.toBoolean()
         }
     }
     packagingOptions {
         jniLibs {
             def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
-            useLegacyPackaging enableLegacyPackaging.toBoolean()
+            useLegacyPackaging = enableLegacyPackaging.toBoolean()
         }
     }
     androidResources {
-        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+        ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
 }
 
@@ -208,5 +207,5 @@ dependencies {
 if (file("google-services.json").exists()) {
     apply plugin: 'com.google.gms.google-services'
 } else {
-    logger.lifecycle("android/app/google-services.json not found; skipping Google services plugin.")
+    logger.info("android/app/google-services.json not found; skipping Google services plugin.")
 }

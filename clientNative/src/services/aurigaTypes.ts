@@ -121,7 +121,7 @@ export function cleanHtml(raw?: string | null): string {
 		.replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
 		.replace(/&apos;/gi, "'")
 		.replace(/&#39;?/gi, "'")
-		.replace(/&quot;/gi, "\"")
+		.replace(/&quot;/gi, '"')
 		.replace(/&nbsp;/gi, " ")
 		.replace(/&amp;/gi, "&")
 		.replace(/&lt;/gi, "<")

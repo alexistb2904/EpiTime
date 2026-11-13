@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
-import { runOnJS } from "react-native-reanimated";
-import { Gesture } from "react-native-gesture-handler";
+import { usePanGesture } from "react-native-gesture-handler";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
 import { getCourseType, getGroups, getReservationDetails, getRooms, getTeachers, isAuthReconnectRequiredError } from "../services/api";
 import { CourseNoteSummary, getCourseNoteSummaries, rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getCachedAurigaSyllabus } from "../services/aurigaCache";
@@ -35,11 +33,11 @@ import {
 import { readCachedSchedule, syncSchedule } from "../services/scheduleRepository";
 import { refreshCourseWidgetsForGroups, syncCourseWidgets } from "../services/widgets";
 import { Group, Room, Teacher, ZeusEvent } from "../types";
-import { eventOverlapsDay, getCourseColor, getRoomName, getWeekRange, startOfDay } from "../utils/calendar";
+import { eventOverlapsDay, getWeekRange, startOfDay } from "../utils/calendar";
 import { buildGroupTree, filterGroupTree } from "../utils/groups";
 import { buildScheduleFilterQuery, ScheduleFilters } from "../utils/scheduleFilters";
 import { CalendarContent } from "../components/calendar/CalendarContent";
-import { CalendarRouteParams, ScheduleContext, ViewMode, dayKey, getCourseProgress, getTargetEventKey, minute, rangeFor } from "../components/calendar/calendarModel";
+import { CalendarRouteParams, ScheduleContext, ViewMode, dayKey, getTargetEventKey, minute } from "../components/calendar/calendarModel";
 import { trackEvent } from "../services/analytics";
 
 const FILTER_ROOMS_CACHE_KEY = "filterOptions.rooms";
@@ -50,7 +48,6 @@ const sortTeachers = (items: Teacher[] = []) => [...items].sort((a, b) => `${a.f
 
 export default function CalendarScreen() {
 	const { handleAuthExpired } = useAuth();
-	const { theme } = useTheme();
 	const route = useRoute<any>();
 	const navigation = useNavigation<any>();
 	const routeParams = route.params as CalendarRouteParams | undefined;
@@ -171,7 +168,7 @@ export default function CalendarScreen() {
 			const startedAt = Date.now();
 			setLoading(true);
 			setError("");
-			const { start, end } = rangeFor(nextDate, nextView);
+			const { start, end } = getWeekRange(nextDate);
 			const query = buildScheduleFilterQuery(nextFilters, nextContext);
 			try {
 				const notificationSettings = await getNotificationSettings();
@@ -248,7 +245,9 @@ export default function CalendarScreen() {
 			try {
 				const requestedDate = routeParams?.targetDate ? startOfDay(new Date(routeParams.targetDate)) : null;
 				initialDate = requestedDate && !Number.isNaN(requestedDate.getTime()) ? requestedDate : new Date();
-				const initialMode: ViewMode = requestedDate ? "day" : await getJSON<ViewMode>("viewMode", "week");
+				const storedViewMode = await getJSON<string>("viewMode", "week");
+				// "day" was a separate mode before the rework; it is now the default day agenda ("week").
+				const initialMode: ViewMode = requestedDate || storedViewMode !== "list" ? "week" : "list";
 				const [cachedGroups, storedGroups, storedRooms, storedTeachers, storedMode] = await Promise.all([
 					getJSON<Group[]>("lastGroups", []),
 					getJSON<(string | number)[]>("selectedGroups", []),
@@ -274,7 +273,7 @@ export default function CalendarScreen() {
 				void refreshSyllabusList();
 			} catch {
 				setGroups(await getJSON("lastGroups", []));
-				const { start, end } = rangeFor(initialDate, savedMode);
+				const { start, end } = getWeekRange(initialDate);
 				const cached = await readCachedSchedule(start, end, { groups: savedGroups, rooms: savedRooms, teachers: savedTeachers }, true);
 				setEvents(cached.visibleEvents);
 				await rescheduleCourseNoteReminders(cached.visibleEvents);
@@ -318,11 +317,11 @@ export default function CalendarScreen() {
 		if (Number.isNaN(target.getTime())) return;
 		const nextKey = getTargetEventKey(routeParams);
 		setHighlightedEventKey(nextKey);
-		setViewMode("day");
+		setViewMode("week");
 		setCurrentDate(target);
 		setFocusedDay(target);
 		setPickerMonth(target);
-		loadCalendar(context, target, "day");
+		loadCalendar(context, target, "week");
 	}, [routeParams?.targetDate, routeParams?.eventId, routeParams?.eventReservationId, routeParams?.eventStartDate]);
 
 	useEffect(() => {
@@ -358,11 +357,10 @@ export default function CalendarScreen() {
 		if (exists) setHighlightedEventKey(targetKey);
 	}, [routeParams?.eventId, routeParams?.eventReservationId, routeParams?.eventStartDate, sortedEvents]);
 
-	const visibleEvents = useMemo(() => {
-		if (viewMode === "list") return sortedEvents;
-		const day = viewMode === "day" ? startOfDay(currentDate) : focusedDay;
-		return sortedEvents.filter((event) => eventOverlapsDay(event, day));
-	}, [currentDate, focusedDay, sortedEvents, viewMode]);
+	const visibleEvents = useMemo(
+		() => (viewMode === "list" ? sortedEvents : sortedEvents.filter((event) => eventOverlapsDay(event, focusedDay))),
+		[focusedDay, sortedEvents, viewMode]
+	);
 	const eventsByDay = useMemo(() => {
 		const map = new Map<string, ZeusEvent[]>();
 		days.forEach((day) => {
@@ -378,46 +376,13 @@ export default function CalendarScreen() {
 	const filteredGroups = useMemo(() => filterGroupTree(groupTree, groupSearch), [groupTree, groupSearch]);
 
 	const selectedLabels = selectedGroups.map((id) => groups.find((group) => group.id === id)?.name || String(id));
-	const selectedDay = viewMode === "day" ? startOfDay(currentDate) : focusedDay;
-	const selectedDayEvents = sortedEvents.filter((event) => eventOverlapsDay(event, selectedDay));
-	const selectedDayActiveEvents = selectedDayEvents.filter((event) => !isEventCancelled(event) && !isEventIgnored(event));
-	const selectedDayCancelledCount = selectedDayEvents.filter(isEventCancelled).length;
-	const selectedDayIgnoredCount = selectedDayEvents.filter((event) => !isEventCancelled(event) && isEventIgnored(event)).length;
-	const activeEventForDay = selectedDayActiveEvents.find((event) => new Date(event.startDate).getTime() <= now && new Date(event.endDate).getTime() > now);
-	const nextEventForDay = selectedDayActiveEvents.find((event) => new Date(event.startDate).getTime() > now);
-	const activeEvent = activeEventForDay || null;
-	const nextEvent = activeEventForDay || nextEventForDay || activeScheduleEvents.find((event) => new Date(event.endDate).getTime() > now);
-	const contextLabel = context.type === "group" ? selectedLabels.slice(0, 2).join(", ").replace("_", " ") || "Aucun groupe" : context.label;
-	const compactDate = selectedDay.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
-	const nextEventColor = nextEvent ? getCourseColor(nextEvent) : theme.accent;
-	const nextEventStart = nextEvent ? new Date(nextEvent.startDate) : null;
-	const nextEventEnd = nextEvent ? new Date(nextEvent.endDate) : null;
-	const nextEventStartMillis = nextEventStart?.getTime() ?? Number.NaN;
-	const nextEventEndMillis = nextEventEnd?.getTime() ?? Number.NaN;
-	const nextEventIsNow = Number.isFinite(nextEventStartMillis) && Number.isFinite(nextEventEndMillis) && nextEventStartMillis <= now && nextEventEndMillis > now;
-	const nextEventProgress = getCourseProgress(nextEventStartMillis, nextEventEndMillis, now);
-	const nextEventRooms = nextEvent?.rooms?.map(getRoomName).filter(Boolean).join(", ");
-	const nextEventStartTime = nextEventStart?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) || "";
-	const nextEventEndTime = nextEventEnd?.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) || "";
-	const headerTitle =
-		viewMode === "day"
-			? currentDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
-			: `Semaine du ${getWeekRange(currentDate).start.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
-	const dateButtonLabel =
-		viewMode === "week"
-			? `${getWeekRange(currentDate).start.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} - ${new Date(
-					getWeekRange(currentDate).end.getTime() - 86400000
-				).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`
-			: currentDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
-	const selectedDayStatus = activeEvent
-		? "En cours"
-		: selectedDayActiveEvents.length
-			? `${selectedDayActiveEvents.length} cours planifié${selectedDayActiveEvents.length > 1 ? "s" : ""}`
-			: selectedDayCancelledCount
-				? `${selectedDayCancelledCount} cours annulé${selectedDayCancelledCount > 1 ? "s" : ""}`
-				: selectedDayIgnoredCount
-					? `${selectedDayIgnoredCount} cours ignoré${selectedDayIgnoredCount > 1 ? "s" : ""}`
-					: "Journée libre";
+	const contextLabel =
+		context.type === "group"
+			? selectedLabels.length > 2
+				? `${selectedLabels.slice(0, 2).join(", ")} +${selectedLabels.length - 2}`
+				: selectedLabels.join(", ") || "Aucun groupe choisi"
+			: context.label;
+	const extraFilterCount = selectedRooms.length + selectedTeachers.length;
 	const showCacheBanner = usingCache;
 	const selectedEventSyllabus = useMemo(() => (selectedEvent ? findSyllabusForEvent(selectedEvent, syllabusList) : null), [selectedEvent, syllabusList]);
 	const openEventSyllabus = (syllabus: AurigaSyllabus) => {
@@ -441,22 +406,41 @@ export default function CalendarScreen() {
 		loadCalendar(context, next, viewMode);
 	};
 
-	const setMode = async (mode: ViewMode) => {
-		const nextDate = mode === "day" ? focusedDay : currentDate;
+	const setMode = async (mode: ViewMode, date: Date = currentDate) => {
 		setViewMode(mode);
-		setCurrentDate(nextDate);
+		setCurrentDate(date);
 		await setJSON("viewMode", mode);
 		void trackEvent("calendar_view_changed", { view_mode: mode });
-		loadCalendar(context, nextDate, mode);
+		loadCalendar(context, date, mode);
+	};
+
+	// Tapping a day always opens that day's agenda, even from the week list.
+	const selectDay = (day: Date) => {
+		const next = startOfDay(day);
+		setFocusedDay(next);
+		if (viewMode === "list") setMode("week", next);
+		else setCurrentDate(next);
 	};
 
 	const move = (delta: number) => {
 		const next = new Date(currentDate);
-		next.setDate(next.getDate() + (viewMode === "day" ? delta : delta * 7));
+		next.setDate(next.getDate() + delta * 7);
 		setCurrentDate(next);
-		if (viewMode !== "day") setFocusedDay(startOfDay(next));
+		setFocusedDay(startOfDay(next));
 		void trackEvent("calendar_date_changed", { direction: delta > 0 ? "next" : "previous" });
 		loadCalendar(context, next, viewMode);
+	};
+
+	const moveDay = (delta: number) => {
+		const next = startOfDay(focusedDay);
+		next.setDate(next.getDate() + delta);
+		const { start, end } = getWeekRange(currentDate);
+		setFocusedDay(next);
+		setCurrentDate(next);
+		if (next < start || next >= end) {
+			void trackEvent("calendar_date_changed", { direction: delta > 0 ? "next" : "previous" });
+			loadCalendar(context, next, viewMode);
+		}
 	};
 
 	const applyFilters = async (nextFilters: ScheduleFilters) => {
@@ -616,13 +600,16 @@ export default function CalendarScreen() {
 		]);
 	};
 
-	const swipeGesture = Gesture.Pan()
-		.activeOffsetX([-40, 40])
-		.failOffsetY([-20, 20])
-		.onEnd((e) => {
-			if (e.translationX > 50) runOnJS(move)(-1);
-			else if (e.translationX < -50) runOnJS(move)(1);
-		});
+	const swipeGesture = usePanGesture({
+		activeOffsetX: [-40, 40],
+		failOffsetY: [-20, 20],
+		runOnJS: true,
+		onDeactivate: (e) => {
+			const step = viewMode === "list" ? move : moveDay;
+			if (e.translationX > 50) step(-1);
+			else if (e.translationX < -50) step(1);
+		},
+	});
 
 	return (
 		<CalendarContent
@@ -630,13 +617,13 @@ export default function CalendarScreen() {
 			applyDate={applyDate}
 			changeHistory={changeHistory}
 			clearChanges={clearChanges}
-			compactDate={compactDate}
 			context={context}
 			contextLabel={contextLabel}
 			currentDate={currentDate}
-			dateButtonLabel={dateButtonLabel}
 			dayKey={dayKey}
 			days={days}
+			extraFilterCount={extraFilterCount}
+			selectDay={selectDay}
 			deleteEvent={deleteEvent}
 			error={error}
 			eventChanges={eventChanges}
@@ -645,18 +632,10 @@ export default function CalendarScreen() {
 			filteredGroups={filteredGroups}
 			focusedDay={focusedDay}
 			groupSearch={groupSearch}
-			headerTitle={headerTitle}
 			highlightedEventKey={highlightedEventKey}
 			ignoreEvent={ignoreEvent}
 			loading={loading}
 			move={move}
-			nextEvent={nextEvent}
-			nextEventColor={nextEventColor}
-			nextEventEndTime={nextEventEndTime}
-			nextEventIsNow={nextEventIsNow}
-			nextEventProgress={nextEventProgress}
-			nextEventRooms={nextEventRooms}
-			nextEventStartTime={nextEventStartTime}
 			noteSummaries={noteSummaries}
 			now={now}
 			openDetails={openDetails}
@@ -664,8 +643,6 @@ export default function CalendarScreen() {
 			reactivateEvent={reactivateEvent}
 			refreshNoteSummaries={refreshNoteSummaries}
 			resetContext={resetContext}
-			selectedDay={selectedDay}
-			selectedDayStatus={selectedDayStatus}
 			selectedEvent={selectedEvent}
 			selectedEventSyllabus={selectedEventSyllabus}
 			selectedGroups={selectedGroups}
@@ -675,10 +652,7 @@ export default function CalendarScreen() {
 			teachers={teachers}
 			filterOptionsLoading={filterOptionsLoading}
 			onLoadFilterOptions={loadFilterOptions}
-			selectedLabels={selectedLabels}
-			setCurrentDate={setCurrentDate}
 			setEventChanges={setEventChanges}
-			setFocusedDay={setFocusedDay}
 			setGroupSearch={setGroupSearch}
 			setMode={setMode}
 			setPickerMonth={setPickerMonth}

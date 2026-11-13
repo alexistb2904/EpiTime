@@ -1,5 +1,5 @@
-import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { Session } from "../types";
 const SESSION_KEY = "epitime.session";

@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { compareVersions, isVersionNewer, normalizeVersion } from "./versionUtils.ts";
 
 test("normalizeVersion strips v prefix, prerelease and build metadata", () => {

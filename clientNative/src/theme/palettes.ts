@@ -1,4 +1,12 @@
-import type { Material3Scheme } from "@pchmn/expo-material3-theme";
+export type DynamicScheme = Record<
+	"primary" | "primaryContainer" | "tertiaryContainer" | "background" | "onBackground" | "surface" | "surfaceContainerLow" | "surfaceContainer" | "onSurfaceVariant" | "outlineVariant",
+	string
+>;
+
+export function mixHex(a: string, b: string, ratio: number): string {
+	const channel = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+	return "#" + [0, 1, 2].map((i) => Math.round(channel(a, i) * (1 - ratio) + channel(b, i) * ratio).toString(16).padStart(2, "0")).join("").toUpperCase();
+}
 
 export type ResolvedThemeMode = "dark" | "light";
 export type ThemeMode = ResolvedThemeMode | "system";
@@ -74,29 +82,27 @@ export const palettes: Record<ResolvedThemeMode, AppTheme> = {
 	},
 };
 
-export function mapMaterial3SchemeToAppTheme(scheme: Material3Scheme, mode: ResolvedThemeMode): AppTheme {
+export function mapDynamicSchemeToAppTheme(scheme: DynamicScheme, mode: ResolvedThemeMode): AppTheme {
 	return {
 		mode,
 		bg: scheme.background,
-		surface: scheme.surfaceContainerLow || scheme.surface,
-		surfaceSoft: scheme.surfaceContainer || scheme.surfaceVariant,
-		border: scheme.outlineVariant || scheme.outline,
+		surface: scheme.surfaceContainerLow,
+		surfaceSoft: scheme.surfaceContainer,
+		border: scheme.outlineVariant,
 		text: scheme.onBackground,
 		muted: scheme.onSurfaceVariant,
 		accent: scheme.primary,
 		accentHover: scheme.primaryContainer,
 		accentSoft: scheme.primaryContainer,
-		gridLine: scheme.outlineVariant || scheme.outline,
+		gridLine: scheme.outlineVariant,
 		timeLine: scheme.tertiaryContainer,
 		warn: mode === "dark" ? "#f59e0b" : "#b45309",
-		danger: scheme.errorContainer,
-		cardShadow: scheme.shadow,
-		elevation: scheme.elevation
-			? {
-					low: scheme.elevation.level1,
-					medium: scheme.elevation.level3,
-					high: scheme.elevation.level5,
-				}
-			: undefined,
+		danger: mode === "dark" ? "#93000A" : "#FFDAD6",
+		cardShadow: "#000000",
+		elevation: {
+			low: mixHex(scheme.surface, scheme.primary, 0.05),
+			medium: mixHex(scheme.surface, scheme.primary, 0.11),
+			high: mixHex(scheme.surface, scheme.primary, 0.14),
+		},
 	};
 }

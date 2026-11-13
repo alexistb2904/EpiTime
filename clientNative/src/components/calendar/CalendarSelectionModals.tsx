@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeInDown, Layout } from "react-native-reanimated";
+import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Check, Clock, DoorOpen, Filter, Layers, MapPin, Minus, Navigation, Plus, RotateCcw, Search, SlidersHorizontal, Users, X } from "lucide-react-native";
 import { useTheme } from "../../context/ThemeContext";
@@ -780,7 +780,7 @@ function RoomResultCard({
 	const capacityLabel = room.capacity ? `${room.capacity} places` : "Capacité inconnue";
 
 	return (
-		<Animated.View entering={FadeInDown.delay(Math.min(index, 14) * 25).duration(260)} layout={Layout.springify()}>
+		<Animated.View entering={FadeInDown.delay(Math.min(index, 14) * 25).duration(260)} layout={LinearTransition.springify()}>
 			<View style={[s.roomResultCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
 				<View style={[s.roomResultIcon, { backgroundColor: theme.accentSoft }]}>
 					<DoorOpen color={theme.accent} size={20} />

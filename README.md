@@ -247,13 +247,6 @@ cd clientNative
 npm run android
 ```
 
-### iOS (Pas testé)
-
-```bash
-cd clientNative
-npm run ios
-```
-
 ### Vérifications utiles
 
 ```bash

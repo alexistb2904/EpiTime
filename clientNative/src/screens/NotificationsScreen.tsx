@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { BellRing, CalendarClock, CheckCircle2, Clock, Send } from "lucide-react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { AlertCircle, BellRing, CalendarClock, CalendarDays, Clock, Radio, Send, Volume2 } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Card from "../components/Card";
+import { PrimaryButton, Row, ScreenTitle, Section, Segmented, Stepper, s as ls } from "../components/settings/SettingsList";
+import { getLiveCourseNotificationSettings, setLiveCourseProgressNotificationEnabled } from "../services/liveCourse";
+import { getRequiredAppPermissions, openAppPermissionSettings, requestRequiredAppPermissions, type RequiredPermissionsResult } from "../services/permissions";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { registerExpoPushToken, unregisterExpoPushToken, sendMobileTestNotification, isAuthReconnectRequiredError } from "../services/api";
@@ -31,6 +34,9 @@ export default function NotificationsScreen() {
 	const [settings, setSettings] = useState(defaultNotificationSettings);
 	const [message, setMessage] = useState("Les rappels locaux sont planifiés automatiquement.");
 	const [loading, setLoading] = useState(false);
+	const [liveCourseProgressEnabled, setLiveCourseProgressEnabled] = useState(true);
+	const [permissionState, setPermissionState] = useState<RequiredPermissionsResult | null>(null);
+	const [permissionsLoading, setPermissionsLoading] = useState(false);
 	const account = session?.account as { id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
 	const userId = account?.id || account?.userPrincipalName || account?.mail || "";
 
@@ -38,7 +44,95 @@ export default function NotificationsScreen() {
 		getNotificationSettings()
 			.then(setSettings)
 			.catch(() => {});
+		getLiveCourseNotificationSettings()
+			.then((liveCourse) => setLiveCourseProgressEnabled(liveCourse.progressEnabled))
+			.catch(() => {});
 	}, []);
+
+	useFocusEffect(
+		useCallback(() => {
+			getRequiredAppPermissions({ includeExactAlarms: true })
+				.then(setPermissionState)
+				.catch(() => {});
+		}, [])
+	);
+
+	const toggleLiveCourseProgress = async (enabled: boolean) => {
+		setLiveCourseProgressEnabled(enabled);
+		try {
+			await setLiveCourseProgressNotificationEnabled(enabled);
+		} catch {
+			setLiveCourseProgressEnabled(!enabled);
+		}
+	};
+
+	const refreshNotificationServices = async () => {
+		const [notificationSettings, cachedSchedule, groups] = await Promise.all([
+			getNotificationSettings(),
+			readCachedSelectedGroupsSchedule(14),
+			getJSON<(string | number)[]>("selectedGroups", []),
+		]);
+
+		await rescheduleCourseNoteReminders(cachedSchedule.visibleEvents).catch(() => {});
+		if (!notificationSettings.enabled) return;
+
+		await scheduleLocalCourseNotifications(
+			cachedSchedule.activeEvents,
+			notificationSettings.minutesBefore,
+			notificationSettings.selectedDays,
+			notificationSettings.notificationType,
+			{
+				requestPermission: false,
+			}
+		).catch(() => {});
+		await registerPlanningNotificationBackgroundSync().catch(() => {});
+		if (!userId) return;
+		const token = await requestPushToken().catch(() => null);
+		if (token) {
+			try {
+				await registerExpoPushToken(token, userId, groups, notificationSettings);
+			} catch (err) {
+				if (isAuthReconnectRequiredError(err)) {
+					await handleAuthExpired();
+					return;
+				}
+			}
+		}
+	};
+
+	const requestMissingPermissions = async () => {
+		setPermissionsLoading(true);
+		try {
+			const result = await requestRequiredAppPermissions({ includeExactAlarms: true });
+			setPermissionState(result);
+			if (!result.missing.length) {
+				await refreshNotificationServices();
+				Alert.alert("Permissions accordées", "Les rappels et synchronisations nécessaires sont prêts.");
+				return;
+			}
+
+			const blocked = result.missing.some((permission) => !permission.canAskAgain);
+			const missingExactAlarms = result.missing.some((permission) => permission.id === "exactAlarms");
+			if (blocked) {
+				Alert.alert("Permission à activer", "Active les permissions manquantes dans les réglages système pour que les rappels EpiTime fonctionnent.", [
+					{ text: "Plus tard", style: "cancel" },
+					{ text: "Ouvrir les réglages", onPress: () => void openAppPermissionSettings() },
+				]);
+				return;
+			}
+
+			Alert.alert(
+				"Permission manquante",
+				missingExactAlarms
+					? "Active les alarmes exactes pour que la notification de début de cours se déclenche à l'heure exacte."
+					: "La permission notification n'a pas été accordée."
+			);
+		} catch (err: any) {
+			Alert.alert("Permissions indisponibles", err?.message || "Impossible de vérifier les permissions.");
+		} finally {
+			setPermissionsLoading(false);
+		}
+	};
 
 	const ensureRemoteSubscription = async (settingsOverride?: NotificationSettings) => {
 		if (!userId) throw new Error("Profil Microsoft indisponible.");
@@ -143,172 +237,139 @@ export default function NotificationsScreen() {
 		saveSettings({ ...settings, selectedDays });
 	};
 
+	const missingPermissions = permissionState?.missing ?? [];
+	const allDays = settings.selectedDays.length === 7;
+
 	return (
-		<ScrollView style={[s.root, { backgroundColor: theme.bg }]} contentContainerStyle={[s.content, { paddingTop: insets.top + 18 }]}>
-			<Text style={[s.eyebrow, { color: theme.accent }]}>Notifications</Text>
-			<Text style={[s.title, { color: theme.text }]}>Rappels de cours</Text>
+		<ScrollView style={[ls.screen, { backgroundColor: theme.bg }]} contentContainerStyle={[ls.screenContent, { paddingTop: insets.top + 16 }]}>
+			<ScreenTitle>Notifications</ScreenTitle>
 
-			<Card style={s.rowCard}>
-				<View style={[s.iconBox, { backgroundColor: theme.accentSoft }]}>
-					<BellRing color={theme.accent} size={22} />
-				</View>
-				<View style={s.rowBody}>
-					<Text style={[s.rowTitle, { color: theme.text }]}>Activer les alertes</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>Notifications de vos cours</Text>
-				</View>
-				<Switch value={settings.enabled} onValueChange={(enabled) => void (enabled ? enableRemote() : disableRemote())} disabled={loading} thumbColor={theme.accent} />
-			</Card>
-
-			<Card>
-				<View style={s.rowHeader}>
-					<Clock color={theme.accent} size={20} />
-					<Text style={[s.sectionTitle, { color: theme.text }]}>Alerter avant</Text>
-				</View>
-				<View style={s.stepper}>
-					<Pressable
-						style={[s.stepBtn, { borderColor: theme.border }]}
-						onPress={() => saveSettings({ ...settings, minutesBefore: Math.max(1, settings.minutesBefore - 5) })}>
-						<Text style={[s.stepText, { color: theme.text }]}>-</Text>
-					</Pressable>
-					<Text style={[s.minutes, { color: theme.text }]}>{settings.minutesBefore} min</Text>
-					<Pressable
-						style={[s.stepBtn, { borderColor: theme.border }]}
-						onPress={() => saveSettings({ ...settings, minutesBefore: Math.min(120, settings.minutesBefore + 5) })}>
-						<Text style={[s.stepText, { color: theme.text }]}>+</Text>
-					</Pressable>
-				</View>
-			</Card>
-
-			<Card>
-				<Text style={[s.sectionTitle, { color: theme.text }]}>Type de notification</Text>
-				<View style={s.typeRow}>
-					{[
-						{ value: "banner" as const, label: "Bannière" },
-						{ value: "sound" as const, label: "Son" },
-						{ value: "both" as const, label: "Les deux" },
-					].map((item) => {
-						const active = settings.notificationType === item.value;
-						return (
-							<Pressable
-								key={item.value}
-								style={[s.typeChip, { backgroundColor: active ? theme.accent : theme.surfaceSoft, borderColor: theme.border }]}
-								onPress={() => saveSettings({ ...settings, notificationType: item.value })}>
-								<Text style={[s.typeText, { color: active ? "#fff" : theme.text }]}>{item.label}</Text>
-							</Pressable>
-						);
-					})}
-				</View>
-			</Card>
-
-			<Card>
-				<Text style={[s.sectionTitle, { color: theme.text }]}>Jours d'alerte</Text>
-				<View style={s.days}>
-					{daysOfWeek.map((day) => {
-						const active = settings.selectedDays.includes(day.value);
-						return (
-							<Pressable
-								key={day.value}
-								onPress={() => toggleDay(day.value)}
-								style={[s.day, { backgroundColor: active ? theme.accent : theme.surfaceSoft, borderColor: theme.border }]}>
-								<Text style={[s.dayText, { color: active ? "#fff" : theme.text }]}>{day.label}</Text>
-							</Pressable>
-						);
-					})}
-				</View>
-				<View style={s.quickRow}>
-					<Pressable onPress={() => saveSettings({ ...settings, selectedDays: [0, 1, 2, 3, 4, 5, 6] })}>
-						<Text style={[s.link, { color: theme.accent }]}>Tous</Text>
-					</Pressable>
-					<Pressable onPress={() => saveSettings({ ...settings, selectedDays: [] })}>
-						<Text style={[s.link, { color: theme.accent }]}>Aucun</Text>
-					</Pressable>
-				</View>
-			</Card>
-
-			<Card style={s.rowCard}>
-				<View style={[s.iconBox, { backgroundColor: theme.accentSoft }]}>
-					<CalendarClock color={theme.accent} size={22} />
-				</View>
-				<View style={s.rowBody}>
-					<Text style={[s.rowTitle, { color: theme.text }]}>Changements de cours</Text>
-					<Text style={[s.meta, { color: theme.muted }]}>Détection sur {settings.changeDetectionWindowDays} jour(s)</Text>
-				</View>
-				<Switch
-					value={settings.changeDetectionEnabled}
-					onValueChange={(changeDetectionEnabled) => saveSettings({ ...settings, changeDetectionEnabled })}
-					thumbColor={theme.accent}
-				/>
-			</Card>
-
-			{settings.changeDetectionEnabled ? (
-				<Card>
-					<View style={s.rowHeader}>
-						<CalendarClock color={theme.accent} size={20} />
-						<Text style={[s.sectionTitle, { color: theme.text }]}>Détecter pendant</Text>
-					</View>
-					<View style={s.stepper}>
-						<Pressable
-							style={[s.stepBtn, { borderColor: theme.border }]}
-							onPress={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.max(1, settings.changeDetectionWindowDays - 1) })}>
-							<Text style={[s.stepText, { color: theme.text }]}>-</Text>
-						</Pressable>
-						<Text style={[s.minutes, { color: theme.text }]}>{settings.changeDetectionWindowDays} j</Text>
-						<Pressable
-							style={[s.stepBtn, { borderColor: theme.border }]}
-							onPress={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.min(14, settings.changeDetectionWindowDays + 1) })}>
-							<Text style={[s.stepText, { color: theme.text }]}>+</Text>
-						</Pressable>
-					</View>
-				</Card>
+			{missingPermissions.length ? (
+				<Section>
+					<Row
+						icon={AlertCircle}
+						iconColor={theme.warn}
+						title={missingPermissions.length > 1 ? `${missingPermissions.length} autorisations manquantes` : "Autorisation manquante"}
+						subtitle={`${missingPermissions.map((permission) => permission.label).join(", ")} : sans ${missingPermissions.length > 1 ? "elles" : "elle"}, les rappels peuvent ne pas arriver.`}
+						loading={permissionsLoading}
+						onPress={() => void requestMissingPermissions()}
+					/>
+				</Section>
 			) : null}
 
-			<Card>
-				<View style={s.rowHeader}>
-					<CheckCircle2 color={theme.accent} size={20} />
-					<Text style={[s.sectionTitle, { color: theme.text }]}>Résumé</Text>
-				</View>
-				<Text style={[s.meta, { color: theme.muted }]}>
-					Notification {settings.minutesBefore} minutes avant chaque cours, sur{" "}
-					{settings.selectedDays.length === 7 ? "tous les jours" : `${settings.selectedDays.length} jour(s)`}.
-				</Text>
-				<Text style={[s.meta, { color: theme.muted }]}>
-					Modifications {settings.changeDetectionEnabled ? `sur ${settings.changeDetectionWindowDays} jour(s)` : "désactivées"}.
-				</Text>
-				<Text style={[s.status, { color: theme.text }]}>{message}</Text>
-			</Card>
+			<Section title="Avant les cours">
+				<Row
+					icon={BellRing}
+					title="Rappels de cours"
+					subtitle={settings.enabled ? "Une notification avant chaque cours" : "Désactivés"}
+					loading={loading}
+					toggle={{ value: settings.enabled, onValueChange: (enabled) => void (enabled ? enableRemote() : disableRemote()), disabled: loading }}
+				/>
+				{settings.enabled ? (
+					<Row
+						icon={Clock}
+						title="Délai"
+						trailing={
+							<Stepper
+								label="le délai"
+								value={`${settings.minutesBefore} min`}
+								onDecrease={() => saveSettings({ ...settings, minutesBefore: Math.max(1, settings.minutesBefore - 5) })}
+								onIncrease={() => saveSettings({ ...settings, minutesBefore: Math.min(120, settings.minutesBefore + 5) })}
+							/>
+						}
+					/>
+				) : null}
+				{settings.enabled ? (
+					<Row
+						icon={CalendarDays}
+						title="Jours"
+						trailing={
+							<Pressable accessibilityRole="button" hitSlop={12} onPress={() => saveSettings({ ...settings, selectedDays: allDays ? [] : [0, 1, 2, 3, 4, 5, 6] })}>
+								<Text style={[s.textButton, { color: theme.accent }]}>{allDays ? "Aucun" : "Tous"}</Text>
+							</Pressable>
+						}
+						below={
+							<View style={s.days}>
+								{daysOfWeek.map((day) => {
+									const active = settings.selectedDays.includes(day.value);
+									return (
+										<Pressable
+											key={day.value}
+											accessibilityRole="checkbox"
+											accessibilityState={{ checked: active }}
+											onPress={() => toggleDay(day.value)}
+											style={[s.day, { backgroundColor: active ? theme.accent : theme.surfaceSoft, borderColor: active ? theme.accent : theme.border }]}>
+											<Text style={[s.dayText, { color: active ? theme.bg : theme.muted }]}>{day.label}</Text>
+										</Pressable>
+									);
+								})}
+							</View>
+						}
+					/>
+				) : null}
+				{settings.enabled ? (
+					<Row
+						icon={Volume2}
+						title="Type d’alerte"
+						below={
+							<Segmented
+								value={settings.notificationType}
+								onChange={(notificationType) => saveSettings({ ...settings, notificationType })}
+								options={[
+									{ value: "banner", label: "Bannière" },
+									{ value: "sound", label: "Son" },
+									{ value: "both", label: "Les deux" },
+								]}
+							/>
+						}
+					/>
+				) : null}
+			</Section>
 
-			<Pressable onPress={test} disabled={loading} style={[s.primaryBtn, { backgroundColor: theme.accent }]}>
-				{loading ? <ActivityIndicator color="#fff" /> : <Send color="#fff" size={18} />}
-				<Text style={s.primaryText}>Tester une notification</Text>
-			</Pressable>
+			<Section title="Changements de planning">
+				<Row
+					icon={CalendarClock}
+					title="Cours modifiés"
+					subtitle="Prévenir quand un cours change"
+					toggle={{ value: settings.changeDetectionEnabled, onValueChange: (changeDetectionEnabled) => saveSettings({ ...settings, changeDetectionEnabled }) }}
+				/>
+				{settings.changeDetectionEnabled ? (
+					<Row
+						icon={CalendarDays}
+						title="Période surveillée"
+						trailing={
+							<Stepper
+								label="la période"
+								value={`${settings.changeDetectionWindowDays} j`}
+								onDecrease={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.max(1, settings.changeDetectionWindowDays - 1) })}
+								onIncrease={() => saveSettings({ ...settings, changeDetectionWindowDays: Math.min(14, settings.changeDetectionWindowDays + 1) })}
+							/>
+						}
+					/>
+				) : null}
+			</Section>
+
+			{Platform.OS === "android" ? (
+				<Section title="Pendant le cours">
+					<Row
+						icon={Radio}
+						title="Progression du cours"
+						subtitle="Notification persistante pendant le cours"
+						toggle={{ value: liveCourseProgressEnabled, onValueChange: (enabled) => void toggleLiveCourseProgress(enabled) }}
+					/>
+				</Section>
+			) : null}
+
+			<PrimaryButton label="Tester une notification" icon={Send} onPress={test} loading={loading} />
+			<Text style={[s.status, { color: theme.muted }]}>{message}</Text>
 		</ScrollView>
 	);
 }
+
 const s = StyleSheet.create({
-	root: { flex: 1 },
-	content: { padding: 18, paddingBottom: 108, gap: 12 },
-	eyebrow: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
-	title: { fontSize: 32, fontWeight: "900", letterSpacing: 0, marginBottom: 6 },
-	rowCard: { flexDirection: "row", alignItems: "center", gap: 12 },
-	iconBox: { width: 44, height: 44, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-	rowBody: { flex: 1 },
-	rowTitle: { fontSize: 16, fontWeight: "900" },
-	meta: { marginTop: 5, lineHeight: 19 },
-	rowHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-	sectionTitle: { fontSize: 17, fontWeight: "900" },
-	stepper: { flexDirection: "row", alignItems: "center", gap: 12 },
-	stepBtn: { width: 44, height: 42, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-	stepText: { fontSize: 22, fontWeight: "900" },
-	minutes: { flex: 1, textAlign: "center", fontSize: 22, fontWeight: "900" },
-	days: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-	day: { width: 58, height: 42, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-	dayText: { fontWeight: "900" },
-	typeRow: { flexDirection: "row", gap: 8 },
-	typeChip: { flex: 1, minHeight: 42, borderRadius: 8, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
-	typeText: { fontWeight: "900", fontSize: 13 },
-	quickRow: { flexDirection: "row", gap: 18, marginTop: 12 },
-	link: { fontWeight: "900" },
-	status: { marginTop: 12, fontWeight: "800", lineHeight: 20 },
-	primaryBtn: { minHeight: 52, borderRadius: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
-	primaryText: { color: "#fff", fontWeight: "900" },
+	textButton: { fontSize: 15, fontWeight: "800" },
+	days: { flexDirection: "row", gap: 6 },
+	day: { flex: 1, height: 40, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+	dayText: { fontSize: 13, fontWeight: "800" },
+	status: { fontSize: 13, lineHeight: 18, textAlign: "center", marginTop: 12, paddingHorizontal: 16 },
 });

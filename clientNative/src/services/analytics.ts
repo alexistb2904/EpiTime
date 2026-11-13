@@ -1,10 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import rybbit from "@rybbit/react-native";
 import Constants from "expo-constants";
-import { AppState, Platform } from "react-native";
+import { AppState } from "react-native";
+import { canTrackAnalytics, sanitizeAnalyticsEventName, sanitizeAnalyticsProperties, type AnalyticsProperties } from "./analyticsUtils";
 import { publicConfig } from "./config";
 import { isNetworkOnline, subscribeNetworkState } from "./networkStatus";
-import { canTrackAnalytics, sanitizeAnalyticsEventName, sanitizeAnalyticsProperties, type AnalyticsProperties } from "./analyticsUtils";
 
 export type { AnalyticsProperties } from "./analyticsUtils";
 
@@ -19,7 +19,7 @@ let initializationPromise: Promise<boolean> | null = null;
 let initialized = false;
 
 const getMetadata = () => ({
-	platform: Platform.OS === "ios" ? "ios" : "android",
+	platform: "android",
 	app_version: Constants.nativeAppVersion || Constants.expoConfig?.version || "unknown",
 	build_version: Constants.nativeBuildVersion || "unknown",
 	environment: typeof __DEV__ === "boolean" && __DEV__ ? "development" : "production",
@@ -37,7 +37,7 @@ async function initializeRybbit() {
 		.init({
 			analyticsHost: RYBBIT_API_BASE,
 			siteId: RYBBIT_SITE_ID,
-			appIdentifier: Constants.expoConfig?.android?.package || Constants.expoConfig?.ios?.bundleIdentifier || "fr.alexistb2904.epitime",
+			appIdentifier: Constants.expoConfig?.android?.package || "fr.alexistb2904.epitime",
 			appVersion: Constants.nativeAppVersion || Constants.expoConfig?.version || "unknown",
 			storage: AsyncStorage,
 			autoTrackAppLifecycle: false,

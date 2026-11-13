@@ -362,7 +362,9 @@ export function buildGradesPeriods(grades: AurigaGrade[], syllabusList: AurigaSy
 			syncedAt: grade.syncedAt,
 			studentScore: score,
 			outOf: { value: 20 },
-			coefficient: override?.coefficient ?? (override?.examId === null ? 1 : override?.examId !== undefined ? gradeCoefficient({ ...grade, coefficient: undefined }, exam) : gradeCoefficient(grade, exam)),
+			coefficient:
+				override?.coefficient ??
+				(override?.examId === null ? 1 : override?.examId !== undefined ? gradeCoefficient({ ...grade, coefficient: undefined }, exam) : gradeCoefficient(grade, exam)),
 			alphaMark: grade.alphaMark,
 			rawCode,
 			isSAE: /(^|_)SAE(_|$)/i.test(rawCode),
@@ -392,7 +394,13 @@ export function buildGradesPeriods(grades: AurigaGrade[], syllabusList: AurigaSy
 				ueMap.set(subject.ueCode, ueSubjects);
 			}
 			const ues = Array.from(ueMap.entries())
-				.map(([ueCode, ueSubjects]) => buildUE(ueCode, ueSubjects.sort((a, b) => a.name.localeCompare(b.name, "fr")), useWeightedAverages))
+				.map(([ueCode, ueSubjects]) =>
+					buildUE(
+						ueCode,
+						ueSubjects.sort((a, b) => a.name.localeCompare(b.name, "fr")),
+						useWeightedAverages
+					)
+				)
 				.sort((a, b) => a.name.localeCompare(b.name, "fr"));
 			const numericUes = ues.filter((ue) => !ue.isValidationOnly && ue.studentAverage.outOf);
 			let overallValue = 0;

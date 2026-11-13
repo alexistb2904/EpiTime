@@ -1,10 +1,10 @@
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
-import { createAuthReconnectRequiredError, exchangeMicrosoftToken, setRefreshSessionHandler } from "./api";
-import { saveSession, clearSession, getSession } from "./storage";
 import { MicrosoftProfile, Session } from "../types";
+import { createAuthReconnectRequiredError, exchangeMicrosoftToken, setRefreshSessionHandler } from "./api";
 import { publicConfig } from "./config";
+import { clearSession, getSession, saveSession } from "./storage";
 WebBrowser.maybeCompleteAuthSession();
 const clientId = publicConfig.microsoftClientId;
 const tenant = publicConfig.microsoftTenant;

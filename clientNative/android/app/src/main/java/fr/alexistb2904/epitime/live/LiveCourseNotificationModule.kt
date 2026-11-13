@@ -881,6 +881,7 @@ class LiveCourseNotificationModule(
       val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         Notification.Builder(context, channelId)
       } else {
+        @Suppress("DEPRECATION") // Android 7.x (minSdk 24) n'a pas de canaux
         Notification.Builder(context)
       }
 
@@ -897,10 +898,13 @@ class LiveCourseNotificationModule(
         .setShowWhen(true)
         .setVisibility(Notification.VISIBILITY_PUBLIC)
         .setColor(getAccentColor(context))
-        .setPriority(Notification.PRIORITY_HIGH)
 
-      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && playSound) {
-        builder.setDefaults(Notification.DEFAULT_SOUND)
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        // Avant Android 8, priorité et son se règlent par notification (ensuite : par canal).
+        @Suppress("DEPRECATION")
+        builder.setPriority(Notification.PRIORITY_HIGH)
+        @Suppress("DEPRECATION")
+        if (playSound) builder.setDefaults(Notification.DEFAULT_SOUND)
       }
 
       return builder.build()
@@ -944,6 +948,7 @@ class LiveCourseNotificationModule(
       val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         Notification.Builder(context, CHANNEL_ID)
       } else {
+        @Suppress("DEPRECATION") // Android 7.x (minSdk 24) n'a pas de canaux
         Notification.Builder(context)
       }
 
@@ -967,7 +972,11 @@ class LiveCourseNotificationModule(
         .setVisibility(Notification.VISIBILITY_PUBLIC)
 
         .setColor(getAccentColor(context))
-        .setPriority(Notification.PRIORITY_HIGH)
+
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+        @Suppress("DEPRECATION") // ignoré à partir d'Android 8 : l'importance du canal prime
+        builder.setPriority(Notification.PRIORITY_HIGH)
+      }
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         builder

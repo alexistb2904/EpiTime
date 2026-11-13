@@ -1,11 +1,10 @@
-import { NativeModules, Platform } from "react-native";
 import { Asset } from "expo-asset";
-import * as FileSystem from "expo-file-system/legacy";
+import { File } from "expo-file-system";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
+import { NativeModules, Platform } from "react-native";
+import { formatSecondsAsHours } from "../utils/syllabusTime";
 import { cleanHtml, type AurigaExam, type AurigaSyllabus } from "./aurigaTypes";
 import { getSubjectCoefficientOverride, type SubjectCoefficientOverrides } from "./gradeCoefficientOverrides";
-import { formatSecondsAsHours } from "../utils/syllabusTime";
 
 export type SyllabusSemesterRange = {
 	startSemester: number;
@@ -98,7 +97,7 @@ export async function exportSemesterSyllabusPdf(options: ExportSyllabusOptions):
 	}
 
 	const { uri } = await Print.printToFileAsync({ html });
-	const savedUri = Platform.OS === "android" ? await savePdfToAndroidDownloads(uri, fileName) : await savePdfForIos(uri, fileName);
+	const savedUri = await savePdfToAndroidDownloads(uri, fileName);
 	return {
 		semesterRange,
 		syllabusCount: filtered.syllabus.length,
@@ -112,22 +111,6 @@ export async function exportSemesterSyllabusPdf(options: ExportSyllabusOptions):
 async function savePdfToAndroidDownloads(sourceUri: string, fileName: string) {
 	if (!PdfDownloads?.savePdfToDownloads) throw new Error("Le téléchargement direct nécessite la dernière version de l’application.");
 	return PdfDownloads.savePdfToDownloads(sourceUri, fileName);
-}
-
-async function savePdfForIos(sourceUri: string, fileName: string) {
-	const documentDirectory = FileSystem.documentDirectory;
-	if (!documentDirectory) return null;
-	const targetUri = `${documentDirectory}${fileName}`;
-	await FileSystem.deleteAsync(targetUri, { idempotent: true });
-	await FileSystem.copyAsync({ from: sourceUri, to: targetUri });
-	if (await Sharing.isAvailableAsync()) {
-		await Sharing.shareAsync(targetUri, {
-			dialogTitle: fileName,
-			mimeType: "application/pdf",
-			UTI: "com.adobe.pdf",
-		});
-	}
-	return targetUri;
 }
 
 function openWebPrintDialog(html: string, fileName: string) {
@@ -255,7 +238,7 @@ async function getLogoUri() {
 		const asset = Asset.fromModule(require("../../assets/app_logo.png"));
 		if (!asset.localUri) await asset.downloadAsync();
 		const localUri = asset.localUri || asset.uri;
-		const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+		const base64 = await new File(localUri).base64();
 		return `data:image/png;base64,${base64}`;
 	} catch {
 		return "";
@@ -324,7 +307,8 @@ function renderExam(exam: AurigaExam, count: number) {
 }
 
 function renderMinimalExams(exams?: AurigaExam[]) {
-	if (!exams?.length) return `<div class="minimal-exams"><div class="minimal-exams-label">Évaluations</div><div class="minimal-exams-empty">Aucune évaluation renseignée.</div></div>`;
+	if (!exams?.length)
+		return `<div class="minimal-exams"><div class="minimal-exams-label">Évaluations</div><div class="minimal-exams-empty">Aucune évaluation renseignée.</div></div>`;
 	return `<div class="minimal-exams"><div class="minimal-exams-label">Évaluations</div><div class="minimal-exam-list">${exams
 		.map((exam) => {
 			const description = cleanHtml(exam.description?.fr);

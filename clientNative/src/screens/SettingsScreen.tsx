@@ -4,21 +4,12 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useVersion } from "../context/VersionContext";
-import { registerExpoPushToken, isAuthReconnectRequiredError } from "../services/api";
 import { clearRememberedAurigaCredentials, logoutAuriga } from "../services/aurigaAuth";
 import { clearAurigaCache } from "../services/aurigaCache";
-import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
 import { clearSubjectCoefficientOverrides } from "../services/gradeCoefficientOverrides";
-import { rescheduleCourseNoteReminders } from "../services/courseNotes";
 import { getUseWeightedAverages, setUseWeightedAverages } from "../services/gradePreferences";
 import { getDeletedRealEventsCount, restoreDeletedRealEvents } from "../services/localEvents";
-import {
-	getLiveCourseNotificationSettings,
-	scheduleDebugCourseProgressAt,
-	setLiveCourseProgressNotificationEnabled,
-	showDebugCourseProgressNow,
-	stopDebugCourseProgress,
-} from "../services/liveCourse";
+import { scheduleDebugCourseProgressAt, showDebugCourseProgressNow, stopDebugCourseProgress } from "../services/liveCourse";
 import {
 	cancelAllScheduledNotifications,
 	clearAurigaGradeNotificationHistory,
@@ -26,27 +17,33 @@ import {
 	cancelScheduledNotification,
 	defaultNotificationDebugSettings,
 	getNotificationDebugSettings,
-	getNotificationSettings,
 	getScheduledNotifications,
-	requestPushToken,
 	scheduleDebugNotificationAt,
-	scheduleLocalCourseNotifications,
 	setNotificationDebugSettings,
 	type NotificationDebugSettings,
 	type ScheduledNotificationItem,
 } from "../services/notifications";
-import { getRequiredAppPermissions, openAppPermissionSettings, requestRequiredAppPermissions, type RequiredPermissionsResult } from "../services/permissions";
-import { readCachedSelectedGroupsSchedule } from "../services/scheduleRepository";
-import { getJSON } from "../services/storage";
 import { clearGradeWidgetSummary, syncGradeWidgetsFromStoredData } from "../services/widgets";
 import { getAnalyticsConsent, setAnalyticsConsent, trackEvent } from "../services/analytics";
 import { SettingsContent, buildNextDebugTargetDate, formatDebugTargetDate, wrapNumber } from "../components/settings/SettingsComponents";
 
 export default function SettingsScreen() {
-	const { logout, session, handleAuthExpired } = useAuth();
-	const { mode, resolvedMode, setThemeMode, materialYouEnabled, materialYouAvailable, materialYouActive, setMaterialYouEnabled } = useTheme();
-	const { currentVersion, latestVersion, updateAvailable, checking, error, lastCheckedAt, updatePhase, updateProgress, updateError, checkForUpdates, openLatestRelease, startUpdate } = useVersion();
-	const [liveCourseProgressEnabled, setLiveCourseProgressEnabled] = useState(true);
+	const { logout, session } = useAuth();
+	const { mode, resolvedMode, setThemeMode, materialYouEnabled, materialYouAvailable, setMaterialYouEnabled } = useTheme();
+	const {
+		currentVersion,
+		latestVersion,
+		updateAvailable,
+		checking,
+		error,
+		lastCheckedAt,
+		updatePhase,
+		updateProgress,
+		updateError,
+		checkForUpdates,
+		openLatestRelease,
+		startUpdate,
+	} = useVersion();
 	const [notificationDebugSettings, setNotificationDebugSettingsState] = useState(defaultNotificationDebugSettings);
 	const [debugBusyAction, setDebugBusyAction] = useState<string | null>(null);
 	const [debugStatus, setDebugStatus] = useState("");
@@ -57,12 +54,7 @@ export default function SettingsScreen() {
 	const [aurigaDisconnecting, setAurigaDisconnecting] = useState(false);
 	const [creditsVisible, setCreditsVisible] = useState(false);
 	const [deletedEventsCount, setDeletedEventsCount] = useState(0);
-	const [permissionState, setPermissionState] = useState<RequiredPermissionsResult | null>(null);
-	const [permissionsLoading, setPermissionsLoading] = useState(false);
 	const account = session?.account as { displayName?: string; id?: string; userPrincipalName?: string; mail?: string | null } | null | undefined;
-	const userId = account?.id || account?.userPrincipalName || account?.mail || "";
-	const missingPermissionsCount = permissionState?.missing.length ?? 0;
-	const permissionsKnown = permissionState !== null;
 	const versionStatus = updateAvailable
 		? updatePhase === "downloading"
 			? `Téléchargement de la mise à jour · ${Math.round(updateProgress * 100)}%`
@@ -81,8 +73,7 @@ export default function SettingsScreen() {
 		: error
 			? `Version installée ${currentVersion} · ${error}`
 			: `Version installée ${currentVersion}${lastCheckedAt ? ` · Vérifiée à ${lastCheckedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : ""}`;
-	const modeLabel = mode === "system" ? "Système" : mode === "dark" ? "Sombre" : "Clair";
-	const materialYouDetails = materialYouActive ? "Couleurs dynamiques actives" : materialYouAvailable ? "Désactivé" : "Non disponible sur cet appareil";
+	const materialYouDetails = materialYouAvailable ? "Couleurs tirées de ton fond d’écran" : "Non disponible sur cet appareil";
 	const debugTargetDate = buildNextDebugTargetDate(notificationDebugSettings.targetHour, notificationDebugSettings.targetMinute);
 	const debugTargetLabel = formatDebugTargetDate(debugTargetDate);
 
@@ -98,11 +89,8 @@ export default function SettingsScreen() {
 	}, []);
 
 	useEffect(() => {
-		Promise.all([getLiveCourseNotificationSettings(), getNotificationDebugSettings()])
-			.then(([liveCourseSettings, debugSettings]) => {
-				setLiveCourseProgressEnabled(liveCourseSettings.progressEnabled);
-				setNotificationDebugSettingsState(debugSettings);
-			})
+		getNotificationDebugSettings()
+			.then(setNotificationDebugSettingsState)
 			.catch(() => {});
 		getUseWeightedAverages()
 			.then(setUseWeightedAveragesState)
@@ -113,9 +101,6 @@ export default function SettingsScreen() {
 		useCallback(() => {
 			getDeletedRealEventsCount()
 				.then(setDeletedEventsCount)
-				.catch(() => {});
-			getRequiredAppPermissions({ includeExactAlarms: true })
-				.then(setPermissionState)
 				.catch(() => {});
 			if (notificationDebugSettings.enabled) void refreshScheduledNotifications();
 		}, [notificationDebugSettings.enabled, refreshScheduledNotifications])
@@ -132,15 +117,6 @@ export default function SettingsScreen() {
 	useEffect(() => {
 		if (notificationDebugSettings.enabled) void refreshScheduledNotifications();
 	}, [notificationDebugSettings.enabled, refreshScheduledNotifications]);
-
-	const toggleLiveCourseProgress = async (enabled: boolean) => {
-		setLiveCourseProgressEnabled(enabled);
-		try {
-			await setLiveCourseProgressNotificationEnabled(enabled);
-		} catch {
-			setLiveCourseProgressEnabled(!enabled);
-		}
-	};
 
 	const toggleGradeWeighting = async (enabled: boolean) => {
 		setUseWeightedAveragesState(enabled);
@@ -288,74 +264,6 @@ export default function SettingsScreen() {
 		Alert.alert("Agenda restauré", "Les cours supprimés réapparaîtront et les cours ignorés seront de nouveau actifs au prochain chargement de l'agenda.");
 	};
 
-	const refreshNotificationServices = async () => {
-		const [notificationSettings, cachedSchedule, groups] = await Promise.all([
-			getNotificationSettings(),
-			readCachedSelectedGroupsSchedule(14),
-			getJSON<(string | number)[]>("selectedGroups", []),
-		]);
-
-		await rescheduleCourseNoteReminders(cachedSchedule.visibleEvents).catch(() => {});
-		if (!notificationSettings.enabled) return;
-
-		await scheduleLocalCourseNotifications(
-			cachedSchedule.activeEvents,
-			notificationSettings.minutesBefore,
-			notificationSettings.selectedDays,
-			notificationSettings.notificationType,
-			{
-				requestPermission: false,
-			}
-		).catch(() => {});
-		await registerPlanningNotificationBackgroundSync().catch(() => {});
-		if (!userId) return;
-		const token = await requestPushToken().catch(() => null);
-		if (token) {
-			try {
-				await registerExpoPushToken(token, userId, groups, notificationSettings);
-			} catch (err) {
-				if (isAuthReconnectRequiredError(err)) {
-					await handleAuthExpired();
-					return;
-				}
-			}
-		}
-	};
-
-	const requestMissingPermissions = async () => {
-		setPermissionsLoading(true);
-		try {
-			const result = await requestRequiredAppPermissions({ includeExactAlarms: true });
-			setPermissionState(result);
-			if (!result.missing.length) {
-				await refreshNotificationServices();
-				Alert.alert("Permissions accordées", "Les rappels et synchronisations nécessaires sont prêts.");
-				return;
-			}
-
-			const blocked = result.missing.some((permission) => !permission.canAskAgain);
-			const missingExactAlarms = result.missing.some((permission) => permission.id === "exactAlarms");
-			if (blocked) {
-				Alert.alert("Permission à activer", "Active les permissions manquantes dans les réglages système pour que les rappels EpiTime fonctionnent.", [
-					{ text: "Plus tard", style: "cancel" },
-					{ text: "Ouvrir les réglages", onPress: () => void openAppPermissionSettings() },
-				]);
-				return;
-			}
-
-			Alert.alert(
-				"Permission manquante",
-				missingExactAlarms
-					? "Active les alarmes exactes pour que la notification de début de cours se déclenche à l'heure exacte."
-					: "La permission notification n'a pas été accordée."
-			);
-		} catch (err: any) {
-			Alert.alert("Permissions indisponibles", err?.message || "Impossible de vérifier les permissions.");
-		} finally {
-			setPermissionsLoading(false);
-		}
-	};
-
 	return (
 		<SettingsContent
 			account={account}
@@ -372,20 +280,16 @@ export default function SettingsScreen() {
 			deletedEventsCount={deletedEventsCount}
 			disconnectAuriga={disconnectAuriga}
 			logout={logout}
+			materialYouAvailable={materialYouAvailable}
 			materialYouDetails={materialYouDetails}
 			materialYouEnabled={materialYouEnabled}
-			missingPermissionsCount={missingPermissionsCount}
 			mode={mode}
-			modeLabel={modeLabel}
 			notificationDebugSettings={notificationDebugSettings}
 			openLatestRelease={openLatestRelease}
 			startUpdate={startUpdate}
 			updatePhase={updatePhase}
 			updateProgress={updateProgress}
-			permissionsKnown={permissionsKnown}
-			permissionsLoading={permissionsLoading}
 			refreshScheduledNotifications={refreshScheduledNotifications}
-			requestMissingPermissions={requestMissingPermissions}
 			resolvedMode={resolvedMode}
 			restoreEvents={restoreEvents}
 			saveNotificationDebugSettings={saveNotificationDebugSettings}
@@ -400,13 +304,11 @@ export default function SettingsScreen() {
 			clearDebugNotifications={clearDebugNotifications}
 			toggleGradeWeighting={toggleGradeWeighting}
 			toggleAnalytics={toggleAnalytics}
-			toggleLiveCourseProgress={toggleLiveCourseProgress}
 			updateAvailable={updateAvailable}
 			updateDebugSettings={updateDebugSettings}
 			useWeightedAverages={useWeightedAverages}
 			versionDetails={versionDetails}
 			versionStatus={versionStatus}
-			liveCourseProgressEnabled={liveCourseProgressEnabled}
 		/>
 	);
 }

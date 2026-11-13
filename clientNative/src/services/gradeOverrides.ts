@@ -1,5 +1,5 @@
-import { getJSON, setJSON } from "./storage";
 import { normalizeSubjectCoefficient } from "./gradeCoefficientOverrides";
+import { getJSON, setJSON } from "./storage";
 
 const GRADE_OVERRIDES_KEY = "grades.gradeOverrides";
 

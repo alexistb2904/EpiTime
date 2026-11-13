@@ -492,16 +492,16 @@ function Metric({ icon, label, value, onPress }: { icon: React.ReactNode; label:
 	);
 	if (onPress) {
 		return (
-			<Pressable accessibilityRole="button" accessibilityLabel="Modifier le coefficient de la matière" style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={onPress}>
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel="Modifier le coefficient de la matière"
+				style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.accent }]}
+				onPress={onPress}>
 				{content}
 			</Pressable>
 		);
 	}
-	return (
-		<View style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-			{content}
-		</View>
-	);
+	return <View style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.border }]}>{content}</View>;
 }
 
 function Fact({ icon, label }: { icon: React.ReactNode; label: string }) {

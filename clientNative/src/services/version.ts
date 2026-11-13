@@ -46,16 +46,16 @@ function getReleaseVersion(release: GitHubRelease) {
 }
 
 function getApkAsset(release: GitHubRelease) {
-	const assets = (release.assets || []).filter(
-		(asset) => asset.browser_download_url && asset.name?.toLowerCase().endsWith(".apk")
-	);
+	const assets = (release.assets || []).filter((asset) => asset.browser_download_url && asset.name?.toLowerCase().endsWith(".apk"));
 	if (!assets.length) return undefined;
 
 	return (
 		assets.find((asset) => {
 			const name = asset.name?.toLowerCase() || "";
 			return name.includes("release") && !name.includes("debug");
-		}) || assets.find((asset) => !asset.name?.toLowerCase().includes("debug")) || assets[0]
+		}) ||
+		assets.find((asset) => !asset.name?.toLowerCase().includes("debug")) ||
+		assets[0]
 	);
 }
 

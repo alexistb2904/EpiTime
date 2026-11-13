@@ -1,31 +1,18 @@
 import React, { useState } from "react";
-import { Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import Animated, { FadeInDown, FadeInUp, Layout } from "react-native-reanimated";
+import { ActivityIndicator, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-	BellElectric,
-	BellRing,
-	BookOpenCheck,
-	CalendarClock,
-	CalendarDays,
-	CheckCircle2,
-	ChevronRight,
-	Clock3,
-	GraduationCap,
-	MapPin,
-	Plus,
-	RefreshCw,
-	Route,
-	TrendingUp,
-	WifiOff,
-	X,
-} from "lucide-react-native";
+import { ArrowUpRight, CalendarCheck, CalendarDays, ChevronRight, GraduationCap, MapPin, Plus, RefreshCw, TriangleAlert, Users, WifiOff, X } from "lucide-react-native";
 import DatePickerModal from "../DatePickerModal";
+import { DayTimeline, EventCard, formatEventChangeNotice } from "../calendar/CalendarEvents";
+import { s as cs } from "../calendar/calendarStyles";
 import { useTheme } from "../../context/ThemeContext";
 import { EventChange } from "../../services/eventsCache";
-import { isEventCancelled, isEventIgnored } from "../../services/localEvents";
 import { ZeusEvent } from "../../types";
-import { getCourseColor, getEventTitle, getRoomName } from "../../utils/calendar";
+import { mixHex } from "../../theme/palettes";
+import { getCourseColor, getCourseTypeLabel, getEventTitle, getRoomName, getTeacherName, hexToRgba, readableTextOn } from "../../utils/calendar";
+import { formatDuration } from "../../utils/timeline";
+import { formatInputDate, formatStartLabel, formatTime, minute, parseInputDate, UsefulLink } from "./homeHelpers";
 
 const greetingFor = (date: Date) => {
 	const hour = date.getHours();
@@ -35,391 +22,424 @@ const greetingFor = (date: Date) => {
 	return "Bonsoir";
 };
 
-export function HomeContent({
-	aurigaAverage,
-	currentEvent,
-	dayIntensity,
-	dayRange,
-	emptyText,
-	emptyTitle,
-	eventChanges,
-	freeLabel,
-	heroSubtitle,
-	homeTab,
-	isLive,
-	manualDate,
-	manualEnd,
-	manualRoom,
-	manualStart,
-	manualTitle,
-	navigation,
-	nextEvent,
-	nextKicker,
-	nextRooms,
-	now,
-	openEventInCalendar,
-	planningHint,
-	primaryInsightBody,
-	primaryInsightTitle,
-	progress,
-	refresh,
-	refreshing,
-	saveManualEvent,
-	savingManual,
-	secondaryInsightBody,
-	secondaryInsightTitle,
-	sectionEyebrow,
-	sectionTitle,
-	selectedGroupsLabel,
-	selectedLabels,
-	setEventChanges,
-	setHomeTab,
-	setManualDate,
-	setManualEnd,
-	setManualRoom,
-	setManualStart,
-	setManualTitle,
-	setShowManualEvent,
-	showCacheBanner,
-	showManualEvent,
-	statusLabel,
-	todayActiveCount,
-	usefulLinks,
-	visibleEvents,
-	weekCount,
-}: any) {
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+const eventKey = (event: ZeusEvent) => `${event.idReservation || event.id}-${event.startDate}`;
+
+type HomeTab = "today" | "next";
+
+type HomeContentProps = {
+	aurigaAverage: string;
+	dayRange: string;
+	emptyText: string;
+	emptyTitle: string;
+	eventChanges: EventChange[];
+	followingEvent: ZeusEvent | null;
+	hasGroups: boolean;
+	homeTab: HomeTab;
+	isLive: boolean;
+	manualDate: string;
+	manualEnd: string;
+	manualRoom: string;
+	manualStart: string;
+	manualTitle: string;
+	navigation: any;
+	nextEvent: ZeusEvent | null;
+	nextKicker: string;
+	nextRooms?: string;
+	now: Date;
+	openEventInCalendar: (event?: ZeusEvent | null) => void;
+	progress: number;
+	refresh: () => void;
+	refreshing: boolean;
+	saveManualEvent: () => void;
+	savingManual: boolean;
+	selectedLabels: string[];
+	setEventChanges: (changes: EventChange[]) => void;
+	setHomeTab: (tab: HomeTab) => void;
+	setManualDate: (value: string) => void;
+	setManualEnd: (value: string) => void;
+	setManualRoom: (value: string) => void;
+	setManualStart: (value: string) => void;
+	setManualTitle: (value: string) => void;
+	setShowManualEvent: (value: boolean) => void;
+	showCacheBanner: boolean;
+	showManualEvent: boolean;
+	statusLabel: string;
+	todayActiveCount: number;
+	todayEvents: ZeusEvent[];
+	upcomingActiveCount: number;
+	upcomingEvents: ZeusEvent[];
+	usefulLinks: UsefulLink[];
+	weekCount: number;
+};
+
+export function HomeContent(p: HomeContentProps) {
 	const { theme } = useTheme();
+	const insets = useSafeAreaInsets();
+	const nowMs = p.now.getTime();
+	const groupsLabel = p.selectedLabels.length
+		? p.selectedLabels.slice(0, 3).join(", ") + (p.selectedLabels.length > 3 ? ` +${p.selectedLabels.length - 3}` : "")
+		: "Choisis tes groupes";
+	const renderEvent = (event: ZeusEvent, railFirst: boolean, railLast: boolean) => (
+		<EventCard key={eventKey(event)} event={event} railFirst={railFirst} railLast={railLast} now={nowMs} onPress={() => p.openEventInCalendar(event)} />
+	);
+	// "À venir": the next courses grouped by day, each day threaded on its own rail like the agenda.
+	const upcomingDays = p.upcomingEvents.reduce<{ day: Date; events: ZeusEvent[] }[]>((days, event) => {
+		const start = new Date(event.startDate);
+		const last = days[days.length - 1];
+		if (last && sameDay(last.day, start)) last.events.push(event);
+		else days.push({ day: start, events: [event] });
+		return days;
+	}, []);
+	const listEvents = p.homeTab === "today" ? p.todayEvents : p.upcomingEvents;
+	const sectionMeta = p.homeTab === "today" ? (p.todayActiveCount ? `${p.todayActiveCount} cours · ${p.dayRange}` : "Aucun cours") : `${p.upcomingActiveCount} cours`;
+
 	return (
 		<ScrollView
-			style={[s.root, { backgroundColor: theme.bg }]}
-			contentContainerStyle={s.content}
-			refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.accent} />}>
-			<View pointerEvents="none" style={[s.topBand, { backgroundColor: theme.mode === "dark" ? "#151922" : "#e7ebf1" }]} />
-
-			<Animated.View entering={FadeInUp.duration(420)} style={s.header}>
-				<View style={s.headerIdentity}>
-					<Image source={require("../../../assets/logo.png")} style={s.logo} resizeMode="contain" />
-					<View style={s.headerText}>
-						<Text style={[s.eyebrow, { color: theme.accent }]}>{now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}</Text>
-						<Text style={[s.title, { color: theme.text }]}>{greetingFor(now)}</Text>
+			style={[cs.root, { backgroundColor: theme.bg }]}
+			contentContainerStyle={[s.content, { paddingTop: insets.top + 12 }]}
+			refreshControl={<RefreshControl refreshing={p.refreshing} onRefresh={p.refresh} tintColor={theme.accent} colors={[theme.accent]} />}>
+			<View style={cs.header}>
+				<View style={s.identity}>
+					<Image source={require("../../../assets/logo.png")} style={s.logo} resizeMode="contain" accessibilityIgnoresInvertColors />
+					<View style={s.identityText}>
+						<Text style={[s.greeting, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+							{greetingFor(p.now)}
+						</Text>
+						<Text style={[s.date, { color: theme.muted }]} numberOfLines={1}>
+							{capitalize(p.now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}
+						</Text>
 					</View>
 				</View>
-				<Pressable style={[s.syncPill, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={refresh}>
-					{showCacheBanner ? <WifiOff color={theme.warn} size={15} /> : <RefreshCw color={theme.accent} size={15} />}
-					<Text style={[s.syncText, { color: showCacheBanner ? theme.warn : theme.text }]} numberOfLines={1}>
-						{statusLabel}
-					</Text>
+				<Pressable
+					style={({ pressed }) => [cs.toolBtn, { backgroundColor: pressed ? theme.surfaceSoft : "transparent" }]}
+					onPress={p.refresh}
+					disabled={p.refreshing}
+					accessibilityRole="button"
+					accessibilityLabel={`${p.statusLabel}. Actualiser`}>
+					{p.refreshing ? (
+						<ActivityIndicator color={theme.accent} />
+					) : p.showCacheBanner ? (
+						<WifiOff color={theme.warn} size={20} />
+					) : (
+						<RefreshCw color={theme.text} size={20} />
+					)}
 				</Pressable>
-			</Animated.View>
-
-			<View style={s.noticeStack}>
-				{showCacheBanner ? (
-					<Animated.View entering={FadeInDown.duration(300)} style={[s.offline, { backgroundColor: theme.accentSoft, borderColor: theme.border }]}>
-						<WifiOff color={theme.accent} size={17} />
-						<Text style={[s.offlineText, { color: theme.text }]}>Données chargées depuis le cache. Synchronisation en nouvel essai.</Text>
-					</Animated.View>
-				) : null}
-
-				{eventChanges.length ? (
-					<Animated.View entering={FadeInDown.duration(300)} style={[s.roomChange, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
-						<MapPin color={theme.warn} size={17} />
-						<Text style={[s.roomChangeText, { color: theme.text }]} numberOfLines={2}>
-							{formatEventChangeNotice(eventChanges)}
-						</Text>
-						<Pressable style={s.roomChangeClose} onPress={() => setEventChanges([])}>
-							<X color={theme.muted} size={16} />
-						</Pressable>
-					</Animated.View>
-				) : null}
 			</View>
 
-			<Animated.View entering={FadeInDown.delay(80).duration(460)} layout={Layout.springify()}>
+			<View style={cs.contextRow}>
 				<Pressable
-					style={[
-						s.cockpit,
-						{
-							backgroundColor: theme.mode === "dark" ? "#171b24" : "#ffffff",
-							borderColor: isLive ? theme.timeLine : theme.border,
-							shadowColor: theme.cardShadow,
-						},
-					]}
-					onPress={() => openEventInCalendar(nextEvent)}>
-					<View style={s.cockpitTop}>
-						<View style={[s.statusBadge, { backgroundColor: isLive ? theme.timeLine : theme.accent }]}>
-							{isLive ? <BellElectric color="#fff" size={14} /> : <Clock3 color="#fff" size={14} />}
-							<Text style={s.statusBadgeText}>{nextKicker}</Text>
-						</View>
-						<View style={[s.groupBadge, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
-							<Text style={[s.groupBadgeText, { color: theme.muted }]} numberOfLines={1}>
-								{planningHint}
-							</Text>
-						</View>
-					</View>
-					<Text style={[s.cockpitTitle, { color: theme.text }]} numberOfLines={2}>
-						{nextEvent ? getEventTitle(nextEvent) : "Aucun cours à venir"}
+					style={cs.contextLabelBtn}
+					onPress={() => p.navigation.navigate("Agenda")}
+					accessibilityRole="button"
+					accessibilityLabel={`Groupes suivis : ${groupsLabel}. Ouvrir l'agenda`}>
+					<Users color={p.hasGroups ? theme.muted : theme.accent} size={15} />
+					<Text style={[cs.contextText, { color: p.hasGroups ? theme.muted : theme.accent }]} numberOfLines={1}>
+						{groupsLabel}
 					</Text>
-					<Text style={[s.cockpitSubtitle, { color: theme.muted }]} numberOfLines={2}>
-						{heroSubtitle}
-					</Text>
-					{nextEvent ? (
-						<View style={s.cockpitGrid}>
-							<InfoTile icon={<MapPin color={theme.accent} size={17} />} label="Salle" value={nextRooms || "À confirmer"} />
-							<InfoTile icon={<Route color={theme.accent} size={17} />} label="Statut" value={freeLabel} />
-						</View>
-					) : null}
-					{currentEvent ? (
-						<View style={s.liveProgress}>
-							<View style={s.liveProgressHeader}>
-								<Text style={[s.liveProgressText, { color: theme.muted }]}>Progression du cours</Text>
-								<Text style={[s.liveProgressText, { color: theme.text }]}>{Math.round(progress)}%</Text>
-							</View>
-							<View style={[s.progressTrack, { backgroundColor: theme.surfaceSoft }]}>
-								<View style={[s.progressFill, { backgroundColor: theme.timeLine, width: `${progress}%` }]} />
-							</View>
-						</View>
-					) : null}
 				</Pressable>
-			</Animated.View>
+			</View>
 
-			<Animated.View entering={FadeInDown.delay(140).duration(420)} style={s.metricsRow}>
-				<Metric icon={<CalendarDays color={theme.accent} size={18} />} value={String(todayActiveCount)} label={dayIntensity} detail={dayRange} />
-				<Metric icon={<CalendarClock color={theme.accent} size={18} />} value={String(weekCount)} label="Cette semaine" detail="Cours actifs" />
-				<Metric
-					icon={<TrendingUp color={theme.accent} size={18} />}
-					value={aurigaAverage}
-					label="Moyenne Auriga"
-					detail={aurigaAverage === "-" ? "Non chargée" : "Notes"}
-				/>
-			</Animated.View>
-
-			<Animated.View entering={FadeInDown.delay(200).duration(420)} style={[s.studentPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-				<Pressable style={s.routeMain} onPress={() => navigation.navigate("Agenda")}>
-					<View style={[s.routeIcon, { backgroundColor: theme.accentSoft }]}>
-						<GraduationCap color={theme.accent} size={22} />
-					</View>
-					<View style={s.routeCopy}>
-						<Text style={[s.routeKicker, { color: theme.accent }]}>Profil étudiant</Text>
-						<Text style={[s.routeTitle, { color: theme.text }]} numberOfLines={1}>
-							{selectedGroupsLabel}
-						</Text>
-						<Text style={[s.routeText, { color: theme.muted }]} numberOfLines={2}>
-							{selectedLabels.length ? "Planning, rappels, widgets alignés sur ces groupes." : "Configure tes groupes pour personnaliser la journée."}
-						</Text>
-					</View>
-					<ChevronRight color={theme.muted} size={20} />
-				</Pressable>
-				<View style={[s.routeDivider, { backgroundColor: theme.border }]} />
-				<View style={s.quickGrid}>
-					<QuickAction icon={<CalendarDays color="#fff" size={18} />} label="Agenda" onPress={() => navigation.navigate("Agenda")} />
-					<QuickAction icon={<Plus color="#fff" size={18} />} label="Ajouter" onPress={() => setShowManualEvent(true)} />
-					<QuickAction icon={<BellRing color="#fff" size={18} />} label="Rappels" onPress={() => navigation.navigate("Notifications")} />
-					<QuickAction icon={<BookOpenCheck color="#fff" size={18} />} label="Notes" onPress={() => navigation.navigate("Notes")} />
+			{p.showCacheBanner ? (
+				<View style={[cs.banner, s.bannerGap, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+					<WifiOff color={theme.muted} size={17} />
+					<Text style={[cs.bannerText, { color: theme.text }]}>Hors ligne : planning enregistré affiché. Nouvel essai automatique.</Text>
 				</View>
-			</Animated.View>
+			) : null}
 
-			<Animated.View entering={FadeInDown.delay(260).duration(420)} style={s.sectionHead}>
-				<View>
-					<Text style={[s.sectionEyebrow, { color: theme.accent }]}>{sectionEyebrow}</Text>
-					<Text style={[s.sectionTitle, { color: theme.text }]}>{sectionTitle}</Text>
+			{p.eventChanges.length ? (
+				<View style={[cs.banner, s.bannerGap, { backgroundColor: theme.surface, borderColor: theme.warn }]}>
+					<TriangleAlert color={theme.warn} size={17} />
+					<Pressable style={cs.bannerBody} onPress={() => p.navigation.navigate("Agenda", { openChangesPanel: true })} accessibilityRole="button">
+						<Text style={[cs.bannerText, { color: theme.text }]} numberOfLines={2}>
+							{formatEventChangeNotice(p.eventChanges)}
+						</Text>
+						<Text style={[cs.bannerHint, { color: theme.accent }]}>Voir les modifications</Text>
+					</Pressable>
+					<Pressable style={cs.bannerClose} onPress={() => p.setEventChanges([])} accessibilityRole="button" accessibilityLabel="Masquer">
+						<X color={theme.muted} size={18} />
+					</Pressable>
 				</View>
-				<View style={[s.segment, { backgroundColor: theme.surfaceSoft }]}>
-					{(["today", "next"] as const).map((tab) => {
-						const active = homeTab === tab;
-						return (
-							<Pressable key={tab} style={[s.segmentItem, active && { backgroundColor: theme.surface }]} onPress={() => setHomeTab(tab)}>
-								<Text style={[s.segmentText, { color: active ? theme.text : theme.muted }]}>{tab === "today" ? "Aujourd'hui" : "À venir"}</Text>
+			) : null}
+
+			<Animated.View entering={FadeInDown.duration(380)} style={s.heroWrap}>
+				{p.nextEvent ? (
+					<NextCourseCard
+						event={p.nextEvent}
+						following={p.followingEvent}
+						isLive={p.isLive}
+						kicker={p.nextKicker}
+						rooms={p.nextRooms}
+						now={p.now}
+						progress={p.progress}
+						onPress={() => p.openEventInCalendar(p.nextEvent)}
+						onPressFollowing={() => p.openEventInCalendar(p.followingEvent)}
+					/>
+				) : (
+					<View style={[s.heroEmpty, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+						<CalendarCheck color={theme.accent} size={26} />
+						<Text style={[s.heroEmptyTitle, { color: theme.text }]}>{p.hasGroups ? "Aucun cours à venir" : "Ton planning est vide"}</Text>
+						<Text style={[s.heroEmptyText, { color: theme.muted }]}>
+							{p.hasGroups ? "Rien de prévu dans les 30 prochains jours." : "Choisis tes groupes dans l'agenda pour voir tes prochains cours ici."}
+						</Text>
+						{!p.hasGroups ? (
+							<Pressable style={[s.heroEmptyBtn, { backgroundColor: theme.accent }]} onPress={() => p.navigation.navigate("Agenda")} accessibilityRole="button">
+								<Users color={readableTextOn(theme.accent)} size={17} />
+								<Text style={[s.heroEmptyBtnText, { color: readableTextOn(theme.accent) }]}>Choisir mes groupes</Text>
 							</Pressable>
-						);
-					})}
-				</View>
-			</Animated.View>
-
-			<Animated.View entering={FadeInDown.delay(280).duration(420)} style={s.insightRow}>
-				<StudentInsight title={primaryInsightTitle} body={primaryInsightBody} />
-				<StudentInsight title={secondaryInsightTitle} body={secondaryInsightBody} />
-			</Animated.View>
-
-			{visibleEvents.length === 0 ? (
-				<Animated.View entering={FadeInDown.delay(300).duration(420)} style={[s.emptyPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-					<CheckCircle2 color={theme.accent} size={26} />
-					<View style={s.emptyCopy}>
-						<Text style={[s.emptyTitle, { color: theme.text }]}>{emptyTitle}</Text>
-						<Text style={[s.emptyText, { color: theme.muted }]}>{emptyText}</Text>
+						) : null}
 					</View>
-				</Animated.View>
-			) : (
-				<View style={s.timeline}>
-					{visibleEvents.slice(0, 5).map((event: ZeusEvent, index: number) => (
-						<TimelineRow
-							key={`${event.idReservation || event.id || index}-${event.startDate}`}
-							event={event}
-							index={index}
-							colored={homeTab === "today"}
-							onPress={() => openEventInCalendar(event)}
-						/>
-					))}
+				)}
+			</Animated.View>
+
+			<View style={s.actionsRow}>
+				<QuickAction icon={<Plus color={theme.accent} size={20} />} label="Ajouter" detail="Événement" onPress={() => p.setShowManualEvent(true)} />
+				<QuickAction
+					icon={<GraduationCap color={theme.accent} size={20} />}
+					label="Notes"
+					detail={p.aurigaAverage === "-" ? "Auriga" : `Moy. ${p.aurigaAverage}`}
+					onPress={() => p.navigation.navigate("Notes")}
+				/>
+				<QuickAction
+					icon={<CalendarDays color={theme.accent} size={20} />}
+					label="Agenda"
+					detail={`${p.weekCount} cette sem.`}
+					onPress={() => p.navigation.navigate("Agenda")}
+				/>
+			</View>
+
+			<View style={[cs.dayHeading, s.sectionHeading]}>
+				<Text style={[cs.dayHeadingTitle, { color: theme.text }]}>{p.homeTab === "today" ? "Ta journée" : "Prochains cours"}</Text>
+				<Text style={[cs.dayHeadingMeta, { color: theme.muted }]}>{sectionMeta}</Text>
+			</View>
+			<View style={[cs.segment, s.segment, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]} accessibilityRole="tablist">
+				{(
+					[
+						["today", "Aujourd'hui"],
+						["next", "À venir"],
+					] as const
+				).map(([tab, label]) => {
+					const active = p.homeTab === tab;
+					return (
+						<Pressable
+							key={tab}
+							style={[cs.segmentItem, active && { backgroundColor: theme.accentSoft }]}
+							onPress={() => p.setHomeTab(tab)}
+							accessibilityRole="tab"
+							accessibilityState={{ selected: active }}>
+							<Text style={[cs.segmentText, { color: active ? theme.accent : theme.muted }]}>{label}</Text>
+						</Pressable>
+					);
+				})}
+			</View>
+
+			{listEvents.length === 0 ? (
+				<View style={[s.emptyPanel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+					<Text style={[s.emptyTitle, { color: theme.text }]}>{p.emptyTitle}</Text>
+					<Text style={[s.emptyText, { color: theme.muted }]}>{p.emptyText}</Text>
 				</View>
+			) : p.homeTab === "today" ? (
+				<DayTimeline events={p.todayEvents} now={nowMs} isToday renderEvent={renderEvent} />
+			) : (
+				upcomingDays.map(({ day, events }, index) => (
+					<View key={day.toDateString()}>
+						<Text style={[s.upcomingDay, index === 0 && s.upcomingDayFirst, { color: theme.muted }]}>
+							{sameDay(day, p.now) ? "Aujourd'hui" : capitalize(day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))}
+						</Text>
+						<DayTimeline events={events} now={nowMs} isToday={sameDay(day, p.now)} renderEvent={renderEvent} />
+					</View>
+				))
 			)}
 
-			<Animated.View entering={FadeInDown.delay(360).duration(420)} style={s.sectionHead}>
-				<View>
-					<Text style={[s.sectionEyebrow, { color: theme.accent }]}>Campus</Text>
-					<Text style={[s.sectionTitle, { color: theme.text }]}>Outils rapides</Text>
-				</View>
-			</Animated.View>
-
-			<View style={s.linksList}>
-				{usefulLinks.map((item: UsefulLink, index: number) => (
-					<UsefulLinkCard key={item.url} item={item} index={index} />
+			<Text style={[cs.dayHeadingTitle, s.linksHeading, { color: theme.text }]}>Liens utiles</Text>
+			<View style={s.linksGrid}>
+				{p.usefulLinks.map((item) => (
+					<LinkTile key={item.url} item={item} />
 				))}
 			</View>
+
 			<ManualEventModal
-				visible={showManualEvent}
-				title={manualTitle}
-				date={manualDate}
-				start={manualStart}
-				end={manualEnd}
-				room={manualRoom}
-				saving={savingManual}
-				onChangeTitle={setManualTitle}
-				onChangeDate={setManualDate}
-				onChangeStart={setManualStart}
-				onChangeEnd={setManualEnd}
-				onChangeRoom={setManualRoom}
-				onSave={saveManualEvent}
-				onClose={() => setShowManualEvent(false)}
+				visible={p.showManualEvent}
+				title={p.manualTitle}
+				date={p.manualDate}
+				start={p.manualStart}
+				end={p.manualEnd}
+				room={p.manualRoom}
+				saving={p.savingManual}
+				onChangeTitle={p.setManualTitle}
+				onChangeDate={p.setManualDate}
+				onChangeStart={p.setManualStart}
+				onChangeEnd={p.setManualEnd}
+				onChangeRoom={p.setManualRoom}
+				onSave={p.saveManualEvent}
+				onClose={() => p.setShowManualEvent(false)}
 			/>
 		</ScrollView>
 	);
 }
 
-type UsefulLink = {
-	title: string;
-	description: string;
-	url: string;
-	accent: string;
-	badge: string;
-	image: number;
-};
-
-const minute = 60_000;
-
-const formatTime = (date: Date) => date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-
-const formatInputDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-
-const parseInputDate = (dateValue: string) => {
-	const dateMatch = dateValue.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-	if (!dateMatch) return null;
-	const year = Number(dateMatch[1]);
-	const month = Number(dateMatch[2]) - 1;
-	const dayValue = Number(dateMatch[3]);
-	const date = new Date(year, month, dayValue, 0, 0, 0, 0);
-	if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== dayValue) return null;
-	return date;
-};
-export function formatEventChangeNotice(changes: EventChange[]) {
-	const first = changes[0];
-	const start = new Date(first.startDate);
-	const time = Number.isNaN(start.getTime()) ? "" : ` à ${formatTime(start)}`;
-	const suffix = changes.length > 1 ? ` (+${changes.length - 1})` : "";
-	return `Cours modifié${suffix} : ${first.title}${time}, ${first.summary}`;
-}
-
-export function UsefulLinkCard({ item, index }: { item: UsefulLink; index: number }) {
+// The one thing the home answers first: what's on now / next, when it ends or starts, and where.
+// Painted on the course's own colour, like its card in the agenda.
+function NextCourseCard({
+	event,
+	following,
+	isLive,
+	kicker,
+	rooms,
+	now,
+	progress,
+	onPress,
+	onPressFollowing,
+}: {
+	event: ZeusEvent;
+	following: ZeusEvent | null;
+	isLive: boolean;
+	kicker: string;
+	rooms?: string;
+	now: Date;
+	progress: number;
+	onPress: () => void;
+	onPressFollowing: () => void;
+}) {
 	const { theme } = useTheme();
-
+	const dark = theme.mode === "dark";
+	const color = getCourseColor(event);
+	const accent = dark ? color : mixHex(color, "#000000", 0.35);
+	const start = new Date(event.startDate);
+	const end = new Date(event.endDate);
+	const title = getEventTitle(event);
+	const teachers = (event.teachers?.map(getTeacherName).filter(Boolean) || []).join(", ");
+	const pillText = isLive ? `En cours · encore ${formatDuration((end.getTime() - now.getTime()) / minute)}` : kicker;
+	const whenLabel = isLive ? "Fin du cours" : sameDay(start, now) ? `Jusqu'à ${formatTime(end)}` : formatStartLabel(start, now).split(" à ")[0];
+	const followingRooms = following?.rooms?.map(getRoomName).filter(Boolean).join(", ");
 	return (
-		<Animated.View entering={FadeInDown.delay(360 + index * 40).duration(360)} layout={Layout.springify()}>
+		<View
+			style={[
+				s.hero,
+				{ backgroundColor: theme.surface, borderColor: hexToRgba(color, isLive ? 0.9 : dark ? 0.5 : 0.4), shadowColor: theme.cardShadow },
+				isLive && s.heroLive,
+			]}>
+			<View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: hexToRgba(color, dark ? 0.15 : 0.09) }]} />
 			<Pressable
-				style={[s.linkCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-				onPress={() => {
-					Linking.openURL(item.url).catch(() => {});
-				}}>
-				<View style={[s.linkVisual, { backgroundColor: item.accent }]}>
-					<View style={s.linkVisualOverlay} />
-					<Image source={item.image} style={s.linkImage} resizeMode="contain" />
-					<View style={s.linkBadge}>
-						<Text style={s.linkBadgeText}>{item.badge}</Text>
-					</View>
-					<Text style={s.linkVisualUrl} numberOfLines={1}>
-						{item.url.replace(/^https?:\/\//, "")}
-					</Text>
-				</View>
-				<View style={s.linkBody}>
-					<View style={s.linkBodyHeader}>
-						<Text style={[s.linkTitle, { color: theme.text }]} numberOfLines={1}>
-							{item.title}
+				onPress={onPress}
+				style={({ pressed }) => [s.heroMain, pressed && s.pressed]}
+				accessibilityRole="button"
+				accessibilityLabel={`${pillText}. ${title}, de ${formatTime(start)} à ${formatTime(end)}${rooms ? `, salle ${rooms}` : ""}. Ouvrir dans l'agenda`}>
+				<View style={s.heroTop}>
+					<View style={[s.pill, { backgroundColor: hexToRgba(color, dark ? 0.24 : 0.16) }]}>
+						<Text style={[s.pillText, { color: accent }]} numberOfLines={1}>
+							{pillText}
 						</Text>
-						<ChevronRight color={item.accent} size={18} />
 					</View>
-					<Text style={[s.linkDescription, { color: theme.muted }]} numberOfLines={2}>
-						{item.description}
+					<Text style={[s.heroType, { color: accent }]} numberOfLines={1}>
+						{getCourseTypeLabel(event)}
 					</Text>
 				</View>
-			</Pressable>
-		</Animated.View>
-	);
-}
 
-export function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-	const { theme } = useTheme();
-	return (
-		<View style={[s.infoTile, { backgroundColor: theme.surfaceSoft, borderColor: theme.border }]}>
-			{icon}
-			<View style={s.infoTileCopy}>
-				<Text style={[s.infoTileLabel, { color: theme.muted }]}>{label}</Text>
-				<Text style={[s.infoTileValue, { color: theme.text }]} numberOfLines={2}>
-					{value}
-				</Text>
-			</View>
-		</View>
-	);
-}
+				<View style={s.heroFacts}>
+					<View style={s.heroFact}>
+						<Text style={[s.heroBig, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+							{formatTime(isLive ? end : start)}
+						</Text>
+						<Text style={[s.heroFactLabel, { color: theme.muted }]} numberOfLines={1}>
+							{whenLabel}
+						</Text>
+					</View>
+					<View style={[s.heroDivider, { backgroundColor: hexToRgba(color, 0.35) }]} />
+					<View style={s.heroFact}>
+						<Text style={[s.heroRoom, { color: rooms ? theme.text : theme.muted }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>
+							{rooms || "À confirmer"}
+						</Text>
+						<View style={s.heroRoomLabel}>
+							<MapPin color={accent} size={13} />
+							<Text style={[s.heroFactLabel, { color: theme.muted }]}>Salle</Text>
+						</View>
+					</View>
+				</View>
 
-export function Metric({ icon, value, label, detail }: { icon: React.ReactNode; value: string; label: string; detail: string }) {
-	const { theme } = useTheme();
-	return (
-		<View style={[s.metric, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-			<View style={[s.metricIcon, { backgroundColor: theme.accentSoft }]}>{icon}</View>
-			<Text style={[s.metricValue, { color: theme.text }]} numberOfLines={1}>
-				{value}
-			</Text>
-			<Text style={[s.metricLabel, { color: theme.text }]} numberOfLines={1}>
-				{label}
-			</Text>
-			<Text style={[s.metricDetail, { color: theme.muted }]} numberOfLines={1}>
-				{detail}
-			</Text>
-		</View>
-	);
-}
-
-export function StudentInsight({ icon, title, body }: { icon?: React.ReactNode; title: string; body: string }) {
-	const { theme } = useTheme();
-
-	return (
-		<View style={[s.insightCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-			{icon && <View style={[s.insightIcon, { backgroundColor: theme.accentSoft }]}>{icon}</View>}
-
-			<View style={s.insightCopy}>
-				<Text style={[s.insightTitle, { color: theme.text }]} numberOfLines={1}>
+				<Text style={[s.heroTitle, { color: theme.text }]} numberOfLines={2}>
 					{title}
 				</Text>
-				<Text style={[s.insightBody, { color: theme.muted }]} numberOfLines={2}>
-					{body}
-				</Text>
-			</View>
+				{teachers ? (
+					<Text style={[s.heroMeta, { color: theme.muted }]} numberOfLines={1}>
+						{teachers}
+					</Text>
+				) : null}
+
+				{isLive ? (
+					<View style={s.progress}>
+						<View style={[s.progressTrack, { backgroundColor: hexToRgba(color, 0.22) }]}>
+							<View style={[s.progressFill, { width: `${progress}%`, backgroundColor: color }]} />
+						</View>
+						<Text style={[s.progressText, { color: theme.muted }]}>{Math.round(progress)}%</Text>
+					</View>
+				) : null}
+			</Pressable>
+
+			{following ? (
+				<Pressable
+					onPress={onPressFollowing}
+					style={({ pressed }) => [s.following, { borderTopColor: hexToRgba(color, 0.3) }, pressed && s.pressed]}
+					accessibilityRole="button"
+					accessibilityLabel={`Ensuite : ${getEventTitle(following)}, ${formatStartLabel(new Date(following.startDate), now)}`}>
+					<Text style={[s.followingLabel, { color: accent }]}>Ensuite</Text>
+					<Text style={[s.followingTime, { color: theme.text }]}>
+						{sameDay(new Date(following.startDate), now) ? formatTime(new Date(following.startDate)) : formatStartLabel(new Date(following.startDate), now)}
+					</Text>
+					<View style={[s.followingDot, { backgroundColor: getCourseColor(following) }]} />
+					<Text style={[s.followingTitle, { color: theme.text }]} numberOfLines={1}>
+						{getEventTitle(following)}
+						{followingRooms ? <Text style={{ color: theme.muted }}> · {followingRooms}</Text> : null}
+					</Text>
+					<ChevronRight color={theme.muted} size={18} />
+				</Pressable>
+			) : null}
 		</View>
 	);
 }
 
-export function QuickAction({ icon, label, onPress }: { icon: React.ReactNode; label: string; onPress: () => void }) {
+function QuickAction({ icon, label, detail, onPress }: { icon: React.ReactNode; label: string; detail: string; onPress: () => void }) {
 	const { theme } = useTheme();
 	return (
-		<Pressable style={[s.quickAction, { backgroundColor: theme.accent }]} onPress={onPress}>
-			{icon}
-			<Text style={s.quickText}>{label}</Text>
+		<Pressable
+			style={({ pressed }) => [s.action, { backgroundColor: pressed ? theme.surfaceSoft : theme.surface, borderColor: theme.border }]}
+			onPress={onPress}
+			accessibilityRole="button"
+			accessibilityLabel={`${label}, ${detail}`}>
+			<View style={[s.actionIcon, { backgroundColor: theme.accentSoft }]}>{icon}</View>
+			<Text style={[s.actionLabel, { color: theme.text }]} numberOfLines={1}>
+				{label}
+			</Text>
+			<Text style={[s.actionDetail, { color: theme.muted }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+				{detail}
+			</Text>
+		</Pressable>
+	);
+}
+
+function LinkTile({ item }: { item: UsefulLink }) {
+	const { theme } = useTheme();
+	return (
+		<Pressable
+			style={({ pressed }) => [s.linkTile, { backgroundColor: theme.surface, borderColor: theme.border }, pressed && s.pressed]}
+			onPress={() => Linking.openURL(item.url).catch(() => {})}
+			accessibilityRole="link"
+			accessibilityLabel={`${item.title} : ${item.description}`}>
+			<View style={[s.linkVisual, { backgroundColor: item.accent }]}>
+				<Image source={item.image} style={s.linkImage} resizeMode="contain" />
+			</View>
+			<View style={s.linkBody}>
+				<View style={s.linkTitleRow}>
+					<Text style={[s.linkTitle, { color: theme.text }]} numberOfLines={1}>
+						{item.title}
+					</Text>
+					<ArrowUpRight color={theme.muted} size={16} />
+				</View>
+				<Text style={[s.linkDescription, { color: theme.muted }]} numberOfLines={2}>
+					{item.description}
+				</Text>
+			</View>
 		</Pressable>
 	);
 }
@@ -545,126 +565,86 @@ export function FormField({
 	);
 }
 
-export function TimelineRow({ event, index, colored, onPress }: { event: ZeusEvent; index: number; colored?: boolean; onPress: () => void }) {
-	const { theme } = useTheme();
-	const start = new Date(event.startDate);
-	const end = new Date(event.endDate);
-	const rooms = event.rooms?.map(getRoomName).filter(Boolean).join(", ");
-	const isPast = end.getTime() < Date.now();
-	const cancelled = isEventCancelled(event);
-	const ignored = isEventIgnored(event);
-	const isNow = !cancelled && !ignored && start.getTime() <= Date.now() && end.getTime() > Date.now();
-	const eventColor = colored ? getCourseColor(event) : theme.border;
-	const activeColor = cancelled || ignored ? theme.muted : isNow ? (colored ? eventColor : theme.accent) : eventColor;
-
-	return (
-		<Animated.View entering={FadeInDown.delay(300 + Math.min(index, 5) * 45).duration(360)} layout={Layout.springify()}>
-			<Pressable
-				style={[
-					s.timelineRow,
-					(cancelled || ignored) && s.timelineRowCancelled,
-					{
-						backgroundColor: cancelled || ignored ? theme.surfaceSoft : theme.surface,
-						borderColor: isNow || cancelled || ignored ? activeColor : theme.border,
-						opacity: isPast || cancelled || ignored ? 0.62 : 1,
-					},
-				]}
-				onPress={onPress}>
-				<View style={s.timeCol}>
-					<Text style={[s.timeText, { color: isNow ? activeColor : theme.text }]}>{formatTime(start)}</Text>
-					<Text style={[s.timeEnd, { color: theme.muted }]}>{formatTime(end)}</Text>
-				</View>
-				<View style={[s.timelineMarker, { backgroundColor: activeColor }]}>{isNow ? <View style={s.timelineDot} /> : null}</View>
-				<View style={s.timelineBody}>
-					<View style={s.timelineTitleRow}>
-						{cancelled ? (
-							<View style={[s.cancelledBadge, { borderColor: theme.muted }]}>
-								<Text style={[s.cancelledBadgeText, { color: theme.muted }]}>Annulé</Text>
-							</View>
-						) : ignored ? (
-							<View style={[s.cancelledBadge, { borderColor: theme.muted }]}>
-								<Text style={[s.cancelledBadgeText, { color: theme.muted }]}>Ignoré</Text>
-							</View>
-						) : null}
-						<Text
-							style={[s.timelineTitle, (cancelled || ignored) && s.timelineTitleCancelled, { color: cancelled || ignored ? theme.muted : theme.text }]}
-							numberOfLines={1}>
-							{getEventTitle(event)}
-						</Text>
-					</View>
-					<Text style={[s.timelineMeta, { color: theme.muted }]} numberOfLines={1}>
-						{cancelled ? `Cours annulé · ${rooms || "Lieu à confirmer"}` : ignored ? `Cours ignoré · ${rooms || "Lieu à confirmer"}` : rooms || "Lieu à confirmer"}
-					</Text>
-				</View>
-				<ChevronRight color={theme.muted} size={18} />
-			</Pressable>
-		</Animated.View>
-	);
-}
-
 export const s = StyleSheet.create({
-	root: { flex: 1 },
-	content: { padding: 18, paddingTop: 56, paddingBottom: 112 },
-	topBand: { position: "absolute", top: 0, left: 0, right: 0, height: 246, opacity: 0.82 },
-	header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 },
-	headerIdentity: { flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 },
-	logo: { width: 48, height: 48, marginRight: 12 },
-	headerText: { flex: 1, minWidth: 0 },
-	eyebrow: { fontSize: 12, fontWeight: "900", textTransform: "capitalize" },
-	title: { fontSize: 31, fontWeight: "900", letterSpacing: 0 },
-	syncPill: { maxWidth: 142, minHeight: 40, borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 7 },
-	syncText: { flexShrink: 1, fontSize: 12, fontWeight: "900" },
-	noticeStack: { gap: 10, marginBottom: 12 },
-	offline: { borderWidth: 1, borderRadius: 12, padding: 11, flexDirection: "row", alignItems: "center", gap: 8 },
-	offlineText: { flex: 1, fontSize: 12, fontWeight: "800", lineHeight: 17 },
-	roomChange: { borderWidth: 1, borderRadius: 12, padding: 11, flexDirection: "row", alignItems: "center", gap: 8 },
-	roomChangeText: { flex: 1, fontSize: 12, fontWeight: "900", lineHeight: 17 },
-	roomChangeClose: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
-	cockpit: {
+	content: { paddingHorizontal: 16, paddingBottom: 40 },
+	identity: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12 },
+	logo: { width: 44, height: 44 },
+	identityText: { flex: 1, minWidth: 0 },
+	greeting: { fontSize: 28, lineHeight: 34, fontWeight: "900" },
+	date: { fontSize: 14, fontWeight: "800" },
+	bannerGap: { marginTop: 0, marginBottom: 10 },
+	pressed: { opacity: 0.86 },
+	heroWrap: { marginTop: 2 },
+	hero: {
 		borderWidth: 1,
-		borderRadius: 20,
-		padding: 16,
-		minHeight: 0,
+		borderRadius: 22,
 		overflow: "hidden",
-		shadowOpacity: 0.1,
+		shadowOpacity: 0.12,
 		shadowRadius: 18,
 		shadowOffset: { width: 0, height: 10 },
 		elevation: 3,
 	},
-	cockpitTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-	statusBadge: { minHeight: 32, borderRadius: 8, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 7, maxWidth: "58%" },
-	statusBadgeText: { color: "#fff", fontSize: 12, fontWeight: "900" },
-	groupBadge: { flexShrink: 1, minHeight: 32, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, alignItems: "center", justifyContent: "center" },
-	groupBadgeText: { fontSize: 11, fontWeight: "900" },
-	cockpitTitle: { fontSize: 25, lineHeight: 30, fontWeight: "900", letterSpacing: 0, marginTop: 18 },
-	cockpitSubtitle: { marginTop: 8, fontSize: 14, lineHeight: 19, fontWeight: "800" },
-	cockpitGrid: { gap: 8, marginTop: 16 },
-	infoTile: { minHeight: 54, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 10 },
-	infoTileCopy: { flex: 1, minWidth: 0 },
-	infoTileLabel: { fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
-	infoTileValue: { marginTop: 3, fontSize: 14, lineHeight: 18, fontWeight: "900" },
-	liveProgress: { marginTop: 18 },
-	liveProgressHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-	liveProgressText: { fontSize: 12, fontWeight: "900" },
-	progressTrack: { height: 8, borderRadius: 8, overflow: "hidden" },
-	progressFill: { height: "100%", borderRadius: 8 },
-	metricsRow: { flexDirection: "row", gap: 9, marginTop: 12 },
-	metric: { flex: 1, minHeight: 122, borderRadius: 18, borderWidth: 1, padding: 11, justifyContent: "space-between" },
-	metricIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-	metricValue: { fontSize: 26, fontWeight: "900", letterSpacing: 0 },
-	metricLabel: { fontSize: 12, fontWeight: "900" },
-	metricDetail: { fontSize: 10, fontWeight: "800" },
-	studentPanel: { borderWidth: 1, borderRadius: 22, padding: 14, marginTop: 12 },
-	routeMain: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 12 },
-	routeIcon: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-	routeCopy: { flex: 1, minWidth: 0 },
-	routeKicker: { fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
-	routeTitle: { marginTop: 2, fontSize: 18, fontWeight: "900" },
-	routeText: { marginTop: 4, lineHeight: 18, fontWeight: "700" },
-	routeDivider: { height: 1, marginVertical: 12 },
-	quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-	quickAction: { flexBasis: "48%", flexGrow: 1, minHeight: 48, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-	quickText: { color: "#fff", fontWeight: "900", fontSize: 13 },
+	heroLive: { borderWidth: 2 },
+	heroMain: { padding: 16 },
+	heroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+	pill: { flexShrink: 1, minHeight: 30, borderRadius: 15, paddingHorizontal: 12, justifyContent: "center" },
+	pillText: { fontSize: 13, fontWeight: "900", fontVariant: ["tabular-nums"] },
+	heroType: { flexShrink: 0, maxWidth: "45%", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.4 },
+	heroFacts: { flexDirection: "row", alignItems: "stretch", marginTop: 18 },
+	heroFact: { flex: 1, minWidth: 0, justifyContent: "flex-end" },
+	heroBig: { fontSize: 48, lineHeight: 54, fontWeight: "900", letterSpacing: -1, fontVariant: ["tabular-nums"] },
+	heroRoom: { fontSize: 28, lineHeight: 33, fontWeight: "900", letterSpacing: -0.4 },
+	heroFactLabel: { fontSize: 13, fontWeight: "800" },
+	heroRoomLabel: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+	heroDivider: { width: 1, marginHorizontal: 16 },
+	heroTitle: { marginTop: 18, fontSize: 20, lineHeight: 25, fontWeight: "900" },
+	heroMeta: { marginTop: 4, fontSize: 14, fontWeight: "700" },
+	progress: { marginTop: 16, flexDirection: "row", alignItems: "center", gap: 10 },
+	progressTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
+	progressFill: { height: "100%", borderRadius: 3 },
+	progressText: { minWidth: 36, textAlign: "right", fontSize: 13, fontWeight: "900", fontVariant: ["tabular-nums"] },
+	following: { minHeight: 52, borderTopWidth: 1, paddingLeft: 16, paddingRight: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+	followingLabel: { fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.4 },
+	followingTime: { fontSize: 14, fontWeight: "900", fontVariant: ["tabular-nums"] },
+	followingDot: { width: 8, height: 8, borderRadius: 4 },
+	followingTitle: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: "800" },
+	heroEmpty: { borderWidth: 1, borderRadius: 22, padding: 18, gap: 6 },
+	heroEmptyTitle: { marginTop: 6, fontSize: 20, fontWeight: "900" },
+	heroEmptyText: { fontSize: 14, lineHeight: 20, fontWeight: "700" },
+	heroEmptyBtn: { marginTop: 10, alignSelf: "flex-start", minHeight: 44, borderRadius: 14, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 8 },
+	heroEmptyBtnText: { fontSize: 15, fontWeight: "900" },
+	actionsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+	action: {
+		flex: 1,
+		minWidth: 0,
+		minHeight: 92,
+		borderWidth: 1,
+		borderRadius: 18,
+		paddingHorizontal: 6,
+		paddingVertical: 10,
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 2,
+	},
+	actionIcon: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+	actionLabel: { fontSize: 13, fontWeight: "900" },
+	actionDetail: { fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
+	sectionHeading: { marginTop: 28 },
+	segment: { flex: 0, marginBottom: 14 },
+	upcomingDay: { marginTop: 12, marginBottom: 8, fontSize: 14, fontWeight: "900" },
+	upcomingDayFirst: { marginTop: 0 },
+	emptyPanel: { borderWidth: 1, borderRadius: 18, padding: 16 },
+	emptyTitle: { fontSize: 17, fontWeight: "900" },
+	emptyText: { marginTop: 4, lineHeight: 19, fontWeight: "700" },
+	linksHeading: { marginTop: 28, marginBottom: 12 },
+	linksGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+	linkTile: { flexBasis: "45%", flexGrow: 1, borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+	linkVisual: { height: 76, alignItems: "center", justifyContent: "center" },
+	linkImage: { width: 96, height: 44 },
+	linkBody: { padding: 12 },
+	linkTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 },
+	linkTitle: { flex: 1, fontSize: 16, fontWeight: "900" },
+	linkDescription: { marginTop: 4, fontSize: 12, lineHeight: 17, fontWeight: "700" },
 	manualRoot: { flex: 1 },
 	manualHeader: { paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12, borderBottomWidth: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
 	manualTitle: { fontSize: 24, fontWeight: "900" },
@@ -679,68 +659,4 @@ export const s = StyleSheet.create({
 	dateButtonText: { flex: 1, fontSize: 16, fontWeight: "800", textTransform: "capitalize" },
 	manualSave: { minHeight: 52, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, marginTop: 6 },
 	manualSaveText: { color: "#fff", fontSize: 16, fontWeight: "900" },
-	sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 24, marginBottom: 12 },
-	sectionEyebrow: { fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
-	sectionTitle: { fontSize: 24, fontWeight: "900", letterSpacing: 0 },
-	segment: { width: 154, flexDirection: "row", padding: 4, borderRadius: 10 },
-	segmentItem: { flex: 1, minHeight: 34, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-	segmentText: { fontSize: 12, fontWeight: "900" },
-	insightRow: { flexDirection: "row", gap: 10, marginBottom: 12 },
-	insightCard: { flex: 1, minHeight: 98, borderWidth: 1, borderRadius: 16, padding: 12 },
-	insightIcon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center", marginBottom: 10 },
-	insightCopy: { flex: 1, minWidth: 0 },
-	insightTitle: { fontSize: 14, fontWeight: "900" },
-	insightBody: { marginTop: 4, fontSize: 12, lineHeight: 17, fontWeight: "700" },
-	timeline: { gap: 10 },
-	timelineRow: { borderWidth: 1, borderRadius: 16, minHeight: 82, padding: 12, flexDirection: "row", alignItems: "center", gap: 12 },
-	timelineRowCancelled: { borderStyle: "dashed" },
-	timeCol: { width: 48 },
-	timeText: { fontSize: 15, fontWeight: "900" },
-	timeEnd: { marginTop: 4, fontSize: 12, fontWeight: "800" },
-	timelineMarker: { width: 10, alignSelf: "stretch", borderRadius: 10, alignItems: "center", justifyContent: "center" },
-	timelineDot: { width: 4, height: 24, borderRadius: 4, backgroundColor: "#fff" },
-	timelineBody: { flex: 1, minWidth: 0 },
-	timelineTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-	timelineTitle: { fontSize: 16, fontWeight: "900" },
-	timelineTitleCancelled: { flex: 1, textDecorationLine: "line-through" },
-	timelineMeta: { marginTop: 5, fontSize: 13, fontWeight: "700" },
-	cancelledBadge: { borderWidth: 1, borderStyle: "dashed", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 },
-	cancelledBadgeText: { fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
-	emptyPanel: { borderWidth: 1, borderRadius: 16, padding: 16, flexDirection: "row", gap: 12, alignItems: "center" },
-	emptyCopy: { flex: 1 },
-	emptyTitle: { fontSize: 17, fontWeight: "900" },
-	emptyText: { marginTop: 4, lineHeight: 19, fontWeight: "700" },
-	linksList: { gap: 12, marginTop: 2 },
-	linkCard: {
-		borderWidth: 1,
-		borderRadius: 18,
-		overflow: "hidden",
-	},
-	linkVisual: {
-		minHeight: 100,
-		padding: 14,
-		justifyContent: "space-between",
-		alignItems: "center",
-		position: "relative",
-	},
-	linkVisualOverlay: {
-		...StyleSheet.absoluteFill,
-		backgroundColor: "rgba(255,255,255,0.08)",
-	},
-	linkImage: { width: 110, height: 56, zIndex: 1, marginTop: 2 },
-	linkBadge: {
-		zIndex: 1,
-		alignSelf: "flex-start",
-		minHeight: 28,
-		paddingHorizontal: 10,
-		borderRadius: 8,
-		backgroundColor: "rgba(255,255,255,0.18)",
-		justifyContent: "center",
-	},
-	linkBadgeText: { color: "#fff", fontSize: 12, fontWeight: "900", letterSpacing: 0.2 },
-	linkVisualUrl: { zIndex: 1, alignSelf: "flex-start", marginTop: 8, color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: "700" },
-	linkBody: { padding: 14 },
-	linkBodyHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-	linkTitle: { flex: 1, fontSize: 18, fontWeight: "900" },
-	linkDescription: { marginTop: 6, lineHeight: 18, fontWeight: "700" },
 });

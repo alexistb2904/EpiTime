@@ -17,11 +17,7 @@ export type RequiredPermissionsResult = {
 };
 
 export type RequiredAppPermissionsOptions = {
-	/**
-	 * Exact alarms are a special access, not a normal notification permission.
-	 * Keep the onboarding request focused on notifications and ask for this
-	 * capability only from a feature-specific user action or the Settings screen.
-	 */
+	/** Exact alarms are an Android special access: requesting it opens a system settings page. */
 	includeExactAlarms?: boolean;
 };
 

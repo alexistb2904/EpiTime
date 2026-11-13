@@ -1,8 +1,8 @@
-import { clearSession, getSession } from "./storage";
 import { Platform } from "react-native";
+import type { Session } from "../types";
 import { LocationNode, Room, RoomType, Teacher } from "../types";
 import { publicConfig } from "./config";
-import type { Session } from "../types";
+import { clearSession, getSession } from "./storage";
 
 const API_BASE = (publicConfig.apiBase || "").replace(/\/$/, "");
 const REQUEST_TIMEOUT_MS = 15_000;

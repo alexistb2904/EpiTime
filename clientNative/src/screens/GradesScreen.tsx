@@ -540,7 +540,10 @@ export default function GradesScreen() {
 
 	if (!connected && periods.length === 0 && syllabusList.length === 0) {
 		return (
-			<ScrollView style={[s.root, { backgroundColor: theme.bg }]} contentContainerStyle={[s.content, { paddingTop: insets.top + 34, paddingBottom: contentPaddingBottom }]}>
+			<ScrollView
+				keyboardShouldPersistTaps="handled"
+				style={[s.root, { backgroundColor: theme.bg }]}
+				contentContainerStyle={[s.content, { paddingTop: insets.top + 12, paddingBottom: contentPaddingBottom }]}>
 				<AuthHeader />
 				<ConnectCard
 					connecting={connecting}
