@@ -1,0 +1,15 @@
+diff --git a/node_modules/expo-dev-launcher/android/build.gradle b/node_modules/expo-dev-launcher/android/build.gradle
+--- a/node_modules/expo-dev-launcher/android/build.gradle
++++ b/node_modules/expo-dev-launcher/android/build.gradle
+@@ -53,9 +53,11 @@ android {
+     release {
+       if (configureInRelease) {
+         java.srcDir 'src/debug/java'
++        kotlin.srcDir 'src/debug/java'
+         res.srcDir 'src/debug/res'
+       } else {
+         java.srcDir 'src/disableInRelease/java'
++        kotlin.srcDir 'src/disableInRelease/java'
+         res.srcDir 'src/disableInRelease/res'
+       }
+     }
