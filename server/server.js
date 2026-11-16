@@ -672,12 +672,14 @@ app.get("/api/events", async (req, res) => {
 		groupIds.forEach((gid) => {
 			url += `&Groups=${encodeURIComponent(gid)}`;
 		});
-		teacherIds.forEach((tid) => {
-			url += `&Teachers=${encodeURIComponent(tid)}`;
-		});
-		roomIds.forEach((rid) => {
-			url += `&Rooms=${encodeURIComponent(rid)}`;
-		});
+		if (!groupIds.length) {
+			teacherIds.forEach((tid) => {
+				url += `&Teachers=${encodeURIComponent(tid)}`;
+			});
+			roomIds.forEach((rid) => {
+				url += `&Rooms=${encodeURIComponent(rid)}`;
+			});
+		}
 
 		const upstream = await fetch(url, {
 			headers: { Authorization: `Bearer ${zeusToken}` },
@@ -695,19 +697,12 @@ app.get("/api/events", async (req, res) => {
 			const data = text ? JSON.parse(text) : null;
 
 			if (Array.isArray(data)) {
-				// Zeus combines Groups/Rooms/Teachers as an OR. Keep OR inside each
-				// category but enforce AND across active categories before returning.
 				const filteredData = filterEventsByCalendarFilters(data, {
-					groups: groupIds,
 					rooms: roomIds,
 					teachers: teacherIds,
 				});
 
-				// The notification cache is group-scoped. Only hydrate it from a
-				// group-only request so room/teacher filtering cannot make it partial.
-				if (groupIds.length && roomIds.length === 0 && teacherIds.length === 0) {
-					cacheEvents(data, groupIds);
-				}
+				if (groupIds.length) cacheEvents(data, groupIds);
 
 				return res.json(filteredData);
 			}
