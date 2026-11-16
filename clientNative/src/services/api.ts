@@ -3,7 +3,7 @@ import type { Session } from "../types";
 import { LocationNode, Room, RoomType, Teacher } from "../types";
 import { isZeusTokenExpired } from "./authUtils";
 import { publicConfig } from "./config";
-import { getSession, markSessionExpired } from "./storage";
+import { getSession, markSessionExpired, setJSON } from "./storage";
 
 const API_BASE = (publicConfig.apiBase || "").replace(/\/$/, "");
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -172,14 +172,19 @@ export async function getAvailableRooms(payload: { startDate: string; endDate: s
 export async function getUniqueUsers() {
 	return request<{ enabled?: boolean; users?: number }>("/api/analytics/phone/overview");
 }
+export const SERVER_CHANGE_PUSH_KEY = "serverChangePushActive";
+
 export async function registerExpoPushToken(token: string, userId: string, groups: (string | number)[], settings: any) {
-	return request("/api/mobile/subscribe", {
+	const result = await request<{ changePush?: boolean } | null>("/api/mobile/subscribe", {
 		method: "POST",
 		headers: { "X-User-ID": userId },
-		body: JSON.stringify({ expoPushToken: token, userId, groups, settings, platform: Platform.OS }),
+		body: JSON.stringify({ expoPushToken: token, userId, groups, settings, platform: Platform.OS, changePush: true }),
 	});
+	await setJSON(SERVER_CHANGE_PUSH_KEY, result?.changePush === true);
+	return result;
 }
 export async function unregisterExpoPushToken(token: string, userId: string) {
+	await setJSON(SERVER_CHANGE_PUSH_KEY, false);
 	return request("/api/mobile/unsubscribe", {
 		method: "POST",
 		headers: { "X-User-ID": userId },

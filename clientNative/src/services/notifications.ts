@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { NativeModules, Platform } from "react-native";
 import { ZeusEvent } from "../types";
 import { getEventTitle, getRoomName } from "../utils/calendar";
+import { SERVER_CHANGE_PUSH_KEY } from "./api";
 import { publicConfig } from "./config";
 import { EventChange, RoomChange } from "./eventsCache";
 import { getJSON, setJSON } from "./storage";
@@ -299,6 +300,7 @@ export async function notifyEventChanges(changes: EventChange[], notificationTyp
 
 	await appendEventChangeHistory(changes);
 	if (Platform.OS === "web") return 0;
+	if (await getJSON<boolean>(SERVER_CHANGE_PUSH_KEY, false)) return 0;
 
 	const granted = (await Notifications.getPermissionsAsync()).status === "granted";
 	if (!granted) return 0;

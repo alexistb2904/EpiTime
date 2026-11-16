@@ -13,7 +13,6 @@ RUN npm ci
 
 COPY client/src ./src
 COPY client/public ./public
-# Logique métier commune (notes, planning), importée par le client via ../shared.
 COPY shared/src /shared/src
 
 RUN npm run build
@@ -38,6 +37,9 @@ COPY server/package*.json ./
 RUN npm ci --omit=dev
 
 COPY server/ ./
+
+COPY shared/package.json /shared/package.json
+COPY shared/src /shared/src
 
 COPY --from=client-builder /client/dist ./public
 

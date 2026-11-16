@@ -5,7 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"start": "node server.js",
-		"test": "node --test calendarFilters.test.mjs pushSubscription.test.mjs"
+		"test": "node --test calendarFilters.test.mjs pushSubscription.test.mjs scheduleChanges.test.mjs notifications.compat.test.mjs"
 	},
 	"dependencies": {
 		"cors": "^2.8.5",
