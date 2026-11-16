@@ -3,7 +3,7 @@
 		"name": "EpiTime",
 		"slug": "epitime",
 		"scheme": "epitime",
-		"version": "1.2.0",
+		"version": "1.2.1",
 		"orientation": "portrait",
 		"icon": "./assets/app_logo.png",
 		"userInterfaceStyle": "automatic",
