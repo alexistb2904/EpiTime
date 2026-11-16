@@ -2461,3 +2461,11 @@ button.tree-toggle:hover {
 .rooms-results {
 	animation: card-in 300ms var(--ease) backwards;
 }
+
+.ghost-clear {
+	position: fixed;
+	right: max(16px, env(safe-area-inset-right));
+	bottom: max(16px, env(safe-area-inset-bottom));
+	z-index: 50;
+	box-shadow: 0 6px 20px rgba(8, 12, 20, 0.28);
+}

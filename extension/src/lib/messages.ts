@@ -16,6 +16,8 @@ export type PageRequest =
 	| { type: "schedule.refresh" }
 	| { type: "settings.save"; settings: Settings }
 	| { type: "changes.seen" }
+	| { type: "changes.remove"; key: string; detectedAt: number }
+	| { type: "changes.clear" }
 	| { type: "link.request" }
 	| { type: "link.remove" };
 

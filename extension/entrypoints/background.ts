@@ -4,7 +4,7 @@ import type { BridgeRequest, ExtensionState, PageRequest, Reply } from "../src/l
 import { notesChanged, notesStore } from "../src/lib/notes";
 import { DEFAULT_ORIGIN } from "../src/lib/origins";
 import { browser, BROWSER_NAME, isExtensionPage, isTrustedContentScript, openWebApp } from "../src/lib/platform";
-import { ensureSyncAlarm, fireReminder, isReminderAlarm, openFromNotification, refreshSchedule, scheduleReminders, SYNC_ALARM, updateBadge } from "../src/lib/scheduler";
+import { clearChangeNotifications, ensureSyncAlarm, fireReminder, isReminderAlarm, openFromNotification, refreshSchedule, scheduleReminders, SYNC_ALARM, updateBadge } from "../src/lib/scheduler";
 import { isSessionUsable, parseSessionPayload, readTokenExpiry } from "../src/lib/sessionModel";
 import { getLocal, getSession, getSettings, migrateSettings, setLocal, setSession, type Link } from "../src/lib/state";
 
@@ -73,6 +73,18 @@ async function handlePage(request: PageRequest): Promise<unknown> {
 		case "changes.seen": {
 			const changes = await getLocal("changes");
 			await setLocal("changes", { ...changes, unseen: 0 });
+			await updateBadge();
+			return buildState();
+		}
+		case "changes.remove": {
+			const changes = await getLocal("changes");
+			await setLocal("changes", { ...changes, items: changes.items.filter((item) => item.key !== request.key || item.detectedAt !== request.detectedAt) });
+			return buildState();
+		}
+		case "changes.clear": {
+			const changes = await getLocal("changes");
+			await setLocal("changes", { ...changes, items: [], unseen: 0 });
+			await clearChangeNotifications();
 			await updateBadge();
 			return buildState();
 		}

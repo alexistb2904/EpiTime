@@ -96,7 +96,7 @@ const stateSignature = (event: ZeusEvent | null) =>
 		: "none";
 
 function categorize(kind: ChangeKind, details: ChangeDetail[]): ChangeCategory {
-	if (kind === "created") return "created";
+	if (kind === "created" || kind === "reactivated") return "created";
 	if (kind === "deleted" || kind === "cancelled") return "cancelled";
 	if (details.some((detail) => detail.field === "day" || detail.field === "time")) return "time";
 	if (details.some((detail) => detail.field === "room")) return "room";

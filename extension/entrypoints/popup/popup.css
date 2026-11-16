@@ -424,3 +424,19 @@ summary.row {
 	padding-top: 0.6rem;
 	border-top: 1px solid var(--rule);
 }
+
+.change {
+	position: relative;
+	padding-right: 2.6rem;
+}
+
+.change-remove {
+	position: absolute;
+	top: 0.45rem;
+	right: 0.4rem;
+	color: var(--ink-soft);
+}
+
+.change-clear {
+	justify-self: center;
+}

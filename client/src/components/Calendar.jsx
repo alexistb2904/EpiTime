@@ -21,7 +21,7 @@ import { cacheGet, cacheSet } from "../utils/cacheStore";
 import { getDisplayedGroupNames } from "../utils/calendarGroups";
 import { courseHue } from "../utils/courseColor";
 import { buildCalendarFilterParams, buildEffectiveCalendarFilters } from "../utils/calendarFilters";
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, ClipboardCheck, Laptop, NotebookPen, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, ClipboardCheck, Eraser, Laptop, NotebookPen, Users } from "lucide-react";
 import { isExamEvent } from "../utils/courseType";
 import "./Calendar.css";
 
@@ -105,6 +105,7 @@ const Calendar = () => {
 		return localStorage.getItem("zeus_view_mode") === "list" ? "list" : "week";
 	});
 	const [events, setEvents] = useState([]);
+	const eventsCacheKeyRef = useRef("");
 
 	const [selectedGroups, setSelectedGroups] = useState(JSON.parse(localStorage.getItem("zeus_selected_groups") || "[]"));
 	const { checkNotifications, updateNotificationSettings } = usePushNotifications(user?.username, selectedGroups, notificationSettings);
@@ -282,6 +283,7 @@ const Calendar = () => {
 			params.set("end", end.toISOString());
 
 			cacheKey = `zeus_events_${calendarFilters.groups.join("_")}_${calendarFilters.rooms.join("_")}_${calendarFilters.teachers.join("_")}_${start.toISOString()}_${end.toISOString()}`;
+			eventsCacheKeyRef.current = cacheKey;
 
 			const res = await fetchApi(`/api/events?${params.toString()}`, {
 				headers: { Authorization: `Bearer ${zeusToken}` },
@@ -508,6 +510,13 @@ const Calendar = () => {
 		if (target) handleEventClick(target);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [processedEvents, loading]);
+
+	const cancelledCount = useMemo(() => events.filter(isEventCancelled).length, [events]);
+	const clearCancelled = () => {
+		const kept = events.filter((ev) => !isEventCancelled(ev));
+		setEvents(kept);
+		cacheSet(eventsCacheKeyRef.current, kept);
+	};
 
 	const isCurrentWeek = weekKey === getWeekStart(now).getTime();
 	const nextEvent = useMemo(() => {
@@ -980,6 +989,13 @@ const Calendar = () => {
 					</section>
 				</main>
 			</div>
+
+			{!loading && cancelledCount > 0 && (
+				<button type="button" className="btn is-ink ghost-clear" onClick={clearCancelled}>
+					<Eraser size={17} strokeWidth={2.2} aria-hidden="true" />
+					{cancelledCount === 1 ? "Retirer le cours annulé" : `Retirer les ${cancelledCount} cours annulés`}
+				</button>
+			)}
 
 			{showGroupModal && (
 				<GroupSelectionModal

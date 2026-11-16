@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Bell, CloudOff, ExternalLink, Link2, NotebookPen, RefreshCw, Settings as SettingsIcon } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bell, CloudOff, ExternalLink, Link2, NotebookPen, RefreshCw, Settings as SettingsIcon, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	courseHue,
@@ -111,7 +111,7 @@ const App = () => {
 			{view === "settings" ? (
 				<SettingsView state={state} act={act} />
 			) : view === "changes" ? (
-				<ChangesView state={state} now={now} />
+				<ChangesView state={state} now={now} act={act} />
 			) : !state.link ? (
 				<Onboarding state={state} onLink={() => act({ type: "link.request" }).then(() => window.close())} />
 			) : (
@@ -369,7 +369,7 @@ const WeekView = ({ state, now, openWeb }: { state: ExtensionState; now: number;
 	);
 };
 
-const ChangesView = ({ state, now }: { state: ExtensionState; now: number }) => {
+const ChangesView = ({ state, now, act }: { state: ExtensionState; now: number; act: ReturnType<typeof useExtensionState>["act"] }) => {
 	const items = state.changes.items;
 	const seen = (at: number) =>
 		new Date(at).toDateString() === new Date(now).toDateString()
@@ -380,15 +380,28 @@ const ChangesView = ({ state, now }: { state: ExtensionState; now: number }) => 
 			{items.length === 0 ? (
 				<p className="settings-note">Aucun changement repéré pour l'instant. L'extension vérifie ton planning toutes les {state.settings.syncMinutes} minutes.</p>
 			) : (
-				<ul className="group-card change-list">
-					{items.map((item) => (
-						<li key={`${item.key}-${item.detectedAt}`} className={`change ${item.category === "cancelled" ? "is-cancel" : ""}`}>
-							<strong>{item.notification.title}</strong>
-							<span>{item.notification.message}</span>
-							<small>repéré {seen(item.detectedAt)}</small>
-						</li>
-					))}
-				</ul>
+				<>
+					<ul className="group-card change-list">
+						{items.map((item) => (
+							<li key={`${item.key}-${item.detectedAt}`} className={`change ${item.category === "cancelled" ? "is-cancel" : ""}`}>
+								<strong>{item.notification.title}</strong>
+								<span>{item.notification.message}</span>
+								<small>repéré {seen(item.detectedAt)}</small>
+								<button
+									type="button"
+									className="tool is-bare change-remove"
+									onClick={() => act({ type: "changes.remove", key: item.key, detectedAt: item.detectedAt })}
+									aria-label={`Supprimer : ${item.notification.title}`}
+									title="Supprimer">
+									<X size={16} strokeWidth={2.3} aria-hidden="true" />
+								</button>
+							</li>
+						))}
+					</ul>
+					<button type="button" className="btn is-small change-clear" onClick={() => act({ type: "changes.clear" })}>
+						Tout effacer
+					</button>
+				</>
 			)}
 		</section>
 	);

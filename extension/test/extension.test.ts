@@ -1,7 +1,7 @@
 process.env.TZ = "Europe/Paris";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { ZeusEvent } from "../../shared/src/events.ts";
+import { startMs, type ZeusEvent } from "../../shared/src/events.ts";
 import { ApiError, fetchEvents } from "../src/lib/api.ts";
 import { isSessionUsable, parseSessionPayload, readTokenExpiry } from "../src/lib/sessionModel.ts";
 import { DEFAULT_SETTINGS, migrateSettings } from "../src/lib/settingsModel.ts";
@@ -144,4 +144,41 @@ test("migration des réglages : champs ajoutés complétés, valeurs gardées", 
 	assert.equal(migrated.changes.categories.room, true, "catégorie absente : valeur par défaut");
 	assert.equal(migrated.reminders.minutesBefore, 10);
 	assert.deepEqual(migrateSettings(undefined), DEFAULT_SETTINGS);
+});
+
+test("chaque type de changement produit une notification", () => {
+	const base = applySyncResult({
+		schedule: emptySchedule,
+		changes: emptyLog,
+		settings,
+		now: NOW,
+		result: snapshot([course(1, 1), course(2, 3), course(3, 5), course(4, 26), course(5, 30, { isCancelled: true }), course(6, 50), course(7, 52)]),
+	});
+	const shift = (event: ZeusEvent, hours: number) => ({ ...event, startDate: new Date(startMs(event) + hours * H).toISOString(), endDate: new Date(Date.parse(event.endDate) + hours * H).toISOString() });
+	const outcome = applySyncResult({
+		...base,
+		settings,
+		now: NOW + 60_000,
+		result: snapshot([
+			course(1, 1, { rooms: [{ name: "P112" }] }),
+			shift(course(2, 3), 1),
+			course(3, 5, { isCancelled: true }),
+			shift(course(4, 26), 24),
+			course(5, 30),
+			course(6, 50, { teachers: [{ name: "Nouveau" }] } as Partial<ZeusEvent>),
+			course(8, 54),
+		]),
+	});
+	const byTitle = Object.fromEntries(outcome.notify.map((change) => [change.title, change.notification.title]));
+	assert.deepEqual(byTitle, {
+		"Cours 1": "Cours 1 · salle modifiée",
+		"Cours 2": "Cours 2 · cours déplacé",
+		"Cours 3": "Cours 3 · cours annulé",
+		"Cours 4": "Cours 4 · cours déplacé",
+		"Cours 5": "Cours 5 · cours rétabli",
+		"Cours 7": "Cours 7 · cours retiré du planning",
+		"Cours 8": "Cours 8 · nouveau cours",
+	});
+	assert.equal(outcome.changes.items.length, 8, "le changement d'intervenant (catégorie « autre », coupée par défaut) reste dans la popup");
+	assert.equal(outcome.changes.unseen, 8);
 });

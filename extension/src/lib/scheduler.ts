@@ -124,6 +124,11 @@ export async function openFromNotification(notificationId: string) {
 	await openWebApp(link.origin, `/?${params}`);
 }
 
+export async function clearChangeNotifications() {
+	const shown = await browser.notifications.getAll();
+	await Promise.all(Object.keys(shown).filter((id) => id.startsWith(CHANGE_PREFIX)).map((id) => browser.notifications.clear(id)));
+}
+
 export async function updateBadge() {
 	const [link, changes, session] = await Promise.all([getLocal("link"), getLocal("changes"), getSession()]);
 	if (link && changes.unseen > 0) return setBadge(String(Math.min(changes.unseen, 99)), "#ff8fc1");
