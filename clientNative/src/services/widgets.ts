@@ -229,7 +229,9 @@ export async function refreshCourseWidgetsFromStoredConfig() {
 
 export function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
 	const now = Date.now();
-	return events
+	// Today's finished courses stay for the "Ma journée" strip. Other widgets filter them out at render.
+	const dayStart = startOfDay(new Date(now)).getTime();
+	const kept = events
 		.map((event) => {
 			const startMillis = new Date(event.startDate).getTime();
 			const endMillis = new Date(event.endDate).getTime();
@@ -237,10 +239,12 @@ export function normalizeWidgetCourses(events: ZeusEvent[]): WidgetCourse[] {
 		})
 		.filter(
 			({ event, startMillis, endMillis }) =>
-				!isEventCancelled(event) && !isEventIgnored(event) && Number.isFinite(startMillis) && Number.isFinite(endMillis) && endMillis > now
+				!isEventCancelled(event) && !isEventIgnored(event) && Number.isFinite(startMillis) && Number.isFinite(endMillis) && endMillis > dayStart
 		)
-		.sort((a, b) => a.startMillis - b.startMillis)
-		.slice(0, 8)
+		.sort((a, b) => a.startMillis - b.startMillis);
+	const finishedToday = kept.filter(({ endMillis }) => endMillis <= now).length;
+	return kept
+		.slice(0, finishedToday + 8)
 		.map(({ event, startMillis, endMillis }) => ({
 			id: event.idReservation || event.id,
 			title: getEventTitle(event),

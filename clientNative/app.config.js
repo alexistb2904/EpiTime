@@ -61,6 +61,18 @@ module.exports = ({ config }) => {
 				updatePeriodMillis: 1800000,
 			},
 			{
+				name: "TodayCourses",
+				label: "Ma journée",
+				description: "Affiche l'heure de fin de tes cours du jour et le cours en cours ou le suivant.",
+				minWidth: "110dp",
+				minHeight: "110dp",
+				targetCellWidth: 2,
+				targetCellHeight: 2,
+				resizeMode: "horizontal|vertical",
+				previewImage: "./assets/widget-preview/todaycourses.png",
+				updatePeriodMillis: 1800000,
+			},
+			{
 				name: "UpcomingCourses",
 				label: "Prochains cours",
 				description: "Affiche les prochains cours EpiTime.",

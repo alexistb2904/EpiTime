@@ -13,6 +13,20 @@ export function upcomingCourses(payload?: CourseWidgetPayload | null, limit = 8,
 		.slice(0, limit);
 }
 
+
+export function dayPlan(payload?: CourseWidgetPayload | null, now = Date.now()) {
+	const sorted = (payload?.courses || []).filter((course) => Number.isFinite(course.startMillis) && Number.isFinite(course.endMillis)).sort((a, b) => a.startMillis - b.startMillis);
+	const next = sorted.find((course) => course.endMillis > now);
+	if (!next) return null;
+	const courses = sorted.filter((course) => dayOffset(course.startMillis, next.startMillis) === 0);
+	return {
+		courses,
+		next,
+		today: next.startMillis <= now || dayOffset(next.startMillis, now) === 0,
+		endMillis: Math.max(...courses.map((course) => course.endMillis)),
+	};
+}
+
 export function courseUri(course?: WidgetCourse) {
 	if (!course) return "epitime://agenda";
 	const params = new URLSearchParams({

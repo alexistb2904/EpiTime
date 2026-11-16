@@ -73,6 +73,7 @@ class CourseWidgetsModule(
     private const val TAG = "EpiTimeCourseWidgets"
     private const val MODULE_NAME = "EpiTimeCourseWidgets"
     private const val NEXT_COURSE_WIDGET_NAME = "NextCourse"
+    private const val TODAY_COURSES_WIDGET_NAME = "TodayCourses"
     private const val SEMESTER_OVERVIEW_WIDGET_NAME = "SemesterOverview"
     private const val PREFS_NAME = "course_widget_refresh"
     private const val KEY_PAYLOAD = "payload"
@@ -286,6 +287,7 @@ class CourseWidgetsModule(
 
     private val TIMELINE_WIDGET_NAMES = arrayOf(
       NEXT_COURSE_WIDGET_NAME,
+      TODAY_COURSES_WIDGET_NAME,
       SEMESTER_OVERVIEW_WIDGET_NAME
     )
   }

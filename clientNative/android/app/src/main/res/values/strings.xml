@@ -2,6 +2,8 @@
   <string name="app_name">EpiTime</string>
   <string name="widget_nextcourse_label">Prochain cours</string>
   <string name="widget_nextcourse_description">Affiche le prochain cours EpiTime.</string>
+  <string name="widget_todaycourses_label">Ma journée</string>
+  <string name="widget_todaycourses_description">Affiche l\'heure de fin de tes cours du jour et le cours en cours ou le suivant.</string>
   <string name="widget_upcomingcourses_label">Prochains cours</string>
   <string name="widget_upcomingcourses_description">Affiche les prochains cours EpiTime.</string>
   <string name="widget_semestergrades_label">Moyenne et notes</string>

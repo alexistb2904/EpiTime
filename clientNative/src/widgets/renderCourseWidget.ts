@@ -5,10 +5,12 @@ import { courseWidgetThemes } from "./courseWidgetTheme";
 import { NextCourseWidget } from "./NextCourseWidget";
 import { SemesterGradesWidget } from "./SemesterGradesWidget";
 import { SemesterOverviewWidget } from "./SemesterOverviewWidget";
+import { TodayCoursesWidget } from "./TodayCoursesWidget";
 import { UpcomingCoursesWidget } from "./UpcomingCoursesWidget";
 
 export const courseWidgets = {
 	NextCourse: NextCourseWidget,
+	TodayCourses: TodayCoursesWidget,
 	UpcomingCourses: UpcomingCoursesWidget,
 	SemesterGrades: SemesterGradesWidget,
 	SemesterOverview: SemesterOverviewWidget,
@@ -16,7 +18,6 @@ export const courseWidgets = {
 
 export type CourseWidgetName = keyof typeof courseWidgets;
 
-/** Light and dark renders of one placed widget, sized to it. */
 export async function renderCourseWidget(name: CourseWidgetName, payload: CourseWidgetPayload, info: Pick<WidgetInfo, "width" | "height">): Promise<WidgetRepresentation> {
 	const themes = await courseWidgetThemes();
 	const Widget = courseWidgets[name];

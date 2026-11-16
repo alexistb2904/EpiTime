@@ -24,6 +24,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
 
 function widgetTypeForName(name: string) {
 	if (name === "NextCourse") return "next_course";
+	if (name === "TodayCourses") return "today_courses";
 	if (name === "UpcomingCourses") return "upcoming_courses";
 	if (name === "SemesterGrades") return "semester_grades";
 	return "semester_overview";

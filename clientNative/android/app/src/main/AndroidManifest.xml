@@ -74,6 +74,15 @@
       <meta-data android:name="android.appwidget.provider"
         android:resource="@xml/widgetprovider_nextcourse" />
     </receiver>
+    <receiver android:name=".widget.TodayCourses" android:exported="false"
+      android:label="@string/widget_todaycourses_label">
+      <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        <action android:name="fr.alexistb2904.epitime.WIDGET_CLICK" />
+      </intent-filter>
+      <meta-data android:name="android.appwidget.provider"
+        android:resource="@xml/widgetprovider_todaycourses" />
+    </receiver>
     <receiver android:name=".widget.UpcomingCourses" android:exported="false"
       android:label="@string/widget_upcomingcourses_label">
       <intent-filter>
