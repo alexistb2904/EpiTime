@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { ArrowLeft, NotebookPen, Paperclip, Plus } from "lucide-react";
+import { ArrowLeft, NotebookPen, Paperclip, Plus, Trash2 } from "lucide-react";
 import { courseRefOf, createNote, noteLabel } from "../../../../shared/src/notes/model.ts";
-import { notesStore } from "../../notes/notesDb";
+import { notesChanged, notesStore } from "../../notes/notesDb";
 import { useNotesQuery } from "../../notes/useNotes";
 import NoteEditor from "./NoteEditor";
 import "./Notes.css";
@@ -15,8 +15,30 @@ const rowPreview = (note) => {
 	return rest.replace(/\s+/g, " ").slice(0, 140);
 };
 
+export const NoteRowDelete = ({ noteId }) => {
+	const [confirming, setConfirming] = useState(false);
+	const remove = async () => {
+		if (!confirming) return setConfirming(true);
+		await notesStore.remove(noteId);
+		notesChanged("local");
+	};
+	return (
+		<button
+			type="button"
+			className={`note-row-delete${confirming ? " is-confirming" : ""}`}
+			onClick={remove}
+			onBlur={() => setConfirming(false)}
+			aria-label={confirming ? "Confirmer la suppression" : "Supprimer la note"}
+			title={confirming ? "Cliquer encore pour supprimer" : "Supprimer la note"}
+		>
+			<Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
+			{confirming && "Supprimer ?"}
+		</button>
+	);
+};
+
 export const NoteRow = ({ note, onOpen, showCourse = false, active = false }) => (
-	<li>
+	<li className="note-row-item">
 		<button type="button" className="note-row" onClick={() => onOpen(note)} aria-current={active || undefined}>
 			<strong>{noteLabel(note)}</strong>
 			<span className="note-row-preview">{rowPreview(note)}</span>
@@ -32,6 +54,7 @@ export const NoteRow = ({ note, onOpen, showCourse = false, active = false }) =>
 				)}
 			</span>
 		</button>
+		{!active && <NoteRowDelete noteId={note.id} />}
 	</li>
 );
 

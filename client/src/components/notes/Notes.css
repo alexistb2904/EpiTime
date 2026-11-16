@@ -69,6 +69,55 @@
 	font-variant-numeric: tabular-nums;
 }
 
+.note-row-item {
+	position: relative;
+}
+
+.note-row-item .note-row {
+	padding-right: 2.6rem;
+}
+
+.note-row-delete {
+	position: absolute;
+	top: 0.45rem;
+	right: 0.45rem;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	min-width: 2rem;
+	height: 2rem;
+	padding: 0 0.5rem;
+	justify-content: center;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: transparent;
+	color: var(--ink-soft);
+	font: inherit;
+	font-size: 0.8rem;
+	font-weight: 700;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 160ms ease-out, background-color 160ms ease-out, color 160ms ease-out;
+}
+
+.note-row-item:hover .note-row-delete,
+.note-row-delete:focus-visible,
+.note-row-delete.is-confirming {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.note-row-delete {
+		opacity: 1;
+	}
+}
+
+.note-row-delete:hover,
+.note-row-delete.is-confirming {
+	background: color-mix(in srgb, var(--pen) 22%, transparent);
+	color: var(--ink);
+}
+
 .note-row-meta > span {
 	display: inline-flex;
 	align-items: center;
