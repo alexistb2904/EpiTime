@@ -3,6 +3,7 @@ import { Alert } from "react-native";
 import { getSession, clearSession, markSessionExpired } from "../services/storage";
 import { loginWithMicrosoft } from "../services/auth";
 import { unregisterExpoPushToken } from "../services/api";
+import { clearAllAurigaData } from "../services/aurigaTeardown";
 import { getExistingPushToken } from "../services/notifications";
 import { Session } from "../types";
 import { trackEvent } from "../services/analytics";
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const logout = useCallback(async () => {
 		void trackEvent("logout_triggered");
 		await unregisterCurrentDevicePush(session).catch(() => {});
+		await clearAllAurigaData().catch(() => {});
 		await clearSession();
 		setSession(null);
 	}, [session]);

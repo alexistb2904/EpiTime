@@ -2,7 +2,7 @@ import * as BackgroundTask from "expo-background-task";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 import { isAuthReconnectRequiredError } from "./api";
-import { AurigaAuthError, getRememberedAurigaCredentials, hasAurigaRefreshToken } from "./aurigaAuth";
+import { AurigaAuthError, hasAurigaRefreshToken } from "./aurigaAuth";
 import { getCachedAurigaGrades, saveAurigaGrades } from "./aurigaCache";
 import { fetchAurigaGrades } from "./aurigaClient";
 import type { AurigaGrade } from "./aurigaTypes";
@@ -28,12 +28,11 @@ const LAST_AURIGA_GRADE_BACKGROUND_SYNC_KEY = "lastAurigaGradeBackgroundSync";
 const BACKGROUND_SYNC_REGISTRATION_INTERVAL_KEY = "planningNotificationBackgroundSyncInterval";
 
 async function syncPlanningNotificationsInBackground() {
-	const [session, selectedGroups, notificationSettings, hasAurigaToken, rememberedAurigaCredentials] = await Promise.all([
+	const [session, selectedGroups, notificationSettings, hasAurigaToken] = await Promise.all([
 		getSession(),
 		getJSON<(string | number)[]>("selectedGroups", []),
 		getNotificationSettings(),
 		hasAurigaRefreshToken(),
-		getRememberedAurigaCredentials(),
 	]);
 	let completedWork = false;
 	let planningError: unknown = null;
@@ -72,36 +71,29 @@ async function syncPlanningNotificationsInBackground() {
 		}
 	}
 
-	if (hasAurigaToken || rememberedAurigaCredentials) {
+	if (hasAurigaToken) {
 		completedWork = (await syncAurigaGradesInBackground(notificationSettings)) || completedWork;
 	}
 
-	// If Auriga completed, report success even when the independent planning
-	// refresh failed. Returning Failed here would make Android back off and
-	// delay the very grade check that succeeded.
 	if (planningError && !completedWork) throw planningError;
 	return completedWork;
 }
 
 async function syncAurigaGradesInBackground(notificationSettings: NotificationSettings) {
 	try {
-		// Read the previous cache before the request so only a task that actually ran can create an alert.
 		const previousGrades = await getCachedAurigaGrades();
 		const fetchedGrades = await fetchAurigaGrades();
 		const changes = findAurigaGradeChanges(previousGrades, fetchedGrades);
 
-		// On a first sync, establish the baseline without spamming historical grades.
 		if (previousGrades.length > 0 && changes.length > 0 && notificationSettings.enabled) {
 			await notifyAurigaGradeChanges(changes, notificationSettings.notificationType);
 		}
 
 		const grades = preserveAurigaGradeSyncDates(previousGrades, fetchedGrades);
-		// This is deliberately a grades-only refresh; keep auriga.lastSync reserved for a complete grades/syllabus sync.
 		await Promise.all([saveAurigaGrades(grades), setJSON(LAST_AURIGA_GRADE_BACKGROUND_SYNC_KEY, new Date().toISOString())]);
 		await syncGradeWidgetsFromStoredData().catch(() => {});
 		return true;
 	} catch (error) {
-		// The user may have revoked Auriga access while the app was closed. Keep planning sync healthy in that case.
 		if (error instanceof AurigaAuthError) return false;
 		throw error;
 	}
@@ -169,16 +161,15 @@ if (!TaskManager.isTaskDefined(PLANNING_NOTIFICATION_SYNC_TASK)) {
 export async function registerPlanningNotificationBackgroundSync() {
 	if (Platform.OS === "web") return false;
 
-	const [session, selectedGroups, status, hasAurigaToken, rememberedAurigaCredentials, registeredInterval] = await Promise.all([
+	const [session, selectedGroups, status, hasAurigaToken, registeredInterval] = await Promise.all([
 		getSession(),
 		getJSON<(string | number)[]>("selectedGroups", []),
 		BackgroundTask.getStatusAsync(),
 		hasAurigaRefreshToken(),
-		getRememberedAurigaCredentials(),
 		getJSON<number>(BACKGROUND_SYNC_REGISTRATION_INTERVAL_KEY, 0),
 	]);
 	const hasPlanningSource = Boolean(session?.zeusToken && selectedGroups.length);
-	const canSync = Boolean(session && (hasPlanningSource || hasAurigaToken || rememberedAurigaCredentials));
+	const canSync = Boolean(session && (hasPlanningSource || hasAurigaToken));
 
 	if (!canSync || status !== BackgroundTask.BackgroundTaskStatus.Available) {
 		await unregisterPlanningNotificationBackgroundSync();

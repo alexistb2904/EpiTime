@@ -12,11 +12,12 @@ import { clearAurigaCache, getAurigaLastSync, getCachedAurigaGrades, getCachedAu
 import {
 	AurigaAuthError,
 	clearRememberedAurigaCredentials,
-	getRememberedAurigaCredentials,
+	getRememberedAurigaIdentifier,
 	hasAurigaRefreshToken,
 	loginAurigaWithCredentials,
 	logoutAuriga,
-	saveRememberedAurigaCredentials,
+	saveRememberedAurigaIdentifier,
+	setAurigaSessionPersistence,
 } from "../services/aurigaAuth";
 import { syncAurigaData } from "../services/aurigaClient";
 import { registerPlanningNotificationBackgroundSync } from "../services/backgroundSync";
@@ -203,7 +204,7 @@ export default function GradesScreen() {
 			if (source === "login") setAurigaStatus({ type: "loading", message: "Connexion réussie. Récupération des informations Auriga..." });
 			if (source === "auto") setAurigaStatus({ type: "loading", message: "Récupération des informations Auriga..." });
 			try {
-				const data = await syncAurigaData();
+				const data = await syncAurigaData({ fullSyllabus: source !== "auto" });
 				const [manual, weighted, coefficientOverrides, overrides] = await Promise.all([
 					getManualGrades(),
 					getUseWeightedAverages(),
@@ -254,12 +255,11 @@ export default function GradesScreen() {
 		(async () => {
 			try {
 				await hydrateCache();
-				const [hasToken, rememberedCredentials, syncDate] = await Promise.all([hasAurigaRefreshToken(), getRememberedAurigaCredentials(), getAurigaLastSync()]);
+				const [hasToken, rememberedIdentifier, syncDate] = await Promise.all([hasAurigaRefreshToken(), getRememberedAurigaIdentifier(), getAurigaLastSync()]);
 				if (!mounted) return;
-				if (rememberedCredentials) {
+				if (rememberedIdentifier) {
 					setRememberAurigaCredentials(true);
-					setAurigaIdentifier(rememberedCredentials.identifier);
-					setAurigaPassword(rememberedCredentials.password);
+					setAurigaIdentifier(rememberedIdentifier);
 				}
 				setConnected(hasToken);
 				if (hasToken) {
@@ -268,33 +268,6 @@ export default function GradesScreen() {
 						await refreshAuriga("auto");
 					}
 					return;
-				}
-				if (rememberedCredentials) {
-					setConnecting(true);
-					try {
-						await loginAurigaWithCredentials(rememberedCredentials.identifier, rememberedCredentials.password);
-						setConnecting(false);
-						await refreshAuriga("auto");
-						return;
-					} catch (error) {
-						if (error instanceof AurigaAuthError) {
-							await clearRememberedAurigaCredentials();
-						}
-						if (!mounted) return;
-						setRememberAurigaCredentials(false);
-						setAurigaPassword("");
-						setConnected(false);
-						setOffline(true);
-						setAurigaStatus({
-							type: "error",
-							message:
-								error instanceof AurigaAuthError
-									? "Reconnexion automatique Auriga impossible. Vérifie tes identifiants."
-									: "Reconnexion automatique Auriga impossible pour le moment.",
-						});
-					} finally {
-						if (mounted) setConnecting(false);
-					}
 				}
 				if (mounted) setLoading(false);
 			} catch {
@@ -357,14 +330,15 @@ export default function GradesScreen() {
 		setOffline(false);
 		setAurigaStatus({ type: "loading", message: "Connexion à Auriga..." });
 		try {
+			await setAurigaSessionPersistence(rememberAurigaCredentials);
 			await loginAurigaWithCredentials(aurigaIdentifier, aurigaPassword);
 			await commitAutofillContext();
 			if (rememberAurigaCredentials) {
-				await saveRememberedAurigaCredentials({ identifier: aurigaIdentifier, password: aurigaPassword });
+				await saveRememberedAurigaIdentifier(aurigaIdentifier);
 			} else {
 				await clearRememberedAurigaCredentials();
-				setAurigaPassword("");
 			}
+			setAurigaPassword("");
 			setConnecting(false);
 			await refreshAuriga("login");
 		} catch (error) {

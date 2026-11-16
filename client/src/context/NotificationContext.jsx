@@ -23,17 +23,6 @@ export const NotificationProvider = ({ children }) => {
 		});
 	}, []);
 
-	const shouldNotifyForEvent = useCallback(
-		(event) => {
-			if (!notificationSettings.enabled) return false;
-
-			const eventDate = new Date(event.start);
-			const dayOfWeek = eventDate.getDay();
-			return notificationSettings.selectedDays.includes(dayOfWeek);
-		},
-		[notificationSettings]
-	);
-
 	const getNotificationTime = useCallback(
 		(eventStart) => {
 			const eventDate = new Date(eventStart);
@@ -48,7 +37,6 @@ export const NotificationProvider = ({ children }) => {
 			value={{
 				notificationSettings,
 				updateSettings,
-				shouldNotifyForEvent,
 				getNotificationTime,
 			}}>
 			{children}

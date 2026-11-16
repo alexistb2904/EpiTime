@@ -2,6 +2,7 @@ import React, { useState, useContext, createContext } from "react";
 import { CacheLookupPolicy, PublicClientApplication } from "@azure/msal-browser";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi, setSessionRenewer } from "../utils/api";
+import { cacheClear } from "../utils/cacheStore";
 import { clearSavedSession, EXPIRY_LEEWAY_MS, getZeusTokenExpiresAt, getZeusTokenIssuedAt, hasMicrosoftRedirectResponse, readSavedSession } from "../utils/authSession";
 
 const AuthContext = createContext();
@@ -351,6 +352,8 @@ export const AuthProvider = ({ children }) => {
 		loggingOut.current = true;
 		lastUser.current = null;
 		expired.current = false;
+		if (zeusToken) fetchApi("/api/unsubscribe", { method: "POST", headers: { Authorization: `Bearer ${zeusToken}` } }).catch(() => {});
+		await cacheClear();
 		setSessionExpired(false);
 		setUser(null);
 		setZeusToken(null);

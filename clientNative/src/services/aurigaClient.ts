@@ -1,5 +1,17 @@
 import { AURIGA_API, AurigaAuthError, forceRefreshAurigaAccessToken, getValidAurigaAccessToken } from "./aurigaAuth";
-import { getCachedAurigaGrades, saveAurigaCoeffs, saveAurigaGrades, saveAurigaLastSync, saveAurigaSyllabus, saveAurigaUser } from "./aurigaCache";
+import {
+	AURIGA_SYLLABUS_FULL_SYNC_MAX_AGE_MS,
+	getAurigaSyllabusFullSync,
+	getCachedAurigaGrades,
+	getCachedAurigaSyllabus,
+	isAurigaSyncStale,
+	saveAurigaCoeffs,
+	saveAurigaGrades,
+	saveAurigaLastSync,
+	saveAurigaSyllabus,
+	saveAurigaSyllabusFullSync,
+	saveAurigaUser,
+} from "./aurigaCache";
 import gradesPayload from "./aurigaPayloads/grades.json";
 import syllabusPayload from "./aurigaPayloads/syllabus.json";
 import { extractSubjectCode, type AurigaCoeff, type AurigaGrade, type AurigaSyllabus } from "./aurigaTypes";
@@ -132,24 +144,37 @@ export function parseGradeRow(row: unknown[]): AurigaGrade | null {
 	};
 }
 
-export async function fetchAurigaGrades(): Promise<AurigaGrade[]> {
+async function fetchAllSearchLines(path: string, query: string, payload: unknown): Promise<unknown[][]> {
 	const size = 100;
+	const body = JSON.stringify(payload);
 	const allRows: unknown[][] = [];
-	let page = 1;
 
-	while (page < 30) {
-		const response = await aurigaRequest<SearchResultResponse>(`/menuEntries/1036/searchResult?size=${size}&page=${page}&sort=id&disableWarnings=true`, {
-			method: "POST",
-			body: JSON.stringify(gradesPayload),
-		});
+	for (let page = 1; page < 30; page += 1) {
+		const response = await aurigaRequest<SearchResultResponse>(`${path}?size=${size}&page=${page}&${query}`, { method: "POST", body });
 		const lines = getLines(response);
 		allRows.push(...lines);
 		const info = getPageInfo(response);
 		if (info.last || (typeof info.totalPages === "number" && page >= info.totalPages) || lines.length < size) break;
-		page += 1;
 	}
+	return allRows;
+}
 
-	return allRows.map(parseGradeRow).filter((grade): grade is AurigaGrade => Boolean(grade));
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+	const results = new Array<R>(items.length);
+	let next = 0;
+	const worker = async () => {
+		while (next < items.length) {
+			const index = next++;
+			results[index] = await fn(items[index]);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return results;
+}
+
+export async function fetchAurigaGrades(): Promise<AurigaGrade[]> {
+	const rows = await fetchAllSearchLines("/menuEntries/1036/searchResult", "sort=id&disableWarnings=true", gradesPayload);
+	return rows.map(parseGradeRow).filter((grade): grade is AurigaGrade => Boolean(grade));
 }
 
 function readCatalogs(raw: unknown): Array<{ id: number | string }> {
@@ -238,37 +263,39 @@ function mapSyllabusDetail(row: any, coeffs: AurigaCoeff[]): AurigaSyllabus | nu
 	};
 }
 
-export async function fetchAurigaSyllabus(coeffs: AurigaCoeff[] = []): Promise<AurigaSyllabus[]> {
+const AURIGA_CONCURRENCY = 5;
+
+export async function fetchAurigaSyllabus(coeffs: AurigaCoeff[] = [], cached: AurigaSyllabus[] = [], refetchKnown = true): Promise<AurigaSyllabus[]> {
 	const catalogsRaw = await aurigaRequest<unknown>("/menuEntries/166/courseCatalogDefinitions?sortBy=code,asc");
 	const catalogs = readCatalogs(catalogsRaw);
-	const ids = new Set<number>();
 
-	for (const catalog of catalogs) {
+	const linesByCatalog = await mapWithConcurrency(catalogs, AURIGA_CONCURRENCY, (catalog) => {
 		const payload = clonePayload<any>(syllabusPayload);
 		if (!payload.searchResultDefinition) payload.searchResultDefinition = {};
 		if (!payload.searchResultDefinition.filtersCustom) payload.searchResultDefinition.filtersCustom = {};
 		payload.searchResultDefinition.filtersCustom.id = catalog.id;
-		const response = await aurigaRequest<SearchResultResponse>("/menuEntries/166/searchResult?size=100&page=1&sort=id", {
-			method: "POST",
-			body: JSON.stringify(payload),
-		});
-		for (const line of getLines(response)) {
-			const id = Number(line[0]);
-			if (Number.isFinite(id)) ids.add(id);
-		}
+		return fetchAllSearchLines("/menuEntries/166/searchResult", "sort=id", payload);
+	});
+	const ids = new Set<number>();
+	for (const line of linesByCatalog.flat()) {
+		const id = Number(line[0]);
+		if (Number.isFinite(id)) ids.add(id);
 	}
 
-	const syllabus: AurigaSyllabus[] = [];
-	for (const id of ids) {
+	const known = new Map(cached.map((item) => [item.id, item]));
+	const syllabus = await mapWithConcurrency([...ids], AURIGA_CONCURRENCY, async (id) => {
+		const previous = known.get(id) ?? null;
+		if (previous && !refetchKnown) return previous;
 		try {
 			const detail = await aurigaRequest<any>(`/menuEntries/166/syllabuses/${id}`);
-			const mapped = mapSyllabusDetail(detail, coeffs);
-			if (mapped) syllabus.push(mapped);
+			return mapSyllabusDetail(detail, coeffs) ?? previous;
 		} catch (error) {
+			if (error instanceof AurigaAuthError) throw error;
 			console.warn("Auriga syllabus detail failed", { status: error instanceof Error ? error.message : "unknown", endpoint: `/menuEntries/166/syllabuses/${id}` });
+			return previous;
 		}
-	}
-	return syllabus;
+	});
+	return syllabus.filter((item): item is AurigaSyllabus => Boolean(item));
 }
 
 async function preserveGradeSyncDates(grades: AurigaGrade[]) {
@@ -296,7 +323,7 @@ function aurigaGradeValueSignature(grade: AurigaGrade) {
 		.join("|");
 }
 
-export async function syncAurigaData(): Promise<{
+export async function syncAurigaData(options: { fullSyllabus?: boolean } = {}): Promise<{
 	grades: AurigaGrade[];
 	coeffs: AurigaCoeff[];
 	syllabus: AurigaSyllabus[];
@@ -304,17 +331,26 @@ export async function syncAurigaData(): Promise<{
 }> {
 	if (aurigaSyncPromise) return aurigaSyncPromise;
 	aurigaSyncPromise = (async () => {
-		const user = await fetchAurigaUser();
-		const grades = await preserveGradeSyncDates(await fetchAurigaGrades());
+		const [user, rawGrades, cachedSyllabus, lastFullSync] = await Promise.all([fetchAurigaUser(), fetchAurigaGrades(), getCachedAurigaSyllabus(), getAurigaSyllabusFullSync()]);
+		const grades = await preserveGradeSyncDates(rawGrades);
 		const coeffs: AurigaCoeff[] = [];
-		let syllabus: AurigaSyllabus[] = [];
+		const fullSyllabus = Boolean(options.fullSyllabus) || isAurigaSyncStale(lastFullSync, AURIGA_SYLLABUS_FULL_SYNC_MAX_AGE_MS);
+		let syllabus = cachedSyllabus;
+		let syllabusSynced = false;
 		try {
-			syllabus = await fetchAurigaSyllabus(coeffs);
+			syllabus = await fetchAurigaSyllabus(coeffs, cachedSyllabus, fullSyllabus);
+			syllabusSynced = true;
 		} catch (error) {
 			console.warn("Auriga syllabus sync skipped", { status: error instanceof Error ? error.message : "unknown", endpoint: "/menuEntries/166" });
 		}
-		await Promise.all([saveAurigaUser(user), saveAurigaGrades(grades), saveAurigaCoeffs(coeffs), saveAurigaSyllabus(syllabus), saveAurigaLastSync()]);
-		// The widget payload is display-only and must use the same cached data as Notes.
+		await Promise.all([
+			saveAurigaUser(user),
+			saveAurigaGrades(grades),
+			saveAurigaCoeffs(coeffs),
+			saveAurigaSyllabus(syllabus),
+			saveAurigaLastSync(),
+			syllabusSynced && fullSyllabus ? saveAurigaSyllabusFullSync() : null,
+		]);
 		await syncGradeWidgetsFromStoredData().catch(() => {});
 		return { grades, coeffs, syllabus, user };
 	})().finally(() => {

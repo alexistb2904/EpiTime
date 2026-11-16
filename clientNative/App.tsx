@@ -15,7 +15,7 @@ import { ThemeProvider, useTheme } from "./src/context/ThemeContext";
 import { VersionProvider } from "./src/context/VersionContext";
 import { registerExpoPushToken } from "./src/services/api";
 import { registerPlanningNotificationBackgroundSync, unregisterPlanningNotificationBackgroundSync } from "./src/services/backgroundSync";
-import { getRememberedAurigaCredentials, hasAurigaRefreshToken } from "./src/services/aurigaAuth";
+import { hasAurigaRefreshToken } from "./src/services/aurigaAuth";
 import { getAurigaLastSync, isAurigaSyncStale } from "./src/services/aurigaCache";
 import { syncAurigaData } from "./src/services/aurigaClient";
 import { stopLiveCourseNotification } from "./src/services/liveCourse";
@@ -229,9 +229,9 @@ function Root() {
 		let active = true;
 		(async () => {
 			try {
-				const [lastSync, hasRefreshToken, rememberedCredentials] = await Promise.all([getAurigaLastSync(), hasAurigaRefreshToken(), getRememberedAurigaCredentials()]);
+				const [lastSync, hasRefreshToken] = await Promise.all([getAurigaLastSync(), hasAurigaRefreshToken()]);
 				if (!active) return;
-				if (!isAurigaSyncStale(lastSync) || (!hasRefreshToken && !rememberedCredentials)) return;
+				if (!isAurigaSyncStale(lastSync) || !hasRefreshToken) return;
 				await syncAurigaData();
 			} catch {
 				// Silent background refresh: keep app launch smooth.

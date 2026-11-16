@@ -95,7 +95,7 @@ const reconcileEventsWithCache = (freshEvents = [], cachedEvents = []) => {
 const Calendar = () => {
 	const { zeusToken, sessionExpired, error: authError, login, logout, user } = useAuth();
 	const { theme, toggleTheme } = useTheme();
-	const { notificationSettings, shouldNotifyForEvent } = useNotification();
+	const { notificationSettings } = useNotification();
 
 	const [currentDate, setCurrentDate] = useState(() => {
 		const linked = new Date(new URLSearchParams(window.location.search).get("date") || NaN);
@@ -108,7 +108,7 @@ const Calendar = () => {
 	const eventsCacheKeyRef = useRef("");
 
 	const [selectedGroups, setSelectedGroups] = useState(JSON.parse(localStorage.getItem("zeus_selected_groups") || "[]"));
-	const { checkNotifications, updateNotificationSettings } = usePushNotifications(user?.username, selectedGroups, notificationSettings);
+	const { updateNotificationSettings } = usePushNotifications(user?.username, selectedGroups, notificationSettings);
 
 	const [scheduleContext, setScheduleContext] = useState({ type: "group", ids: selectedGroups, label: "Mes Groupes" });
 
@@ -178,24 +178,6 @@ const Calendar = () => {
 		}
 		loadCalendar();
 	}, [zeusToken, calendarFilters, hasCalendarFilter, weekKey]);
-
-	useEffect(() => {
-		if (!notificationSettings.enabled || events.length === 0) return;
-
-		const eventsToCheck = events.filter((event) => !isEventCancelled(event) && shouldNotifyForEvent(event));
-		if (eventsToCheck.length > 0) {
-			checkNotifications(eventsToCheck);
-		}
-
-		const interval = setInterval(() => {
-			const eventsToCheck = events.filter((event) => !isEventCancelled(event) && shouldNotifyForEvent(event));
-			if (eventsToCheck.length > 0) {
-				checkNotifications(eventsToCheck);
-			}
-		}, 60000);
-
-		return () => clearInterval(interval);
-	}, [events, notificationSettings.enabled, shouldNotifyForEvent, checkNotifications]);
 
 	useEffect(() => {
 		if (notificationSettings.enabled) {

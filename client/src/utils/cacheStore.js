@@ -54,3 +54,12 @@ export async function cacheGet(key) {
 		return undefined;
 	}
 }
+
+export async function cacheClear() {
+	try {
+		await run("readwrite", (store) => store.clear());
+		await globalThis.caches?.delete("EpiTime-api-v1");
+	} catch {
+		//
+	}
+}

@@ -6,7 +6,9 @@ const AURIGA_SYLLABUS_KEY = "auriga.syllabus";
 const AURIGA_COEFFS_KEY = "auriga.coeffs";
 const AURIGA_USER_KEY = "auriga.user";
 const AURIGA_LAST_SYNC_KEY = "auriga.lastSync";
+const AURIGA_SYLLABUS_FULL_SYNC_KEY = "auriga.syllabusFullSync";
 export const AURIGA_AUTO_REFRESH_MAX_AGE_MS = 5 * 60_000;
+export const AURIGA_SYLLABUS_FULL_SYNC_MAX_AGE_MS = 24 * 60 * 60_000;
 
 export function isAurigaSyncStale(lastSync: string | null, maxAgeMs = AURIGA_AUTO_REFRESH_MAX_AGE_MS) {
 	if (!lastSync) return true;
@@ -55,8 +57,17 @@ export async function getAurigaLastSync(): Promise<string | null> {
 	return getJSON<string | null>(AURIGA_LAST_SYNC_KEY, null);
 }
 
+export async function saveAurigaSyllabusFullSync(date = new Date()): Promise<void> {
+	await setJSON(AURIGA_SYLLABUS_FULL_SYNC_KEY, date.toISOString());
+}
+
+export async function getAurigaSyllabusFullSync(): Promise<string | null> {
+	return getJSON<string | null>(AURIGA_SYLLABUS_FULL_SYNC_KEY, null);
+}
+
 export async function clearAurigaCache(): Promise<void> {
 	await Promise.all([
+		removeJSON(AURIGA_SYLLABUS_FULL_SYNC_KEY),
 		removeJSON(AURIGA_GRADES_KEY),
 		removeJSON(AURIGA_SYLLABUS_KEY),
 		removeJSON(AURIGA_COEFFS_KEY),

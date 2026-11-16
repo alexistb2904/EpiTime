@@ -5,9 +5,10 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import webpush from "web-push";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { validateAnalyticsPayload } from "./analyticsValidation.js";
 import { filterEventsByCalendarFilters } from "./calendarFilters.js";
+import { sanitizePushSubscription } from "./pushSubscription.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const readPositiveDuration = (value, fallback, minimum) => {
@@ -40,6 +41,56 @@ const EXPO_PUSH_RECEIPT_TTL_MS = readPositiveDuration(process.env.EXPO_PUSH_RECE
 const MAX_PENDING_EXPO_PUSH_RECEIPTS = readPositiveDuration(process.env.MAX_PENDING_EXPO_PUSH_RECEIPTS, 5000, 100);
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
+const MAX_MOBILE_SUBSCRIPTIONS = 50_000;
+const ZEUS_IDENTITY_CLAIMS = [
+	"email",
+	"upn",
+	"unique_name",
+	"preferred_username",
+	"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
+	"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name",
+	"nameid",
+	"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier",
+	"sub",
+];
+const bearerToken = (req) => (req.headers.authorization || "").match(/^Bearer\s+(.+)/i)?.[1];
+const verifiedZeusTokens = new Map();
+
+const authenticateZeus = async (req) => {
+	const token = bearerToken(req);
+	if (!token) return null;
+	const now = Date.now();
+	const cached = verifiedZeusTokens.get(token);
+	if (cached && cached.expiresAt > now) return cached.userId;
+
+	let claims;
+	try {
+		claims = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
+	} catch {
+		return null;
+	}
+	const expiresAt = Number(claims?.exp) * 1000;
+	const userId = ZEUS_IDENTITY_CLAIMS.map((name) => claims?.[name])
+		.find((value) => typeof value === "string" && value.trim())
+		?.trim()
+		.toLowerCase();
+	if (!(expiresAt > now) || !userId) return null;
+
+	const upstream = await fetch(`${ZEUS_BASE}/api/roomtype`, { headers: { Authorization: `Bearer ${token}` } });
+	await upstream.text();
+	if (upstream.status === 401 || upstream.status === 403) return null;
+	if (!upstream.ok) throw new Error(`Zeus token check HTTP ${upstream.status}`);
+
+	for (const [key, entry] of verifiedZeusTokens) if (entry.expiresAt <= now) verifiedZeusTokens.delete(key);
+	verifiedZeusTokens.set(token, { userId, expiresAt });
+	return userId;
+};
+
+const requireUser = async (req, res) => {
+	const userId = await authenticateZeus(req);
+	if (!userId) res.status(401).json({ error: "Bearer token required" });
+	return userId;
+};
 
 const courseTypesById = new Map([
 	[1, "CourseType.FollowUp"],
@@ -151,10 +202,13 @@ const loadWebSubscriptions = async () => {
 		rows.forEach((row) => {
 			const userId = String(row?.userId || "").trim();
 			const subscription = row?.subscription || row;
-			if (userId && subscription?.endpoint) {
-				subscription.userGroups = normalizeIdArray(subscription.userGroups);
-				subscription.settings = normalizeNotificationSettings(subscription.settings);
-				subscriptions.set(userId, subscription);
+			const clean = sanitizePushSubscription(subscription);
+			if (userId && clean) {
+				subscriptions.set(userId, {
+					...clean,
+					userGroups: normalizeIdArray(subscription.userGroups),
+					settings: normalizeNotificationSettings(subscription.settings),
+				});
 			}
 		});
 		console.log(`Web push: ${subscriptions.size} subscription(s) chargée(s)`);
@@ -400,7 +454,6 @@ const sendExpoPushMessages = async (messages) => {
 					"Accept-encoding": "gzip, deflate",
 					"Content-Type": "application/json",
 				},
-				// High priority lets Android deliver immediately instead of batching until Doze ends.
 				body: JSON.stringify(chunk.map((message) => ({ priority: "high", ...message }))),
 			});
 			const text = await response.text();
@@ -421,7 +474,6 @@ const sendExpoPushMessages = async (messages) => {
 			});
 		}
 	} finally {
-		// Do not lose receipts accepted in an earlier chunk if a later Expo call fails.
 		if (subscriptionsChanged) await persistMobileSubscriptions();
 		if (receiptsChanged) await persistMobilePushReceipts();
 	}
@@ -499,22 +551,36 @@ const allowedOrigins = (ALLOWED_ORIGINS || "*")
 	.map((origin) => origin.trim())
 	.filter(Boolean);
 
-const allowAnyOrigin = true;
 const allowOriginSet = new Set(allowedOrigins);
+const allowAnyOrigin = allowOriginSet.has("*");
 
 const corsOptions = {
-	origin: (origin, callback) => {
-		if (!origin) return callback(null, true);
-		if (allowAnyOrigin || allowOriginSet.has(origin)) return callback(null, true);
-		return callback(new Error(`CORS blocked for origin: ${origin}`));
-	},
+	origin: (origin, callback) => callback(null, !origin || allowAnyOrigin || allowOriginSet.has(origin)),
 	methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 	allowedHeaders: ["Content-Type", "Authorization", "X-User-ID"],
 };
 
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+	res.setHeader("X-Content-Type-Options", "nosniff");
+	res.setHeader("X-Frame-Options", "SAMEORIGIN");
+	res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+	if (process.env.NODE_ENV === "production") res.setHeader("Strict-Transport-Security", "max-age=15552000");
+	next();
+});
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "100kb" }));
+
+const sensitiveRateLimit = rateLimit({
+	windowMs: 10 * 60 * 1000,
+	limit: 300,
+	standardHeaders: true,
+	legacyHeaders: false,
+	keyGenerator: (req) => ipKeyGenerator(req.ip),
+	message: { error: "Too many requests" },
+});
+app.use(["/api/auth", "/api/subscribe", "/api/unsubscribe", "/api/update-notification-settings", "/api/notify-test", "/api/mobile"], sensitiveRateLimit);
 
 const analyticsEventRateLimit = rateLimit({
 	windowMs: 10 * 60 * 1000,
@@ -570,7 +636,6 @@ async function proxyAnalyticsOverview(siteId, routePath, res) {
 		if (!upstream.ok) {
 			return res.status(upstream.status).json({
 				error: text || "Rybbit upstream error",
-				upstream: url,
 			});
 		}
 
@@ -634,7 +699,7 @@ app.post("/api/auth", async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: `${ZEUS_BASE}/api/User/OfficeLogin` });
+			return res.status(upstream.status).json({ error: text || "Upstream error" });
 		}
 
 		const token = text.replace(/^"|"$/g, "");
@@ -689,7 +754,6 @@ app.get("/api/events", async (req, res) => {
 		if (!upstream.ok) {
 			return res.status(upstream.status).json({
 				error: text || "Upstream error",
-				upstream: url,
 			});
 		}
 
@@ -727,7 +791,10 @@ app.get("/api/reservation/:id/details", async (req, res) => {
 		}
 
 		const { id } = req.params;
-		const url = `${ZEUS_BASE}/api/reservation/${encodeURIComponent(id)}/details`;
+		if (!/^\d+$/.test(id)) {
+			return res.status(400).json({ error: "Invalid reservation id" });
+		}
+		const url = `${ZEUS_BASE}/api/reservation/${id}/details`;
 
 		const upstream = await fetch(url, {
 			headers: { Authorization: `Bearer ${zeusToken}` },
@@ -737,7 +804,6 @@ app.get("/api/reservation/:id/details", async (req, res) => {
 		if (!upstream.ok) {
 			return res.status(upstream.status).json({
 				error: text || "Upstream error",
-				upstream: url,
 			});
 		}
 
@@ -766,7 +832,7 @@ app.get("/api/courses", async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error" });
 		}
 
 		try {
@@ -788,7 +854,10 @@ app.get("/api/coursetype/:id", async (req, res) => {
 		const zeusToken = match && match[1];
 
 		const { id } = req.params;
-		const url = `${ZEUS_BASE}/api/coursetype/${encodeURIComponent(id)}`;
+		if (!/^\d+$/.test(id)) {
+			return res.status(400).json({ error: "Invalid course type id" });
+		}
+		const url = `${ZEUS_BASE}/api/coursetype/${id}`;
 		const headers = zeusToken ? { Authorization: `Bearer ${zeusToken}` } : {};
 
 		const upstream = await fetch(url, { headers });
@@ -797,7 +866,7 @@ app.get("/api/coursetype/:id", async (req, res) => {
 		if (!upstream.ok) {
 			const fallback = getFallbackCourseType(id);
 			if (fallback) return res.json(fallback);
-			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error" });
 		}
 
 		try {
@@ -829,7 +898,7 @@ app.get("/api/rooms", async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error" });
 		}
 
 		try {
@@ -856,7 +925,7 @@ app.get("/api/teachers", async (req, res) => {
 		const text = await upstream.text();
 
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error" });
 		}
 
 		try {
@@ -883,7 +952,7 @@ app.get("/api/roomtypes", async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error" });
 		}
 
 		try {
@@ -911,7 +980,7 @@ app.get("/api/locations", async (req, res) => {
 
 		const text = await upstream.text();
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text || "Upstream error", upstream: url });
+			return res.status(upstream.status).json({ error: text || "Upstream error" });
 		}
 
 		try {
@@ -950,7 +1019,6 @@ app.post("/api/rooms/available", async (req, res) => {
 		if (!upstream.ok) {
 			return res.status(upstream.status).json({
 				error: text || "Upstream error",
-				upstream: url,
 			});
 		}
 
@@ -982,7 +1050,7 @@ app.get("/api/groups/:id/ics", async (req, res) => {
 		const text = await upstream.text();
 
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text, upstream: url });
+			return res.status(upstream.status).json({ error: text });
 		}
 
 		res.type("text/calendar").send(text);
@@ -1005,7 +1073,7 @@ app.get("/api/groups", async (req, res) => {
 		const text = await upstream.text();
 
 		if (!upstream.ok) {
-			return res.status(upstream.status).json({ error: text, upstream: url });
+			return res.status(upstream.status).json({ error: text });
 		}
 
 		try {
@@ -1023,20 +1091,22 @@ app.get("/api/groups", async (req, res) => {
 
 app.post("/api/subscribe", async (req, res) => {
 	try {
-		const subscription = req.body;
-		const userId = req.headers["x-user-id"] || "anonymous";
-		const userGroups = req.headers["x-user-groups"] ? JSON.parse(req.headers["x-user-groups"]) : [];
-		const rawNotificationSettings = req.headers["x-notification-settings"]
-			? JSON.parse(req.headers["x-notification-settings"])
-			: { minutesBefore: 15, selectedDays: [0, 1, 2, 3, 4, 5, 6] };
-		const notificationSettings = normalizeNotificationSettings(rawNotificationSettings);
-
-		if (!subscription.endpoint) {
+		const userId = await requireUser(req, res);
+		if (!userId) return;
+		const subscription = sanitizePushSubscription(req.body);
+		if (!subscription) {
 			return res.status(400).json({ error: "Invalid subscription" });
 		}
+		try {
+			subscription.userGroups = normalizeIdArray(JSON.parse(req.headers["x-user-groups"] || "[]"));
+			subscription.settings = normalizeNotificationSettings(JSON.parse(req.headers["x-notification-settings"] || "{}"));
+		} catch {
+			return res.status(400).json({ error: "Invalid notification headers" });
+		}
 
-		subscription.userGroups = normalizeIdArray(userGroups);
-		subscription.settings = notificationSettings;
+		for (const [existingUserId, existing] of subscriptions) {
+			if (existingUserId !== userId && existing.endpoint === subscription.endpoint) subscriptions.delete(existingUserId);
+		}
 		subscriptions.set(userId, subscription);
 		await persistWebSubscriptions();
 
@@ -1050,21 +1120,19 @@ app.post("/api/subscribe", async (req, res) => {
 app.post("/api/mobile/subscribe", async (req, res) => {
 	try {
 		const { expoPushToken, groups = [], settings = {}, platform = "unknown" } = req.body || {};
-		const userId = String(req.body?.userId || req.headers["x-user-id"] || "").trim();
+		const userId = await requireUser(req, res);
+		if (!userId) return;
 
-		if (!userId) {
-			return res.status(400).json({ error: "userId is required" });
-		}
-
-		if (!isExpoPushToken(expoPushToken)) {
+		if (!isExpoPushToken(expoPushToken) || expoPushToken.length > 200) {
 			return res.status(400).json({ error: "expoPushToken is invalid" });
 		}
 
 		const now = new Date().toISOString();
 		const key = mobileSubscriptionKey(userId, expoPushToken);
 		const existing = mobileSubscriptions.get(key);
-		// An Expo token identifies one app installation.  Keeping it attached to
-		// two accounts can leak a previous account's reminders after account switch.
+		if (!existing && mobileSubscriptions.size >= MAX_MOBILE_SUBSCRIPTIONS) {
+			return res.status(503).json({ error: "Mobile subscriptions full" });
+		}
 		for (const [existingKey, existingSubscription] of mobileSubscriptions) {
 			if (existingKey !== key && existingSubscription.expoPushToken === expoPushToken) {
 				mobileSubscriptions.delete(existingKey);
@@ -1075,7 +1143,7 @@ app.post("/api/mobile/subscribe", async (req, res) => {
 			expoPushToken,
 			groups: normalizeIdArray(groups),
 			settings: normalizeNotificationSettings(settings),
-			platform: String(platform || "unknown"),
+			platform: String(platform || "unknown").slice(0, 20),
 			createdAt: existing?.createdAt || now,
 			updatedAt: now,
 		};
@@ -1097,17 +1165,11 @@ app.post("/api/mobile/subscribe", async (req, res) => {
 app.post("/api/mobile/unsubscribe", async (req, res) => {
 	try {
 		const { expoPushToken } = req.body || {};
-		const userId = String(req.body?.userId || req.headers["x-user-id"] || "").trim();
-
-		if (!userId && !expoPushToken) {
-			return res.status(400).json({ error: "userId or expoPushToken is required" });
-		}
-
+		const userId = await requireUser(req, res);
+		if (!userId) return;
 		let removed = 0;
 		for (const [key, subscription] of mobileSubscriptions) {
-			const userMatches = userId && subscription.userId === userId;
-			const tokenMatches = expoPushToken && subscription.expoPushToken === expoPushToken;
-			if ((userId && expoPushToken && userMatches && tokenMatches) || (!expoPushToken && userMatches) || (!userId && tokenMatches)) {
+			if (expoPushToken ? subscription.expoPushToken === expoPushToken : subscription.userId === userId) {
 				mobileSubscriptions.delete(key);
 				removed++;
 			}
@@ -1126,10 +1188,8 @@ app.post("/api/mobile/unsubscribe", async (req, res) => {
 
 app.post("/api/mobile/notify-test", async (req, res) => {
 	try {
-		const userId = String(req.body?.userId || req.headers["x-user-id"] || "").trim();
-		if (!userId) {
-			return res.status(400).json({ error: "userId is required" });
-		}
+		const userId = await requireUser(req, res);
+		if (!userId) return;
 
 		const targets = Array.from(mobileSubscriptions.values()).filter((subscription) => subscription.userId === userId);
 		if (targets.length === 0) {
@@ -1139,8 +1199,8 @@ app.post("/api/mobile/notify-test", async (req, res) => {
 		const messages = targets.map((subscription) => ({
 			to: subscription.expoPushToken,
 			sound: "default",
-			title: req.body?.title || "Notification de test",
-			body: req.body?.body || "EpiTime peut envoyer des notifications natives.",
+			title: "Notification de test",
+			body: "EpiTime peut envoyer des notifications natives.",
 			channelId: "courses",
 			data: { type: "test", timestamp: Date.now() },
 		}));
@@ -1157,12 +1217,9 @@ app.post("/api/mobile/notify-test", async (req, res) => {
 
 app.post("/api/update-notification-settings", async (req, res) => {
 	try {
-		const userId = req.headers["x-user-id"];
-		const { minutesBefore, selectedDays, groups } = req.body;
-
-		if (!userId) {
-			return res.status(400).json({ error: "User ID requis" });
-		}
+		const userId = await requireUser(req, res);
+		if (!userId) return;
+		const { minutesBefore, selectedDays, groups } = req.body || {};
 
 		const subscription = subscriptions.get(userId);
 		if (!subscription) {
@@ -1364,45 +1421,14 @@ const notificationWorker = async () => {
 
 setInterval(notificationWorker, 60 * 1000);
 
-app.post("/api/check-notifications", async (req, res) => {
-	try {
-		const { events } = req.body;
-		const userId = req.headers["x-user-id"];
-
-		if (!userId) {
-			return res.status(400).json({ error: "User ID requis" });
-		}
-
-		if (events && Array.isArray(events) && events.length > 0) {
-			const subscription = subscriptions.get(userId);
-			if (subscription && subscription.userGroups) {
-				cacheEvents(events, subscription.userGroups);
-			}
-			const mobileGroups = Array.from(mobileSubscriptions.values())
-				.filter((mobileSubscription) => mobileSubscription.userId === userId)
-				.flatMap((mobileSubscription) => mobileSubscription.groups || []);
-			cacheEvents(events, [...new Set(mobileGroups)]);
-		}
-
-		res.json({ success: true, message: "Events cached for notification worker" });
-	} catch (err) {
-		console.error("/api/check-notifications error", err);
-		res.status(500).json({ error: "Check failed" });
-	}
-});
-
 app.post("/api/notify-test", async (req, res) => {
 	try {
-		const { title, body } = req.body;
-		const userId = req.headers["x-user-id"];
-
-		if (!userId) {
-			return res.status(400).json({ error: "User ID requis" });
-		}
+		const userId = await requireUser(req, res);
+		if (!userId) return;
 
 		const payload = JSON.stringify({
-			title: title || "🔔 Notification de test",
-			body: body || "Ceci est une notification de test",
+			title: "🔔 Notification de test",
+			body: "Ceci est une notification de test",
 			icon: "/icons/logo.png",
 			badge: "/icons/logo.png",
 		});
@@ -1443,7 +1469,8 @@ app.post("/api/notify-test", async (req, res) => {
 
 app.post("/api/unsubscribe", async (req, res) => {
 	try {
-		const userId = req.headers["x-user-id"] || "anonymous";
+		const userId = await requireUser(req, res);
+		if (!userId) return;
 		const removed = subscriptions.delete(userId);
 		if (removed) {
 			await persistWebSubscriptions();

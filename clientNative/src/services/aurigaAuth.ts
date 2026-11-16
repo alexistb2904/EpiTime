@@ -19,14 +19,12 @@ export const AURIGA_ROOT_REDIRECT_URI = "https://auriga.epita.fr/";
 const REFRESH_TOKEN_KEY = "auriga.refreshToken";
 const REFRESH_EXPIRES_AT_KEY = "auriga.refreshExpiresAt";
 const REMEMBERED_IDENTIFIER_KEY = "auriga.rememberedIdentifier";
-const REMEMBERED_PASSWORD_KEY = "auriga.rememberedPassword";
 const TOKEN_EXPIRY_MARGIN_MS = 10_000;
-const SILENT_RECONNECT_COOLDOWN_MS = 2 * 60_000;
 const canUseSecureStore = Platform.OS !== "web";
 
 let memoryTokenSet: AurigaTokenSet | null = null;
-let silentReconnectPromise: Promise<string | null> | null = null;
-let lastSilentReconnectFailureAt = 0;
+// "Se souvenir de moi": quand false, le refresh token durable reste en memoire uniquement (session courante).
+let rememberSession = true;
 
 export type AurigaLoginSession = {
 	authUrl: string;
@@ -37,11 +35,6 @@ export type AurigaLoginSession = {
 
 type AurigaLoginSessionOptions = {
 	redirectUri?: string;
-};
-
-export type RememberedAurigaCredentials = {
-	identifier: string;
-	password: string;
 };
 
 export class AurigaAuthError extends Error {
@@ -77,6 +70,9 @@ async function secureDelete(key: string) {
 	await AsyncStorage.removeItem(key);
 }
 
+// Migration: purge le mot de passe stocke par les versions precedentes (offline_access le remplace).
+void secureDelete("auriga.rememberedPassword").catch(() => {});
+
 function nowWithExpires(expiresIn?: number) {
 	return Date.now() + Math.max(1, expiresIn ?? 60) * 1000;
 }
@@ -94,8 +90,14 @@ function tokenSetFromResponse(response: AuthSession.TokenResponse): AurigaTokenS
 
 async function persistTokenSet(tokenSet: AurigaTokenSet) {
 	memoryTokenSet = tokenSet;
+	if (!rememberSession) return;
 	if (tokenSet.refreshToken) await secureSet(REFRESH_TOKEN_KEY, tokenSet.refreshToken);
 	if (tokenSet.refreshExpiresAt) await secureSet(REFRESH_EXPIRES_AT_KEY, String(tokenSet.refreshExpiresAt));
+}
+
+export async function setAurigaSessionPersistence(enabled: boolean): Promise<void> {
+	rememberSession = enabled;
+	if (!enabled) await Promise.all([secureDelete(REFRESH_TOKEN_KEY), secureDelete(REFRESH_EXPIRES_AT_KEY)]);
 }
 
 function extractCodeFromUrl(url: string) {
@@ -139,7 +141,7 @@ export async function createAurigaLoginSession(options: AurigaLoginSessionOption
 		clientId: AURIGA_CLIENT_ID,
 		redirectUri,
 		responseType: AuthSession.ResponseType.Code,
-		scopes: ["openid", "profile", "email"],
+		scopes: ["openid", "profile", "email", "offline_access"],
 		prompt: AuthSession.Prompt.Login,
 		usePKCE: true,
 		codeChallengeMethod: AuthSession.CodeChallengeMethod.S256,
@@ -152,7 +154,7 @@ export async function createAurigaLoginSession(options: AurigaLoginSessionOption
 export async function completeAurigaLoginFromUrl(url: string, session: AurigaLoginSession): Promise<AurigaTokenSet> {
 	const parsed = extractCodeFromUrl(url);
 	if (parsed.error) throw new AurigaAuthError(parsed.errorDescription || parsed.error);
-	if (!parsed.code) throw new AurigaAuthError("Code Auriga introuvable dans le retour d'authentification.");
+	if (!parsed.code) throw new AurigaAuthError("Erreur Auriga, veuillez vérifier vos identifiants et réessayer.");
 	if (parsed.state && parsed.state !== session.state) throw new AurigaAuthError("Etat OAuth Auriga invalide.");
 
 	const response = await AuthSession.exchangeCodeAsync(
@@ -209,40 +211,30 @@ export async function refreshAurigaToken(refreshToken: string): Promise<AurigaTo
 	return tokenSet;
 }
 
-async function silentReconnectWithRememberedCredentials(): Promise<string | null> {
-	if (silentReconnectPromise) return silentReconnectPromise;
-	if (Date.now() - lastSilentReconnectFailureAt < SILENT_RECONNECT_COOLDOWN_MS) return null;
+let refreshInFlight: Promise<string | null> | null = null;
 
-	silentReconnectPromise = (async () => {
-		const credentials = await getRememberedAurigaCredentials();
-		if (!credentials) return null;
-		try {
-			const tokenSet = await loginAurigaWithCredentials(credentials.identifier, credentials.password);
-			return tokenSet.accessToken;
-		} catch {
-			lastSilentReconnectFailureAt = Date.now();
-			return null;
-		} finally {
-			silentReconnectPromise = null;
-		}
-	})();
-
-	return silentReconnectPromise;
+export function forceRefreshAurigaAccessToken(): Promise<string | null> {
+	if (!refreshInFlight) {
+		refreshInFlight = refreshAccessToken().finally(() => {
+			refreshInFlight = null;
+		});
+	}
+	return refreshInFlight;
 }
 
-export async function forceRefreshAurigaAccessToken(): Promise<string | null> {
-	const refreshToken = await secureGet(REFRESH_TOKEN_KEY);
+async function refreshAccessToken(): Promise<string | null> {
+	const refreshToken = (await secureGet(REFRESH_TOKEN_KEY)) || memoryTokenSet?.refreshToken || null;
 	const refreshExpiresRaw = await secureGet(REFRESH_EXPIRES_AT_KEY);
-	const refreshExpiresAt = refreshExpiresRaw ? Number(refreshExpiresRaw) : undefined;
+	const refreshExpiresAt = refreshExpiresRaw ? Number(refreshExpiresRaw) : memoryTokenSet?.refreshExpiresAt;
 	if (refreshToken && (!refreshExpiresAt || refreshExpiresAt > Date.now())) {
 		try {
 			const tokenSet = await refreshAurigaToken(refreshToken);
 			return tokenSet.accessToken;
 		} catch {
-			// Fall through to remembered credentials.
+			// Refresh token durable mort
 		}
 	}
-	return silentReconnectWithRememberedCredentials();
+	return null;
 }
 
 export async function getValidAurigaAccessToken(): Promise<string | null> {
@@ -254,20 +246,17 @@ export async function hasAurigaRefreshToken(): Promise<boolean> {
 	return Boolean(await secureGet(REFRESH_TOKEN_KEY));
 }
 
-export async function saveRememberedAurigaCredentials(credentials: RememberedAurigaCredentials): Promise<void> {
-	const identifier = credentials.identifier.trim();
-	if (!identifier || !credentials.password) throw new AurigaAuthError("Identifiants Auriga incomplets.");
-	await Promise.all([secureSet(REMEMBERED_IDENTIFIER_KEY, identifier), secureSet(REMEMBERED_PASSWORD_KEY, credentials.password)]);
+export async function saveRememberedAurigaIdentifier(identifier: string): Promise<void> {
+	const value = identifier.trim();
+	if (value) await secureSet(REMEMBERED_IDENTIFIER_KEY, value);
 }
 
-export async function getRememberedAurigaCredentials(): Promise<RememberedAurigaCredentials | null> {
-	const [identifier, password] = await Promise.all([secureGet(REMEMBERED_IDENTIFIER_KEY), secureGet(REMEMBERED_PASSWORD_KEY)]);
-	if (!identifier || !password) return null;
-	return { identifier, password };
+export async function getRememberedAurigaIdentifier(): Promise<string | null> {
+	return secureGet(REMEMBERED_IDENTIFIER_KEY);
 }
 
 export async function clearRememberedAurigaCredentials(): Promise<void> {
-	await Promise.all([secureDelete(REMEMBERED_IDENTIFIER_KEY), secureDelete(REMEMBERED_PASSWORD_KEY)]);
+	await secureDelete(REMEMBERED_IDENTIFIER_KEY);
 }
 
 export async function logoutAuriga(): Promise<void> {

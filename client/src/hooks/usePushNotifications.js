@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { fetchApi } from "../utils/api";
 
+const authorization = () => `Bearer ${localStorage.getItem("zeus_token")}`;
+
 export const usePushNotifications = (userEmail = null, userGroups = [], notificationSettings = null) => {
 	const registerPushNotifications = useCallback(async () => {
 		if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -52,7 +54,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'X-User-ID': userEmail,
+					Authorization: authorization(),
 					'X-User-Groups': JSON.stringify(userGroups),
 					'X-Notification-Settings': JSON.stringify(settings),
 				},
@@ -77,7 +79,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
-						'X-User-ID': userEmail,
+						Authorization: authorization(),
 					},
 					body: JSON.stringify({
 						minutesBefore: settings.minuesBefore || settings.minutesBefore || 15,
@@ -99,7 +101,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
-							'X-User-ID': userEmail,
+							Authorization: authorization(),
 						},
 						body: JSON.stringify({
 							minutesBefore: settings.minuesBefore || settings.minutesBefore || 15,
@@ -121,37 +123,6 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 		[userEmail, userGroups, registerPushNotifications]
 	);
 
-	const checkNotifications = useCallback(
-		async (events) => {
-			if (!events || events.length === 0) return null;
-
-			try {
-				const response = await fetchApi('/api/check-notifications', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						'X-User-ID': userEmail,
-					},
-					body: JSON.stringify({ events }),
-				});
-
-				const data = await response.json();
-				if (response.ok) {
-					if (data.notified > 0) {
-						console.log(`📨 ${data.notified} notification(s) envoyée(s)`);
-					}
-					return data;
-				}
-			} catch (err) {
-				if (navigator.onLine) {
-					console.error('❌ Erreur vérification notifications:', err.message);
-				}
-			}
-			return null;
-		},
-		[userEmail]
-	);
-
 	const sendTestNotification = useCallback(
 		async (title, body) => {
 			try {
@@ -159,7 +130,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
-						'X-User-ID': userEmail,
+						Authorization: authorization(),
 					},
 					body: JSON.stringify({ title, body }),
 				});
@@ -185,7 +156,7 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 			await fetchApi('/api/unsubscribe', {
 				method: 'POST',
 				headers: {
-					'X-User-ID': userEmail,
+					Authorization: authorization(),
 				},
 			});
 			console.log('Unsubscribed');
@@ -197,7 +168,6 @@ export const usePushNotifications = (userEmail = null, userGroups = [], notifica
 	return {
 		registerPushNotifications,
 		updateNotificationSettings,
-		checkNotifications,
 		sendTestNotification,
 		unsubscribeNotifications,
 	};
