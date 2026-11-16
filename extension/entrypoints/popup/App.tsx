@@ -235,7 +235,7 @@ const TodayView = ({ state, now, openNotes, openWeb }: { state: ExtensionState; 
 			)}
 			{later.length > 0 && (
 				<div className="agenda">
-					<AgendaDay day={now} now={now} events={later} filter={filter} openWeb={openWeb} />
+					<AgendaRows events={later} filter={filter} openWeb={openWeb} />
 				</div>
 			)}
 			{!current && (
@@ -308,35 +308,39 @@ const AgendaDay = ({
 				<span>{date.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</span>
 				{isToday && <span className="hand agenda-today">aujourd'hui</span>}
 			</h2>
-			<ol>
-				{events.map((event, index) => {
-					const cancelled = isEventCancelled(event);
-					const exam = isExamEvent(event);
-					const teachers = teacherNames(event);
-					const className = ["agenda-row", cancelled && "is-cancelled", exam && "is-exam", event.isOnline && "is-online", isIgnored(event, filter) && "is-ignored"]
-						.filter(Boolean)
-						.join(" ");
-					return (
-						<li key={eventIdentity(event)} style={{ "--i": index } as CSSVars}>
-							<button type="button" className={className} style={{ "--h": hueOf(event) } as CSSVars} onClick={() => openWeb(deepLink(event))}>
-								<span className="agenda-time">
-									<span>{formatTime(startMs(event))}</span>
-									<span>{formatTime(endMs(event))}</span>
-								</span>
-								<span className="agenda-main">
-									{exam && <span className="exam-tag">Examen</span>}
-									<strong>{eventTitle(event)}</strong>
-									<span>{[placeLabel(event), teachers.join(", ")].filter(Boolean).join(" · ")}</span>
-								</span>
-								{cancelled && <span className="hand agenda-note">annulé</span>}
-							</button>
-						</li>
-					);
-				})}
-			</ol>
+			<AgendaRows events={events} filter={filter} openWeb={openWeb} />
 		</section>
 	);
 };
+
+const AgendaRows = ({ events, filter, openWeb }: { events: ZeusEvent[]; filter: { ignoredSubjects: string[] }; openWeb: (path?: string) => void }) => (
+	<ol>
+		{events.map((event, index) => {
+			const cancelled = isEventCancelled(event);
+			const exam = isExamEvent(event);
+			const teachers = teacherNames(event);
+			const className = ["agenda-row", cancelled && "is-cancelled", exam && "is-exam", event.isOnline && "is-online", isIgnored(event, filter) && "is-ignored"]
+				.filter(Boolean)
+				.join(" ");
+			return (
+				<li key={eventIdentity(event)} style={{ "--i": index } as CSSVars}>
+					<button type="button" className={className} style={{ "--h": hueOf(event) } as CSSVars} onClick={() => openWeb(deepLink(event))}>
+						<span className="agenda-time">
+							<span>{formatTime(startMs(event))}</span>
+							<span>{formatTime(endMs(event))}</span>
+						</span>
+						<span className="agenda-main">
+							{exam && <span className="exam-tag">Examen</span>}
+							<strong>{eventTitle(event)}</strong>
+							<span>{[placeLabel(event), teachers.join(", ")].filter(Boolean).join(" · ")}</span>
+						</span>
+						{cancelled && <span className="hand agenda-note">annulé</span>}
+					</button>
+				</li>
+			);
+		})}
+	</ol>
+);
 
 const WeekView = ({ state, now, openWeb }: { state: ExtensionState; now: number; openWeb: (path?: string) => void }) => {
 	const filter = { ignoredSubjects: state.settings.ignoredSubjects };
