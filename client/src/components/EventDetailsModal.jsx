@@ -1,15 +1,14 @@
 import React, { useRef } from "react";
 import { AlertTriangle, CalendarDays, Laptop, Link2, MapPin } from "lucide-react";
 import Modal from "./Modal";
+import CourseNotes from "./notes/CourseNotes";
 import { trackEvent } from "../utils/analyticsTracker";
 import { isExamEvent } from "../utils/courseType";
 
 const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitch }) => {
 	const isCancelled = Boolean(event.isCancelled || event.isCanceled);
-	// Placeholders reserve the space of fields that only arrive with /details, so the sheet doesn't jump.
 	const loading = Boolean(event.loadingDetails);
 	const skeleton = (className = "") => <span className={`skeleton ${className}`} aria-hidden="true" />;
-	// Only animate fields that replace a skeleton; cached details open already in place.
 	const hadSkeleton = useRef(false);
 	if (loading) hadSkeleton.current = true;
 	const reveal = (i) => (hadSkeleton.current && !loading ? { className: "reveal", style: { "--i": i } } : {});
@@ -240,6 +239,8 @@ const EventDetailsModal = ({ event, selectedGroups = [], onClose, onContextSwitc
 					</p>
 				)
 			)}
+
+			<CourseNotes event={event} />
 		</Modal>
 	);
 };

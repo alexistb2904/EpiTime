@@ -59,6 +59,7 @@ export default defineConfig({
 	],
 	server: {
 		port: 5000,
+		fs: { allow: [".", "../shared"] },
 		headers: {
 			"Cross-Origin-Opener-Policy": "same-origin-allow-popups",
 		},

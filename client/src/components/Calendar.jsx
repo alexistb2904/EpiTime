@@ -10,6 +10,8 @@ import EventDetailsModal from "./EventDetailsModal";
 import SettingsModal from "./SettingsModal";
 import { NotificationSettings } from "./NotificationSettings";
 import RoomAvailabilityModal from "./RoomAvailabilityModal";
+import NotesModal from "./notes/NotesModal";
+import { startExtensionSync } from "../notes/extensionBridge";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi } from "../utils/api";
 import { cacheGet, cacheSet } from "../utils/cacheStore";
@@ -92,7 +94,10 @@ const Calendar = () => {
 	const { theme, toggleTheme } = useTheme();
 	const { notificationSettings, shouldNotifyForEvent } = useNotification();
 
-	const [currentDate, setCurrentDate] = useState(new Date());
+	const [currentDate, setCurrentDate] = useState(() => {
+		const linked = new Date(new URLSearchParams(window.location.search).get("date") || NaN);
+		return Number.isNaN(linked.getTime()) ? new Date() : linked;
+	});
 	const [viewMode, setViewMode] = useState(() => {
 		return localStorage.getItem("zeus_view_mode") === "list" ? "list" : "week";
 	});
@@ -115,6 +120,9 @@ const Calendar = () => {
 	const [showSettingsModal, setShowSettingsModal] = useState(false);
 	const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 	const [showRoomAvailabilityModal, setShowRoomAvailabilityModal] = useState(false);
+	const [showNotesModal, setShowNotesModal] = useState(false);
+	// Lien profond (notification de l'extension) : /?event=<idReservation>&date=<ISO> ouvre ce cours.
+	const pendingEventId = useRef(new URLSearchParams(window.location.search).get("event"));
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState(null);
@@ -131,6 +139,9 @@ const Calendar = () => {
 		const timer = setInterval(() => setNow(new Date()), 60000);
 		return () => clearInterval(timer);
 	}, []);
+
+	// Échange local des notes avec l'extension EpiTime, si elle est installée et associée.
+	useEffect(() => startExtensionSync(), []);
 
 	useEffect(() => {
 		if (zeusToken) {
@@ -484,6 +495,16 @@ const Calendar = () => {
 		return { processedEvents: items.sort((a, b) => a.startTime - b.startTime), gridStart: minHour, gridEnd: maxHour };
 	}, [events]);
 
+	useEffect(() => {
+		if (!pendingEventId.current || loading) return;
+		const target = processedEvents.find((ev) => String(ev.idReservation ?? ev.id) === pendingEventId.current);
+		if (!target && processedEvents.length === 0) return;
+		pendingEventId.current = null;
+		window.history.replaceState(null, "", window.location.pathname);
+		if (target) handleEventClick(target);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [processedEvents, loading]);
+
 	const isCurrentWeek = weekKey === getWeekStart(now).getTime();
 	const nextEvent = useMemo(() => {
 		if (!isCurrentWeek) return null;
@@ -811,6 +832,7 @@ const Calendar = () => {
 				setViewMode={handleViewModeChange}
 				sidebarOpen={sidebarOpen}
 				setSidebarOpen={setSidebarOpen}
+				onOpenNotes={() => setShowNotesModal(true)}
 				onOpenRoomFinder={() => {
 					trackEvent("room_finder_opened", { source: "calendar_header" });
 					setShowRoomAvailabilityModal(true);
@@ -967,6 +989,7 @@ const Calendar = () => {
 				<EventDetailsModal event={selectedEvent} selectedGroups={selectedGroups} onClose={() => setSelectedEvent(null)} onContextSwitch={handleContextSwitch} />
 			)}
 
+			{showNotesModal && <NotesModal onClose={() => setShowNotesModal(false)} />}
 			{showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} />}
 			{showNotificationsModal && <NotificationSettings onClose={() => setShowNotificationsModal(false)} userEmail={user?.username} userGroups={selectedGroups} />}
 			{showRoomAvailabilityModal && (

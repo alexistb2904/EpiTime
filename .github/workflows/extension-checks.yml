@@ -1,0 +1,59 @@
+name: Extension checks
+
+on:
+    pull_request:
+        paths:
+            - "extension/**"
+            - "shared/**"
+            - ".github/workflows/extension-checks.yml"
+    push:
+        branches:
+            - main
+        paths:
+            - "extension/**"
+            - "shared/**"
+            - ".github/workflows/extension-checks.yml"
+
+permissions:
+    contents: read
+
+jobs:
+    extension:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 24
+
+            - name: Shared logic tests
+              run: |
+                  cd shared
+                  npm ci
+                  npm test
+
+            - name: Extension tests and type check
+              run: |
+                  cd extension
+                  npm ci
+                  npm test
+                  npm run compile
+
+            - name: Build and package Chromium and Firefox
+              run: |
+                  cd extension
+                  npm run zip
+                  npm run zip:firefox
+
+            - name: Lint the Firefox build with addons-linter
+              run: npx --yes web-ext@8 lint --source-dir extension/.output/firefox-mv3 --warnings-as-errors=false
+
+            - name: Upload packages
+              uses: actions/upload-artifact@v4
+              with:
+                  name: epitime-extension
+                  path: extension/.output/*.zip

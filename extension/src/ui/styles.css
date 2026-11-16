@@ -1,0 +1,51 @@
+@import "../../../client/src/App.css";
+@import "../../../client/src/components/Calendar.css";
+@import "../../../client/src/components/notes/Notes.css";
+
+.tool {
+	position: relative;
+}
+
+.tool .count {
+	position: absolute;
+	top: 2px;
+	right: 1px;
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	border-radius: var(--r-pill);
+	background: var(--pen);
+	color: var(--sheet);
+	font-size: 10px;
+	font-weight: 800;
+	line-height: 16px;
+	font-variant-numeric: tabular-nums;
+}
+
+.page-sheet.tool-sheet {
+	height: auto;
+	padding-bottom: 0.25rem;
+}
+
+.page-sheet .modal-head {
+	margin: 0 1.1rem;
+	padding: 1.5rem 0 0.85rem;
+}
+
+.page-sheet .modal-title h2 {
+	font-size: 1.35rem;
+}
+
+.page-sheet .modal-body {
+	padding: 1rem 1.1rem 1.1rem;
+	overflow: visible;
+}
+
+.small {
+	font-size: 0.82rem;
+	line-height: 1.4;
+}
+
+.muted {
+	color: var(--ink-soft);
+}

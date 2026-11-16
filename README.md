@@ -88,6 +88,21 @@ L'objectif est simple : conserver les données utiles de Zeus et d'Auriga, tout 
 - deep links d'authentification
 - prise en charge d'Android
 
+### Notes de cours
+
+- notes par cours ou notes libres, depuis la fiche d'un cours ou la fenêtre « Mes notes »
+- texte mis en forme, listes, liens, images collées et pièces jointes
+- enregistrement automatique dans le navigateur (IndexedDB), sans serveur
+- export et import d'une archive .zip
+- échange avec l'extension EpiTime quand elle est installée et associée
+
+### Extension navigateur
+
+- prochain cours et compte à rebours en un clic
+- rappels avant les cours et alertes quand une salle ou un horaire change
+- notes dans le panneau latéral, à côté d'un PDF ou d'un sujet de TP
+- détails, chargement en développement et builds : [extension/README.md](extension/README.md)
+
 ### Confidentialité
 
 - mesure d'audience uniquement après consentement
@@ -102,6 +117,8 @@ L'objectif est simple : conserver les données utiles de Zeus et d'Auriga, tout 
 EpiTime/
 ├── client/            # Application web React / Vite
 ├── clientNative/      # Application mobile React Native
+├── extension/         # Extension Chrome, Edge et Firefox (WXT, React, TypeScript)
+├── shared/            # Logique métier commune au web et à l'extension (planning, notes)
 ├── server/            # API Express et services backend
 ├── docker-compose.yml
 ├── .env.example

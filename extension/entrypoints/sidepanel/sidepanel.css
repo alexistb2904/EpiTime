@@ -1,0 +1,67 @@
+body {
+	min-width: 280px;
+	padding: 1.1rem 0.65rem 0.75rem;
+}
+
+.panel.page-sheet {
+	min-height: calc(100vh - 1.85rem);
+	display: flex;
+	flex-direction: column;
+}
+
+.panel .modal-body {
+	flex: 1;
+	align-content: start;
+	gap: 1rem;
+}
+
+.panel-live {
+	font-size: 1.15rem;
+	transform: rotate(-3deg);
+}
+
+.panel-picker {
+	display: flex;
+	gap: 0.4rem;
+}
+
+.panel-picker .input {
+	flex: 1;
+	min-width: 0;
+	min-height: 40px;
+	padding-block: 0.35rem;
+}
+
+.panel-section {
+	margin: 0.3rem 0 0.2rem 0.8rem;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+}
+
+.panel-search {
+	display: grid;
+	gap: 0.6rem;
+}
+
+.panel .note-toolbar {
+	top: 0;
+}
+
+.panel .note-body {
+	min-height: 14rem;
+}
+
+.panel-foot {
+	display: grid;
+	justify-content: stretch;
+	gap: 0.5rem;
+}
+
+.panel-foot-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+}

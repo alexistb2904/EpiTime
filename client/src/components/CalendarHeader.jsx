@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2, CalendarDays, ChevronLeft, ChevronRight, List, Menu } from "lucide-react";
+import { Building2, CalendarDays, ChevronLeft, ChevronRight, List, Menu, NotebookPen } from "lucide-react";
 
 const formatWeekLabel = (start) => {
 	const end = new Date(start);
@@ -10,7 +10,7 @@ const formatWeekLabel = (start) => {
 	return { label: `${left} – ${right}`, year: end.getFullYear() };
 };
 
-const CalendarHeader = ({ weekStart, isOnToday, handleNav, goToToday, viewMode, setViewMode, sidebarOpen, setSidebarOpen, onOpenRoomFinder }) => (
+const CalendarHeader = ({ weekStart, isOnToday, handleNav, goToToday, viewMode, setViewMode, sidebarOpen, setSidebarOpen, onOpenRoomFinder, onOpenNotes }) => (
 	<header className="app-bar">
 		<button
 			type="button"
@@ -59,6 +59,10 @@ const CalendarHeader = ({ weekStart, isOnToday, handleNav, goToToday, viewMode, 
 			<button type="button" className="btn app-rooms-btn" onClick={onOpenRoomFinder} aria-label="Salles libres">
 				<Building2 size={17} strokeWidth={2.2} aria-hidden="true" />
 				<span>Salles libres</span>
+			</button>
+			<button type="button" className="btn app-rooms-btn app-notes-btn" onClick={onOpenNotes} aria-label="Mes notes">
+				<NotebookPen size={17} strokeWidth={2.2} aria-hidden="true" />
+				<span>Mes notes</span>
 			</button>
 		</div>
 	</header>

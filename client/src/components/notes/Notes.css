@@ -1,0 +1,497 @@
+/* Notes : même papier que le reste de l'app. La teinte 200 (bleu-vert) est celle du bouton "Mes notes". */
+
+.app-rooms-btn.app-notes-btn svg {
+	color: oklch(0.82 0.1 200);
+}
+
+:root[data-theme="light"] .app-rooms-btn.app-notes-btn svg {
+	color: oklch(0.52 0.13 200);
+}
+
+.btn.is-danger {
+	background: color-mix(in srgb, var(--pen) 22%, transparent);
+	color: var(--ink);
+}
+
+.btn.is-danger:hover:not(:disabled) {
+	background: color-mix(in srgb, var(--pen) 34%, transparent);
+}
+
+/* Liste */
+.note-rows {
+	display: grid;
+	gap: 0.15rem;
+	list-style: none;
+}
+
+.note-row {
+	width: 100%;
+	display: grid;
+	gap: 0.2rem;
+	padding: 0.65rem 0.8rem;
+	border: 0;
+	border-radius: var(--r-sm);
+	background: transparent;
+	color: var(--ink);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: background-color 160ms ease-out;
+}
+
+.note-row:hover {
+	background: var(--fill);
+}
+
+.note-row strong {
+	font-size: 0.98rem;
+	font-weight: 700;
+	overflow-wrap: anywhere;
+}
+
+.note-row-preview {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	color: var(--ink-soft);
+	font-size: 0.88rem;
+	line-height: 1.4;
+}
+
+.note-row-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.15rem 0.7rem;
+	color: var(--ink-soft);
+	font-size: 0.76rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.note-row-meta > span {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.2rem;
+}
+
+/* Notes d'un cours, dans la fiche */
+.course-notes {
+	display: grid;
+	gap: 0.75rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--rule-strong);
+}
+
+.course-notes-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	flex-wrap: wrap;
+}
+
+.course-notes-head h3 {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 1.05rem;
+	font-weight: 800;
+	font-stretch: 86%;
+}
+
+.course-notes-head h3 svg {
+	color: oklch(0.82 0.1 200);
+}
+
+:root[data-theme="light"] .course-notes-head h3 svg {
+	color: oklch(0.52 0.13 200);
+}
+
+.course-notes-head .hand {
+	font-size: 1.1rem;
+}
+
+.course-notes-earlier summary {
+	padding: 0.35rem 0;
+	color: var(--ink-soft);
+	font-size: 0.88rem;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.course-notes-earlier summary:hover {
+	color: var(--ink);
+}
+
+/* Éditeur */
+.note-editor {
+	display: grid;
+	gap: 0.5rem;
+}
+
+.note-title {
+	width: 100%;
+	padding: 0.2rem 0;
+	border: 0;
+	background: transparent;
+	color: var(--ink);
+	font: inherit;
+	font-size: 1.3rem;
+	font-weight: 800;
+	font-stretch: 88%;
+	outline: none;
+}
+
+.note-title::placeholder {
+	color: var(--ink-soft);
+	opacity: 0.75;
+}
+
+.note-toolbar {
+	position: sticky;
+	top: -1.35rem;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.1rem;
+	padding: 0.3rem;
+	border-radius: var(--r-md);
+	background: var(--sheet);
+	box-shadow: inset 0 0 0 1px var(--rule);
+}
+
+.note-toolbar .tool {
+	width: 34px;
+	height: 34px;
+}
+
+.note-toolbar-sep {
+	width: 1px;
+	height: 20px;
+	margin: 0 0.25rem;
+	background: var(--rule-strong);
+}
+
+.note-state {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	margin-left: auto;
+	padding: 0 0.5rem;
+	color: var(--ink-soft);
+	font-size: 0.78rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.note-state.is-saving svg,
+.note-state.is-dirty svg {
+	animation: note-spin 0.9s linear infinite;
+}
+
+.note-state.is-error {
+	color: var(--pen);
+}
+
+@keyframes note-spin {
+	to {
+		transform: rotate(1turn);
+	}
+}
+
+.note-link {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.note-link .input {
+	flex: 1;
+	min-width: 0;
+}
+
+.note-body {
+	position: relative;
+	min-height: 11rem;
+	padding: 0.85rem 1rem;
+	border-radius: var(--r-md);
+	background: var(--fill);
+	color: var(--ink);
+	font-size: 1rem;
+	line-height: 1.55;
+	overflow-wrap: anywhere;
+	outline: none;
+	caret-color: var(--pen);
+	transition: box-shadow 160ms ease-out;
+}
+
+.note-body:focus-visible {
+	box-shadow: 0 0 0 2px var(--accent-line);
+}
+
+.note-body.is-empty::before {
+	content: attr(data-placeholder);
+	position: absolute;
+	color: var(--ink-soft);
+	pointer-events: none;
+}
+
+.note-body :is(p, div, ul, ol, blockquote, pre, h3) + :is(p, div, ul, ol, blockquote, pre, h3) {
+	margin-top: 0.5em;
+}
+
+.note-body :is(ul, ol) {
+	padding-left: 1.4em;
+}
+
+.note-body a {
+	color: var(--ink);
+	text-decoration-color: var(--accent-line);
+	text-underline-offset: 0.2em;
+}
+
+.note-body img {
+	display: block;
+	max-width: 100%;
+	max-height: 26rem;
+	margin: 0.4rem 0;
+	border-radius: var(--r-xs);
+	box-shadow: var(--lift);
+}
+
+.note-body code,
+.note-body pre {
+	font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+	font-size: 0.9em;
+}
+
+.note-files {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	list-style: none;
+}
+
+.note-files li {
+	display: inline-flex;
+	align-items: center;
+	border-radius: var(--r-pill);
+	background: var(--fill);
+}
+
+.note-files .tool {
+	width: 30px;
+	height: 30px;
+	border-radius: var(--r-pill);
+}
+
+.note-file {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	max-width: 18rem;
+	padding: 0.35rem 0.25rem 0.35rem 0.75rem;
+	border: 0;
+	background: transparent;
+	color: var(--ink);
+	font: inherit;
+	font-size: 0.85rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.note-file span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.note-file small {
+	color: var(--ink-soft);
+	font-weight: 500;
+	font-variant-numeric: tabular-nums;
+}
+
+.note-message {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	padding: 0.6rem 0.4rem 0.6rem 0.85rem;
+	border-radius: var(--r-sm);
+	background: color-mix(in srgb, var(--pen) 12%, transparent);
+	font-size: 0.88rem;
+	line-height: 1.4;
+}
+
+.note-message .tool {
+	width: 28px;
+	height: 28px;
+	margin-left: auto;
+}
+
+.note-foot {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	font-size: 0.88rem;
+}
+
+.note-delete {
+	color: var(--ink-soft);
+}
+
+/* "Mes notes" */
+.notes-tools {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+}
+
+.notes-search {
+	position: relative;
+	flex: 1 1 10rem;
+	display: flex;
+	align-items: center;
+}
+
+.notes-search svg {
+	position: absolute;
+	left: 0.8rem;
+	color: var(--ink-soft);
+	pointer-events: none;
+}
+
+.notes-search .input {
+	width: 100%;
+	padding-left: 2.3rem;
+}
+
+.notes-group h3 {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5rem;
+	margin: 0.4rem 0 0.2rem 0.8rem;
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+}
+
+.notes-group h3 span {
+	font-variant-numeric: tabular-nums;
+	opacity: 0.8;
+}
+
+.notes-empty {
+	padding: 1.5rem 0.8rem;
+	text-align: center;
+}
+
+.notes-empty p:first-child {
+	font-family: var(--hand);
+	font-size: 1.4rem;
+	color: var(--pen);
+}
+
+.notes-editing {
+	display: grid;
+	gap: 0.75rem;
+	justify-items: start;
+}
+
+.notes-editing > .note-editor {
+	width: 100%;
+}
+
+.notes-course {
+	font-size: 0.9rem;
+	color: var(--ink-soft);
+}
+
+.notes-course strong {
+	color: var(--ink);
+}
+
+.notes-backup {
+	display: grid;
+	gap: 0.6rem;
+	margin-top: 0.5rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--rule);
+}
+
+.notes-backup-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.notes-extension {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 0.9rem;
+	border-radius: var(--r-md);
+	background: var(--accent-soft);
+	font-size: 0.88rem;
+	line-height: 1.4;
+}
+
+.notes-extension > svg {
+	flex: none;
+	color: var(--accent-ink);
+}
+
+:root:not([data-theme="light"]) .notes-extension > svg {
+	color: var(--accent);
+}
+
+.notes-extension p {
+	flex: 1;
+}
+
+.notes-extension-error {
+	display: block;
+	color: var(--pen);
+}
+
+.notes-extension-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+@media (max-width: 720px) {
+	.notes-tools .btn.is-ink {
+		flex: 1 1 100%;
+	}
+
+	.notes-extension {
+		flex-wrap: wrap;
+	}
+
+	.notes-extension p {
+		flex-basis: calc(100% - 2rem);
+	}
+}
+
+/* Le libellé de "Mes notes" cède la place au titre de la semaine avant celui de "Salles libres". */
+@media (max-width: 1400px) {
+	.app-notes-btn span {
+		display: none;
+	}
+
+	.app-rooms-btn.app-notes-btn {
+		padding-inline: 0.6rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.note-state svg {
+		animation: none !important;
+	}
+}

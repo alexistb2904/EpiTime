@@ -1,0 +1,14 @@
+{
+	"name": "@epitime/shared",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Logique métier EpiTime commune au client web et à l'extension.",
+	"scripts": {
+		"test": "node --test \"test/*.test.ts\""
+	},
+	"devDependencies": {
+		"fake-indexeddb": "^6.2.8",
+		"linkedom": "^0.18.15"
+	}
+}

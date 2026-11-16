@@ -1,0 +1,30 @@
+{
+	"name": "epitime-extension",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "Extension EpiTime pour Chrome, Edge et Firefox : prochain cours, rappels, changements de planning et notes de cours.",
+	"scripts": {
+		"dev": "wxt",
+		"dev:firefox": "wxt -b firefox",
+		"build": "wxt build",
+		"build:firefox": "wxt build -b firefox",
+		"zip": "wxt zip",
+		"zip:firefox": "wxt zip -b firefox",
+		"compile": "tsc --noEmit",
+		"test": "node --test \"test/*.test.ts\"",
+		"postinstall": "wxt prepare"
+	},
+	"dependencies": {
+		"lucide-react": "^1.16.0",
+		"react": "^19.2.3",
+		"react-dom": "^19.2.3"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"@wxt-dev/module-react": "^1.2.2",
+		"typescript": "~5.9.3",
+		"wxt": "^0.21.5"
+	}
+}
