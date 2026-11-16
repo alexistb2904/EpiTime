@@ -1,8 +1,9 @@
-import { Bold, Check, Download, ImagePlus, Italic, Link2, List, ListOrdered, LoaderCircle, Paperclip, Trash2, X } from "lucide-react";
+import { Bold, Check, Download, Heading, ImagePlus, Italic, Link2, List, ListChecks, ListOrdered, LoaderCircle, Paperclip, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { compareVV, MAX_ATTACHMENT_BYTES, type AttachmentMeta, type CourseRef, type Note } from "../../../shared/src/notes/model.ts";
 import { noteHtmlToText, sanitizeNoteHtml } from "../../../shared/src/notes/sanitize.ts";
+import { onChecklistClick, onEditorKeyDown, toggleChecklist, toggleHeading } from "../../../shared/src/notes/editing.ts";
 import { notesChanged, notesStore, onNotesChanged } from "../lib/notes";
 
 const SAVE_DELAY_MS = 500;
@@ -169,6 +170,11 @@ const NoteEditor = ({ note, course, onDeleted, autoFocus = false }: Props) => {
 		[loadBody, onDeleted]
 	);
 
+	const format = (apply: (body: HTMLElement) => void) => {
+		apply(bodyRef.current!);
+		markDirty();
+	};
+
 	const exec = (command: string, value?: string) => {
 		bodyRef.current!.focus();
 		document.execCommand(command, false, value);
@@ -282,16 +288,23 @@ const NoteEditor = ({ note, course, onDeleted, autoFocus = false }: Props) => {
 					setTitle(event.target.value);
 					markDirty();
 				}}
+				onKeyDown={(event) => {
+					if (event.key !== "Enter") return;
+					event.preventDefault();
+					bodyRef.current!.focus();
+				}}
 				placeholder="Titre"
 				aria-label="Titre de la note"
 				maxLength={300}
 			/>
 
 			<div className="note-toolbar" role="toolbar" aria-label="Mise en forme">
+				{toolButton("Titre", Heading, () => format(toggleHeading))}
 				{toolButton("Gras (Ctrl+B)", Bold, () => exec("bold"))}
 				{toolButton("Italique (Ctrl+I)", Italic, () => exec("italic"))}
 				{toolButton("Liste à puces", List, () => exec("insertUnorderedList"))}
 				{toolButton("Liste numérotée", ListOrdered, () => exec("insertOrderedList"))}
+				{toolButton("Liste à cocher (Ctrl+Entrée coche)", ListChecks, () => format(toggleChecklist))}
 				<span className="note-toolbar-sep" aria-hidden="true" />
 				{toolButton("Lien", Link2, openLink)}
 				{toolButton("Image", ImagePlus, () => imageInput.current!.click())}
@@ -360,9 +373,11 @@ const NoteEditor = ({ note, course, onDeleted, autoFocus = false }: Props) => {
 				role="textbox"
 				aria-multiline="true"
 				aria-label="Contenu de la note"
-				data-placeholder="Écris ici. Colle une capture d'écran avec Ctrl+V."
+				data-placeholder="Écris ici. « - » liste, « [] » case à cocher, « # » titre, Ctrl+V colle une capture."
 				onInput={markDirty}
 				onPaste={onPaste}
+				onKeyDown={(event) => onEditorKeyDown(bodyRef.current!, event.nativeEvent) && markDirty()}
+				onClick={(event) => onChecklistClick(event.nativeEvent) && markDirty()}
 				onDragOver={(event) => event.dataTransfer.types.includes("Files") && event.preventDefault()}
 				onDrop={(event) => {
 					if (!event.dataTransfer.files.length) return;
@@ -402,24 +417,26 @@ const NoteEditor = ({ note, course, onDeleted, autoFocus = false }: Props) => {
 				</p>
 			)}
 
-			<div className="note-foot">
-				{confirmDelete ? (
-					<>
-						<span>Supprimer cette note et ses pièces jointes ?</span>
-						<button type="button" className="btn is-small is-danger" onClick={deleteNote}>
-							Supprimer
+			{persisted.current && (
+				<div className="note-foot">
+					{confirmDelete ? (
+						<>
+							<span>Supprimer cette note et ses pièces jointes ?</span>
+							<button type="button" className="btn is-small is-danger" onClick={deleteNote}>
+								Supprimer
+							</button>
+							<button type="button" className="btn is-small" onClick={() => setConfirmDelete(false)}>
+								Garder
+							</button>
+						</>
+					) : (
+						<button type="button" className="btn is-small note-delete" onClick={() => setConfirmDelete(true)}>
+							<Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
+							Supprimer la note
 						</button>
-						<button type="button" className="btn is-small" onClick={() => setConfirmDelete(false)}>
-							Garder
-						</button>
-					</>
-				) : (
-					<button type="button" className="btn is-small note-delete" onClick={() => setConfirmDelete(true)}>
-						<Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
-						Supprimer la note
-					</button>
-				)}
-			</div>
+					)}
+				</div>
+			)}
 		</div>
 	);
 };

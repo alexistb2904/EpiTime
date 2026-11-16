@@ -12,13 +12,16 @@ import { NotificationSettings } from "./NotificationSettings";
 import RoomAvailabilityModal from "./RoomAvailabilityModal";
 import NotesModal from "./notes/NotesModal";
 import { startExtensionSync } from "../notes/extensionBridge";
+import { notesStore } from "../notes/notesDb";
+import { useNotesQuery } from "../notes/useNotes";
+import { eventIdentity } from "../../../shared/src/events.ts";
 import { trackEvent } from "../utils/analyticsTracker";
 import { fetchApi } from "../utils/api";
 import { cacheGet, cacheSet } from "../utils/cacheStore";
 import { getDisplayedGroupNames } from "../utils/calendarGroups";
 import { courseHue } from "../utils/courseColor";
 import { buildCalendarFilterParams, buildEffectiveCalendarFilters } from "../utils/calendarFilters";
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, ClipboardCheck, Laptop, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, ClipboardCheck, Laptop, NotebookPen, Users } from "lucide-react";
 import { isExamEvent } from "../utils/courseType";
 import "./Calendar.css";
 
@@ -121,7 +124,8 @@ const Calendar = () => {
 	const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 	const [showRoomAvailabilityModal, setShowRoomAvailabilityModal] = useState(false);
 	const [showNotesModal, setShowNotesModal] = useState(false);
-	// Lien profond (notification de l'extension) : /?event=<idReservation>&date=<ISO> ouvre ce cours.
+	const { notes: allNotes } = useNotesQuery(() => notesStore.list(), []);
+	const notedCourses = useMemo(() => new Set(allNotes.map((note) => note.course?.key).filter(Boolean)), [allNotes]);
 	const pendingEventId = useRef(new URLSearchParams(window.location.search).get("event"));
 
 	const [loading, setLoading] = useState(false);
@@ -613,6 +617,7 @@ const Calendar = () => {
 			.filter(Boolean)
 			.join(" ");
 	const examTag = (ev) => isExamEvent(ev) && <span className="exam-tag">Examen</span>;
+	const noteMark = (ev) => notedCourses.has(eventIdentity(ev)) && <NotebookPen className="course-has-note" size={13} strokeWidth={2.2} role="img" aria-label="Notes prises" />;
 
 	const weekDays = [...Array(7)].map((_, i) => addDays(weekStart, i));
 	const eventsOnDay = (day) => {
@@ -739,6 +744,7 @@ const Calendar = () => {
 											<span className="course-time">
 												{formatTime(ev.startObj)}–{formatTime(ev.endObj)}
 												{ev.isOnline && <Laptop size={13} strokeWidth={2.2} aria-label="En ligne" />}
+												{noteMark(ev)}
 											</span>
 											<strong className="course-name">{courseTitle(ev)}</strong>
 											{placeLabel(ev) && <span className="course-room">{placeLabel(ev)}</span>}
@@ -803,7 +809,10 @@ const Calendar = () => {
 												</span>
 												<span className="agenda-main">
 													{examTag(ev)}
-													<strong>{courseTitle(ev)}</strong>
+													<strong>
+														{courseTitle(ev)}
+														{noteMark(ev)}
+													</strong>
 													<span>{[placeLabel(ev), teachers?.join(", ")].filter(Boolean).join(" · ") || "Salle non précisée"}</span>
 												</span>
 												{isEventCancelled(ev) && <span className="hand agenda-note">annulé</span>}
@@ -873,7 +882,7 @@ const Calendar = () => {
 					{(scheduleContext.type !== "group" || nextEvent || weekExams.length > 0 || error) && (
 						<div className="app-notes">
 							{scheduleContext.type !== "group" && (
-								<div className="context-note paper-lilac">
+								<div className="context-note">
 									<span>Planning de</span>
 									<strong>{scheduleContext.label}</strong>
 									<button type="button" className="btn is-small" onClick={resetContext}>
@@ -883,35 +892,40 @@ const Calendar = () => {
 								</div>
 							)}
 							{nextEvent && (
-								<button type="button" className={`next-up paper-sky ${isExamEvent(nextEvent) ? "is-exam" : ""}`} onClick={() => handleEventClick(nextEvent)}>
-									<span className="next-up-label">
-										{isExamEvent(nextEvent)
-											? nextEvent.startObj <= now
-												? "Examen en cours"
-												: "Prochain examen"
-											: nextEvent.startObj <= now
-												? "En cours"
-												: "Prochain cours"}
-									</span>
+								<button
+									type="button"
+									className={`next-up ${isExamEvent(nextEvent) ? "is-exam" : ""}`}
+									style={{ "--h": nextEvent.hue }}
+									onClick={() => handleEventClick(nextEvent)}>
 									<span className="next-up-time">{formatTime(nextEvent.startObj)}</span>
 									<span className="next-up-main">
 										<strong>{nextEvent.name || nextEvent.typeName}</strong>
-										<span>{placeLabel(nextEvent) || "Salle non précisée"}</span>
+										<span>
+											{isExamEvent(nextEvent)
+												? nextEvent.startObj <= now
+													? "Examen en cours"
+													: "Prochain examen"
+												: nextEvent.startObj <= now
+													? "En cours"
+													: "Prochain cours"}
+											{" · "}
+											{placeLabel(nextEvent) || "Salle non précisée"}
+										</span>
 									</span>
 									<span className="hand next-up-when">← {formatRelative(nextEvent, now)}</span>
 								</button>
 							)}
 							{weekExams.length > 0 && (
 								<div className="exam-note" role="status">
-									<ClipboardCheck size={20} strokeWidth={2.2} aria-hidden="true" />
+									<ClipboardCheck size={18} strokeWidth={2.2} aria-hidden="true" />
 									<strong>{weekExams.length === 1 ? "Examen cette semaine" : `${weekExams.length} examens cette semaine`}</strong>
 									<span className="exam-note-list">
 										{weekExams.slice(0, 3).map((ev) => (
 											<button key={getEventCacheKey(ev)} type="button" className="exam-chip" onClick={() => handleEventClick(ev)}>
-												<span>{ev.name || ev.typeName}</span>
 												<time dateTime={ev.startObj.toISOString()}>
 													{ev.startObj.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "")} {formatTime(ev.startObj)}
 												</time>
+												<span>{ev.name || ev.typeName}</span>
 											</button>
 										))}
 										{weekExams.length > 3 && <span className="exam-note-more">+{weekExams.length - 3}</span>}

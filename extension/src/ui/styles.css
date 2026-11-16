@@ -22,25 +22,6 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.page-sheet.tool-sheet {
-	height: auto;
-	padding-bottom: 0.25rem;
-}
-
-.page-sheet .modal-head {
-	margin: 0 1.1rem;
-	padding: 1.5rem 0 0.85rem;
-}
-
-.page-sheet .modal-title h2 {
-	font-size: 1.35rem;
-}
-
-.page-sheet .modal-body {
-	padding: 1rem 1.1rem 1.1rem;
-	overflow: visible;
-}
-
 .small {
 	font-size: 0.82rem;
 	line-height: 1.4;

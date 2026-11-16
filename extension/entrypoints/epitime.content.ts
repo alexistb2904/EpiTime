@@ -1,3 +1,4 @@
+import { browser } from "wxt/browser";
 import { isBlobLike } from "../../shared/src/notes/sync.ts";
 import { base64ToBlob, blobToBase64, type WireAttachment } from "../src/lib/bytes";
 import { ask } from "../src/lib/messages";
@@ -34,7 +35,7 @@ function readSiteSession() {
 
 export default defineContentScript({
 	matches: PROD_ORIGINS.map((origin) => `${origin}/*`),
-	runAt: "document_idle",
+	runAt: "document_start",
 	main() {
 		let linked = false;
 		let lastSent = "";
@@ -56,10 +57,16 @@ export default defineContentScript({
 			try {
 				const hello = await ask<{ linked: boolean; linkRequested: boolean }>({ type: "bridge.hello" });
 				linked = hello.linked;
+				if (!linked) lastSent = "";
 				if (hello.linked || hello.linkRequested) await pushSession(false);
 			} catch {}
 		};
-		void follow();
+		const notifyPage = () => window.postMessage({ source: FROM_EXTENSION, v: PROTOCOL, type: "changed" }, window.location.origin);
+		void follow().then(notifyPage);
+		// Popup link/unlink only touches storage, so the already open tab learns about it here.
+		browser.storage.onChanged.addListener((changes, area) => {
+			if (area === "local" && ("link" in changes || "linkRequestedAt" in changes)) void follow().then(notifyPage);
+		});
 		setInterval(() => linked && void pushSession(false).catch(() => undefined), SESSION_POLL_MS);
 		window.addEventListener("storage", (event) => {
 			if (linked && (event.key === "zeus_token" || event.key === "zeus_selected_groups" || event.key === null)) void pushSession(false).catch(() => undefined);

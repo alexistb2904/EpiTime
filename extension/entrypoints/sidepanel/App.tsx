@@ -1,6 +1,6 @@
-import { Download, NotebookPen, Paperclip, Plus, Search, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Download, NotebookPen, Paperclip, Plus, Search, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { endMs, eventIdentity, formatTime, isMultiDay, startMs, type ZeusEvent } from "../../../shared/src/events.ts";
+import { courseHue, endMs, eventIdentity, formatTime, isMultiDay, startMs, type ZeusEvent } from "../../../shared/src/events.ts";
 import { courseRefOf, createNote, matchesSearch, noteLabel, type CourseRef, type Note } from "../../../shared/src/notes/model.ts";
 import { findCurrentEvent } from "../../../shared/src/schedule.ts";
 import { notesChanged, notesStore, onNotesChanged } from "../../src/lib/notes";
@@ -15,7 +15,6 @@ const FOCUS_TTL_MS = 2 * 60_000;
 type Focus = { key: string | null; ref: CourseRef | null; at: number };
 
 const shortDay = (value: string | number) => new Date(value).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }).replace(".", "");
-const optionLabel = (ref: CourseRef) => `${formatTime(ref.startDate)} · ${ref.title}${ref.rooms.length ? ` · ${ref.rooms.join(", ")}` : ""}`;
 
 const App = () => {
 	const { state } = useExtensionState();
@@ -150,29 +149,36 @@ const App = () => {
 		: false;
 	const results = searching ? notes.filter((note) => matchesSearch(note, query)) : [];
 
+	const pickerGroups = [
+		...groups,
+		...(otherNoted.length ? [{ label: "Autres cours avec des notes", refs: otherNoted }] : []),
+	];
+
 	return (
-		<main className="panel sheet tool-sheet page-sheet" style={{ "--ic": 200 } as React.CSSProperties}>
-			<span className="tape modal-tape" aria-hidden="true" />
-			<header className="modal-head">
-				<div className="modal-title">
-					<h2>
-						<span className="modal-icon" aria-hidden="true">
-							<NotebookPen size={18} strokeWidth={2.2} />
-						</span>
-						Notes
-						{isLive && <span className="hand panel-live">en cours</span>}
-					</h2>
+		<main className="panel">
+			<header className="panel-head">
+				<h1>
+					<NotebookPen size={19} strokeWidth={2.2} aria-hidden="true" />
+					Notes
+				</h1>
+				<div className="panel-tools">
+					{!searching && (
+						<button type="button" className="tool is-bare" onClick={() => setEditing(createNote(course))} aria-label="Nouvelle note" title="Nouvelle note">
+							<Plus size={19} strokeWidth={2.3} aria-hidden="true" />
+						</button>
+					)}
+					<button
+						type="button"
+						className={`tool ${searching ? "" : "is-bare"}`}
+						onClick={() => setSearching((value) => !value)}
+						aria-label={searching ? "Fermer la recherche" : "Rechercher dans toutes les notes"}
+						title={searching ? "Fermer" : "Rechercher"}>
+						{searching ? <X size={18} strokeWidth={2.2} aria-hidden="true" /> : <Search size={18} strokeWidth={2.2} aria-hidden="true" />}
+					</button>
 				</div>
-				<button
-					type="button"
-					className="tool"
-					onClick={() => setSearching((value) => !value)}
-					aria-label={searching ? "Fermer la recherche" : "Rechercher dans toutes les notes"}
-					title="Toutes les notes">
-					{searching ? <X size={18} strokeWidth={2.2} aria-hidden="true" /> : <Search size={18} strokeWidth={2.2} aria-hidden="true" />}
-				</button>
 			</header>
-			<div className="modal-body">
+
+			<div className="panel-body">
 				{searching ? (
 					<section className="panel-search">
 						<input
@@ -191,40 +197,12 @@ const App = () => {
 								))}
 							</ul>
 						) : (
-							<p className="modal-hint">{notes.length ? "Aucune note ne correspond." : "Pas encore de note."}</p>
+							<p className="panel-empty">{notes.length ? "Aucune note ne correspond." : "Pas encore de note."}</p>
 						)}
 					</section>
 				) : (
 					<>
-						<div className="panel-picker">
-							<label htmlFor="course" className="visually-hidden">
-								Cours de la note
-							</label>
-							<select id="course" className="input" value={selected ?? FREE} onChange={(event) => pick(event.target.value)}>
-								<option value={FREE}>Note libre (sans cours)</option>
-								{groups.map((group) => (
-									<optgroup key={group.label} label={group.label}>
-										{group.refs.map((ref) => (
-											<option key={ref.key} value={ref.key}>
-												{group.label === "Aujourd'hui" ? optionLabel(ref) : `${shortDay(ref.startDate)} · ${optionLabel(ref)}`}
-											</option>
-										))}
-									</optgroup>
-								))}
-								{otherNoted.length > 0 && (
-									<optgroup label="Autres cours avec des notes">
-										{otherNoted.map((ref) => (
-											<option key={ref.key} value={ref.key}>
-												{`${shortDay(ref.startDate)} · ${optionLabel(ref)}`}
-											</option>
-										))}
-									</optgroup>
-								)}
-							</select>
-							<button type="button" className="tool" onClick={() => setEditing(createNote(course))} aria-label="Nouvelle note pour ce choix" title="Nouvelle note">
-								<Plus size={18} strokeWidth={2.4} aria-hidden="true" />
-							</button>
-						</div>
+						<CoursePicker course={course} live={isLive} groups={pickerGroups} selected={selected ?? FREE} onPick={pick} />
 
 						{editing && (
 							<NoteEditor
@@ -237,7 +215,7 @@ const App = () => {
 						)}
 
 						{sessionNotes.filter((note) => note.id !== editing?.id).length > 0 && (
-							<section>
+							<section className="panel-list">
 								<h2 className="panel-section">{selected === FREE ? "Autres notes libres" : "Autres notes de cette séance"}</h2>
 								<ul className="note-rows">
 									{sessionNotes
@@ -250,11 +228,11 @@ const App = () => {
 						)}
 
 						{earlier.length > 0 && (
-							<section>
+							<section className="panel-list">
 								<h2 className="panel-section">Séances précédentes</h2>
 								<ul className="note-rows">
 									{earlier.map((note) => (
-										<NoteItem key={note.id} note={note} onOpen={openNote} />
+										<NoteItem key={note.id} note={note} onOpen={openNote} withCourse />
 									))}
 								</ul>
 							</section>
@@ -262,35 +240,93 @@ const App = () => {
 					</>
 				)}
 			</div>
-			<footer className="modal-foot panel-foot">
-				<p className="modal-hint">
-					Enregistré dans ce navigateur.{" "}
-					{state?.link ? "Les notes s'échangent avec EpiTime Web quand tu l'ouvres." : "Associe l'extension à EpiTime pour retrouver ces notes sur le site."}
+
+			<footer className="panel-foot">
+				<p role="status">
+					{message ?? (state?.link ? "Enregistré dans ce navigateur, échangé avec EpiTime Web quand tu l'ouvres." : "Enregistré dans ce navigateur. Associe l'extension pour retrouver tes notes sur le site.")}
 				</p>
-				<div className="panel-foot-actions">
-					<button type="button" className="btn is-small" onClick={exportNotes} disabled={!notes.length}>
-						<Download size={14} strokeWidth={2.2} aria-hidden="true" />
-						Exporter
-					</button>
-					<button type="button" className="btn is-small" onClick={() => importInput.current?.click()}>
-						<Upload size={14} strokeWidth={2.2} aria-hidden="true" />
-						Importer
-					</button>
-					<input
-						ref={importInput}
-						type="file"
-						accept=".zip,application/zip"
-						hidden
-						onChange={(event) => importNotes(event.target.files?.[0]).then(() => (event.target.value = ""))}
-					/>
-				</div>
-				{message && (
-					<p className="modal-hint" role="status">
-						{message}
-					</p>
-				)}
+				<button type="button" className="tool is-bare" onClick={exportNotes} disabled={!notes.length} aria-label="Exporter les notes (.zip)" title="Exporter">
+					<Download size={17} strokeWidth={2.2} aria-hidden="true" />
+				</button>
+				<button type="button" className="tool is-bare" onClick={() => importInput.current?.click()} aria-label="Importer une sauvegarde" title="Importer">
+					<Upload size={17} strokeWidth={2.2} aria-hidden="true" />
+				</button>
+				<input
+					ref={importInput}
+					type="file"
+					accept=".zip,application/zip"
+					hidden
+					onChange={(event) => importNotes(event.target.files?.[0]).then(() => (event.target.value = ""))}
+				/>
 			</footer>
 		</main>
+	);
+};
+
+const CoursePicker = ({
+	course,
+	live,
+	groups,
+	selected,
+	onPick,
+}: {
+	course: CourseRef | null;
+	live: boolean;
+	groups: Array<{ label: string; refs: CourseRef[] }>;
+	selected: string;
+	onPick: (key: string) => void;
+}) => {
+	const [open, setOpen] = useState(false);
+	const choose = (key: string) => {
+		onPick(key);
+		setOpen(false);
+	};
+	return (
+		<div className="course-pick" onKeyDown={(event) => event.key === "Escape" && setOpen(false)}>
+			<button
+				type="button"
+				className={`course-card ${course ? "" : "is-free"}`}
+				style={course ? ({ "--h": courseHue(course.title) } as React.CSSProperties) : undefined}
+				onClick={() => setOpen((value) => !value)}
+				aria-expanded={open}
+				aria-controls="course-menu">
+				{course ? <span className="course-card-time">{formatTime(course.startDate)}</span> : <NotebookPen className="course-card-icon" size={20} strokeWidth={2.2} aria-hidden="true" />}
+				<span className="course-card-main">
+					<strong>{course ? course.title : "Note libre"}</strong>
+					<span>{course ? [shortDay(course.startDate), ...course.rooms].join(" · ") : "Sans cours associé"}</span>
+				</span>
+				{live && <span className="hand course-card-live">en cours</span>}
+				<ChevronDown className="course-card-chevron" size={18} strokeWidth={2.3} aria-hidden="true" />
+			</button>
+			{open && (
+				<div className="course-menu" id="course-menu">
+					<button type="button" className="course-option" aria-current={selected === FREE} onClick={() => choose(FREE)}>
+						<NotebookPen size={14} strokeWidth={2.4} aria-hidden="true" />
+						<strong>Note libre</strong>
+						{selected === FREE && <Check className="course-option-check" size={16} strokeWidth={2.6} aria-hidden="true" />}
+					</button>
+					{groups.map((group) => (
+						<section key={group.label}>
+							<h2 className="panel-section">{group.label}</h2>
+							{group.refs.map((ref) => (
+								<button
+									key={ref.key}
+									type="button"
+									className="course-option"
+									style={{ "--h": courseHue(ref.title) } as React.CSSProperties}
+									aria-current={selected === ref.key}
+									onClick={() => choose(ref.key)}>
+									<span className="course-option-dot" aria-hidden="true" />
+									<span className="course-option-time">{group.label === "Aujourd'hui" ? formatTime(ref.startDate) : shortDay(ref.startDate)}</span>
+									<strong>{ref.title}</strong>
+									{selected === ref.key && <Check className="course-option-check" size={16} strokeWidth={2.6} aria-hidden="true" />}
+								</button>
+							))}
+						</section>
+					))}
+				</div>
+			)}
+		</div>
 	);
 };
 

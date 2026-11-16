@@ -1,4 +1,3 @@
-
 process.env.TZ = "Europe/Paris";
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -67,6 +66,10 @@ test("nettoyage HTML", () => {
 	assert.equal(link?.getAttribute("target"), "_blank");
 	assert.match(clean, /<img data-att="abc-1">/);
 	assert.match(clean, /<b>toi<\/b>/);
+	assert.equal(
+		sanitizeNoteHtml('<ul data-check="x" class="a"><li data-done="1" data-x>ok</li><li>non</li></ul>', parse),
+		'<ul data-check=""><li data-done="">ok</li><li>non</li></ul>'
+	);
 	assert.match(clean, /<a>piège<\/a>/);
 	assert.equal(noteHtmlToText("<p>un</p><ul><li>deux</li></ul>", parse), "un\ndeux");
 	assert.equal(noteHtmlToText("Cas de base.<ul><li>fib(n)</li><li>fin</li></ul>", parse), "Cas de base.\nfib(n)\nfin", "texte suivi d'une liste");
@@ -130,7 +133,6 @@ test("synchronisation locale web ↔ extension, hors ligne puis reconnectés", a
 	for (const side of [web, ext]) assert.deepEqual((await side.list()).map((note) => note.title).sort(), ["prise dans l'extension", "prise sur le site"]);
 	assert.equal(await (await web.getAttachment(shot.id))?.text(), "png", "la capture suit la note");
 
-
 	await web.save(edit((await web.get(fromExt.id))!, "complétée sur le site"));
 	await ext.remove(fromWeb.id);
 	await syncNotes(web, servePeer(ext));
@@ -138,7 +140,6 @@ test("synchronisation locale web ↔ extension, hors ligne puis reconnectés", a
 		assert.equal((await side.get(fromExt.id))?.title, "complétée sur le site");
 		assert.equal((await side.get(fromWeb.id))?.deleted, true, "supprimée partout, ne réapparaît pas");
 	}
-
 
 	await web.save(edit((await web.get(fromExt.id))!, "version site"));
 	await ext.save(edit((await ext.get(fromExt.id))!, "version extension"));

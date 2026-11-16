@@ -14,7 +14,7 @@ import {
 	type ZeusEvent,
 } from "../../../shared/src/events.ts";
 import { courseRefOf, type CourseRef } from "../../../shared/src/notes/model.ts";
-import { eventsBetween, findCurrentEvent, findNextEvent, formatCountdown, formatRelative, isIgnored, remainingToday } from "../../../shared/src/schedule.ts";
+import { eventsBetween, findCurrentEvent, findNextEvent, formatRelative, isIgnored, remainingToday } from "../../../shared/src/schedule.ts";
 import type { ExtensionState } from "../../src/lib/messages";
 import { DEFAULT_ORIGIN } from "../../src/lib/origins";
 import { browser, currentWindowId, openNotesPanel, openWebApp } from "../../src/lib/platform";
@@ -76,10 +76,12 @@ const App = () => {
 						<span>EpiTime</span>
 					</div>
 				) : (
-					<button type="button" className="btn is-small" onClick={() => setView("today")}>
-						<ArrowLeft size={15} strokeWidth={2.2} aria-hidden="true" />
-						Retour
-					</button>
+					<div className="top-brand">
+						<button type="button" className="tool is-bare" onClick={() => setView("today")} aria-label="Retour" title="Retour">
+							<ArrowLeft size={19} strokeWidth={2.2} aria-hidden="true" />
+						</button>
+						<h1>{view === "settings" ? "Réglages" : "Changements"}</h1>
+					</div>
 				)}
 				<div className="top-tools">
 					<button type="button" className="tool is-bare" onClick={() => openNotes(null)} aria-label="Ouvrir les notes" title="Notes">
@@ -149,21 +151,16 @@ const Note = ({ children, action }: { children: React.ReactNode; action?: React.
 );
 
 const Onboarding = ({ state, onLink }: { state: ExtensionState; onLink: () => void }) => (
-	<section className="sheet onboarding">
-		<span className="tape" aria-hidden="true" />
+	<section className="onboarding">
 		<h1>Ton planning, sans ouvrir d'onglet</h1>
 		<p>Associe l'extension à ton compte EpiTime pour voir ton prochain cours, recevoir un rappel avant chaque cours et être prévenu quand une salle ou un horaire change.</p>
 		<ol>
 			<li>EpiTime s'ouvre. Connecte-toi avec Microsoft si besoin.</li>
 			<li>L'association se fait toute seule. Ton mot de passe n'est jamais demandé.</li>
 		</ol>
-		<button type="button" className="ticket is-ink is-compact" onClick={onLink}>
-			<span className="ticket-stub">
-				<Link2 size={18} strokeWidth={2.2} aria-hidden="true" />
-			</span>
-			<span className="ticket-text">
-				<strong>{state.linkRequested ? "Rouvrir EpiTime" : "Associer à EpiTime"}</strong>
-			</span>
+		<button type="button" className="btn is-ink" onClick={onLink}>
+			<Link2 size={17} strokeWidth={2.2} aria-hidden="true" />
+			{state.linkRequested ? "Rouvrir EpiTime" : "Associer à EpiTime"}
 		</button>
 		<p className="small muted">Tes notes fonctionnent déjà sans association, depuis l'icône carnet en haut.</p>
 	</section>
@@ -229,8 +226,8 @@ const TodayView = ({ state, now, openNotes, openWeb }: { state: ExtensionState; 
 
 	return (
 		<div className="today">
-			{current && <NextUp event={current} now={now} live highlight onNotes={() => openNotes(courseRefOf(current))} onOpen={() => openWeb(deepLink(current))} />}
-			{next && <NextUp event={next} now={now} highlight={!current} onNotes={() => openNotes(courseRefOf(next))} onOpen={() => openWeb(deepLink(next))} />}
+			{current && <NextUp event={current} now={now} live onNotes={() => openNotes(courseRefOf(current))} onOpen={() => openWeb(deepLink(current))} />}
+			{next && <NextUp event={next} now={now} onNotes={() => openNotes(courseRefOf(next))} onOpen={() => openWeb(deepLink(next))} />}
 			{!current && !next && (
 				<div className="agenda-empty">
 					<p>Plus de cours aujourd'hui.</p>
@@ -255,30 +252,25 @@ const NextUp = ({
 	event,
 	now,
 	live = false,
-	highlight = false,
 	onNotes,
 	onOpen,
 }: {
 	event: ZeusEvent;
 	now: number;
 	live?: boolean;
-	highlight?: boolean;
 	onNotes: () => void;
 	onOpen: () => void;
 }) => {
 	const exam = isExamEvent(event);
 	const label = exam ? (live ? "Examen en cours" : "Prochain examen") : live ? "En cours" : "Prochain cours";
-	const teachers = teacherNames(event);
 	return (
-		<section className={`next-up ${live ? "paper-sky" : "paper-lilac"} ${exam ? "is-exam" : ""}`} aria-label={label}>
-			<span className="next-up-label">
-				{label}
-				{live && ` · encore ${formatCountdown(endMs(event) - now)}`}
-			</span>
+		<section className={`next-up ${exam ? "is-exam" : ""}`} style={{ "--h": hueOf(event) } as CSSVars} aria-label={label}>
 			<span className="next-up-time">{formatTime(startMs(event))}</span>
 			<span className="next-up-main">
-				<strong>{highlight ? <mark className="marker">{eventTitle(event)}</mark> : eventTitle(event)}</strong>
-				<span>{[placeLabel(event), ...teachers].join(" · ")}</span>
+				<strong>{eventTitle(event)}</strong>
+				<span>
+					{label} · {placeLabel(event) || "Salle non précisée"}
+				</span>
 			</span>
 			<span className="hand next-up-when">← {formatRelative(event, now)}</span>
 			<span className="next-up-actions">
@@ -384,33 +376,20 @@ const ChangesView = ({ state, now }: { state: ExtensionState; now: number }) => 
 			? `à ${formatTime(at)}`
 			: new Date(at).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 	return (
-		<section className="sheet tool-sheet page-sheet" style={{ "--ic": 350 } as CSSVars} aria-label="Changements du planning">
-			<span className="tape modal-tape" aria-hidden="true" />
-			<header className="modal-head">
-				<div className="modal-title">
-					<h2>
-						<span className="modal-icon" aria-hidden="true">
-							<Bell size={18} strokeWidth={2.2} />
-						</span>
-						Changements
-					</h2>
-				</div>
-			</header>
-			<div className="modal-body">
-				{items.length === 0 ? (
-					<p className="modal-hint">Aucun changement repéré pour l'instant. L'extension vérifie ton planning toutes les {state.settings.syncMinutes} minutes.</p>
-				) : (
-					<ul className="change-list">
-						{items.map((item) => (
-							<li key={`${item.key}-${item.detectedAt}`} className={`change ${item.category === "cancelled" ? "is-cancel" : ""}`}>
-								<strong>{item.notification.title}</strong>
-								<span>{item.notification.message}</span>
-								<small>repéré {seen(item.detectedAt)}</small>
-							</li>
-						))}
-					</ul>
-				)}
-			</div>
+		<section className="settings" aria-label="Changements du planning">
+			{items.length === 0 ? (
+				<p className="settings-note">Aucun changement repéré pour l'instant. L'extension vérifie ton planning toutes les {state.settings.syncMinutes} minutes.</p>
+			) : (
+				<ul className="group-card change-list">
+					{items.map((item) => (
+						<li key={`${item.key}-${item.detectedAt}`} className={`change ${item.category === "cancelled" ? "is-cancel" : ""}`}>
+							<strong>{item.notification.title}</strong>
+							<span>{item.notification.message}</span>
+							<small>repéré {seen(item.detectedAt)}</small>
+						</li>
+					))}
+				</ul>
+			)}
 		</section>
 	);
 };

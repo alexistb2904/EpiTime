@@ -1,17 +1,19 @@
 body {
 	width: 380px;
-	min-height: 220px;
-	max-height: 600px;
 }
 
 .popup {
 	display: grid;
+	align-content: start;
 	gap: 0.85rem;
-	padding: 0.85rem 0.9rem 0.75rem;
+	min-height: 208px;
+	max-height: 600px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 0.75rem 0.85rem 0.7rem;
 }
 
 .popup.is-loading {
-	min-height: 220px;
 	place-items: center;
 }
 
@@ -26,6 +28,7 @@ body {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.55rem;
+	min-width: 0;
 	font-size: 1.15rem;
 	font-weight: 800;
 	font-stretch: 88%;
@@ -34,6 +37,17 @@ body {
 
 .top-brand img {
 	border-radius: 9px;
+}
+
+.top-brand h1 {
+	font-size: inherit;
+	font-weight: inherit;
+}
+
+.top-brand .tool {
+	width: 34px;
+	height: 34px;
+	margin-left: -0.3rem;
 }
 
 .top-tools {
@@ -82,43 +96,89 @@ body {
 	font-size: 0.86rem;
 	line-height: 1.4;
 	padding: 0.7rem 0.8rem 0.7rem 0.95rem;
+	border-radius: var(--r-md);
 }
 
 .today {
 	display: grid;
-	gap: 0.75rem;
+	gap: 0.6rem;
 }
 
+/* Cours en cours et suivant : la même carte pastel que les lignes de « 7 jours », avec une rangée d'actions. */
 .popup .next-up {
+	--course-bg: oklch(0.92 0.055 var(--h));
+	--course-line: oklch(0.74 0.11 var(--h));
+	--course-soft: oklch(0.44 0.07 var(--h));
+	--course-ink: oklch(0.26 0.05 var(--h));
+	--pen: #cf3f80;
 	grid-template-areas:
-		"time label"
 		"time main"
 		"time when"
 		"actions actions";
+	padding: 0.85rem 1.1rem;
+	border: 1px solid var(--course-line);
+	border-left-width: 5px;
+	border-radius: var(--r-md);
+	background: var(--course-bg);
+	color: var(--course-ink);
 	cursor: default;
 }
 
-.popup .next-up:hover {
-	transform: none;
-	box-shadow: var(--lift);
+.popup .next-up.is-exam {
+	border: 2px solid var(--exam);
+	border-left-width: 6px;
 }
 
-.popup .next-up.is-exam:hover {
-	box-shadow:
-		inset 0 0 0 1.5px var(--exam-line),
-		var(--lift);
+.popup .next-up-time {
+	grid-area: time;
+	border-right-color: var(--course-line);
+	color: var(--course-ink);
 }
 
-.popup .next-up-label {
-	display: block;
-	grid-area: label;
+.popup .next-up-main {
+	grid-area: main;
+}
+
+.popup .next-up-main > * {
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.popup .next-up-main span {
+	color: var(--course-soft);
+}
+
+.popup .next-up-when {
+	grid-area: when;
+	justify-self: start;
+	margin-top: 0.15rem;
 }
 
 .next-up-actions {
 	grid-area: actions;
 	display: flex;
 	gap: 0.4rem;
-	margin-top: 0.6rem;
+	margin-top: 0.7rem;
+}
+
+.next-up-actions .btn {
+	background: color-mix(in oklab, var(--course-line) 30%, transparent);
+	color: var(--course-ink);
+}
+
+.next-up-actions .btn:hover:not(:disabled) {
+	background: color-mix(in oklab, var(--course-line) 48%, transparent);
+}
+
+.next-up-actions .btn.is-ink {
+	background: var(--course-line);
+}
+
+.next-up-actions .btn.is-ink:hover:not(:disabled) {
+	background: color-mix(in oklab, var(--course-line) 82%, var(--course-ink));
 }
 
 .free-note {
@@ -136,7 +196,6 @@ body {
 	position: static;
 	padding-top: 0.6rem;
 	background: none;
-	font-size: 1.2rem;
 }
 
 .popup .agenda ol {
@@ -165,7 +224,9 @@ body {
 .onboarding {
 	display: grid;
 	gap: 0.7rem;
-	padding: 1.6rem 1.1rem 1.1rem;
+	padding: 1.1rem 1rem 1rem;
+	border-radius: var(--r-md);
+	background: var(--fill);
 }
 
 .onboarding h1 {
@@ -189,22 +250,150 @@ body {
 	color: var(--ink-soft);
 }
 
-.onboarding .ticket {
+.onboarding .btn {
 	justify-self: start;
+	margin-top: 0.2rem;
 }
 
-.change-list {
+/* Réglages et changements : des groupes de lignes, comme un panneau de réglages système. */
+.settings {
 	display: grid;
-	gap: 0.5rem;
+	gap: 1.1rem;
+}
+
+.group {
+	display: grid;
+	gap: 0.4rem;
+}
+
+.group-label {
+	padding-left: 0.85rem;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+}
+
+.group-card {
+	border-radius: var(--r-md);
+	background: var(--fill);
 	list-style: none;
+}
+
+.group-card > * + * {
+	border-top: 1px solid var(--rule);
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.9rem;
+	min-height: 54px;
+	padding: 0.65rem 0.85rem;
+	cursor: default;
+}
+
+label.row,
+summary.row {
+	cursor: pointer;
+}
+
+.row.is-stacked {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.55rem;
+}
+
+.row-text {
+	display: grid;
+	gap: 0.1rem;
+	min-width: 0;
+}
+
+.row-text strong {
+	font-size: 0.92rem;
+	font-weight: 700;
+	font-stretch: 90%;
+	overflow-wrap: anywhere;
+}
+
+.row-text small {
+	font-size: 0.78rem;
+	line-height: 1.35;
+	color: var(--ink-soft);
+}
+
+.seg.is-fill {
+	display: flex;
+}
+
+.seg.is-fill > button {
+	flex: 1;
+	white-space: nowrap;
+	justify-content: center;
+	padding-inline: 0.4rem;
+	font-size: 0.85rem;
+}
+
+.row-details summary {
+	list-style: none;
+}
+
+.row-details summary::-webkit-details-marker {
+	display: none;
+}
+
+.row-chevron {
+	flex: none;
+	color: var(--ink-soft);
+	transition: transform 200ms var(--ease);
+}
+
+.row-details[open] .row-chevron {
+	transform: rotate(90deg);
+}
+
+.checks {
+	display: grid;
+	gap: 0.1rem;
+	padding: 0 0.5rem 0.6rem;
+	list-style: none;
+	font-size: 0.88rem;
+}
+
+.checks label {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	min-height: 36px;
+	padding: 0 0.35rem;
+	border-radius: var(--r-xs);
+	cursor: pointer;
+}
+
+.checks label:hover {
+	background: var(--fill);
+}
+
+.checks input {
+	flex: none;
+	width: 16px;
+	height: 16px;
+}
+
+.settings-note {
+	padding: 0 0.85rem;
+	font-size: 0.78rem;
+	line-height: 1.45;
+	color: var(--ink-soft);
 }
 
 .change {
 	display: grid;
 	gap: 0.15rem;
-	padding: 0.65rem 0.85rem;
-	border-radius: var(--r-md);
-	background: var(--fill);
+	padding: 0.7rem 0.85rem;
 	font-size: 0.88rem;
 	line-height: 1.35;
 }
@@ -215,6 +404,7 @@ body {
 }
 
 .change span {
+	font-size: 0.85rem;
 	color: var(--ink-soft);
 	font-variant-numeric: tabular-nums;
 }
@@ -224,57 +414,13 @@ body {
 	font-size: 0.75rem;
 }
 
-.change.is-cancel {
-	background: color-mix(in srgb, var(--pen) 12%, transparent);
-}
-
-.popup .settings-row p,
-.popup .settings-block > p {
-	font-size: 0.84rem;
-}
-
-.popup .settings-block {
-	display: grid;
-	gap: 0.75rem;
-}
-
-.popup .day-chip {
-	min-width: 0;
-	height: 34px;
-	text-transform: none;
-}
-
-.checks {
-	display: grid;
-	gap: 0.35rem;
-	list-style: none;
-	font-size: 0.88rem;
-}
-
-.checks label {
-	display: flex;
-	align-items: center;
-	gap: 0.55rem;
-	cursor: pointer;
-}
-
-.checks input {
-	width: 16px;
-	height: 16px;
-}
-
-.account-unlink {
-	justify-self: start;
-}
-
-.fine-print {
-	margin-top: 0.25rem;
-	line-height: 1.45;
+.change.is-cancel strong {
+	color: var(--pen);
 }
 
 .foot {
 	display: flex;
 	justify-content: center;
-	padding-top: 0.5rem;
+	padding-top: 0.6rem;
 	border-top: 1px solid var(--rule);
 }

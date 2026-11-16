@@ -76,6 +76,7 @@ docker-compose.override.yml
 # ===== Project Specific =====
 .vite/
 .turbo/
+.wxt/
 dist-ssr/
 *.local
 server/data/

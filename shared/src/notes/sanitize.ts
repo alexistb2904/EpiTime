@@ -48,7 +48,11 @@ export function sanitizeNoteHtml(html: string, parse: ParseHtml = defaultParse):
 			}
 			const href = element.getAttribute("href");
 			const attachment = element.getAttribute("data-att");
+			const checklist = tag === "UL" && element.hasAttribute("data-check");
+			const done = tag === "LI" && element.hasAttribute("data-done");
 			for (const name of element.getAttributeNames()) element.removeAttribute(name);
+			if (checklist) element.setAttribute("data-check", "");
+			if (done) element.setAttribute("data-done", "");
 			if (tag === "A") {
 				const url = href?.trim() ?? "";
 				if (SAFE_URL.test(url)) {

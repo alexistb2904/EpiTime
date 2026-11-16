@@ -10,7 +10,9 @@ const pending = new Map();
 window.addEventListener("message", (event) => {
 	if (event.source !== window || event.origin !== window.location.origin) return;
 	const data = event.data;
-	if (!data || data.source !== FROM_EXTENSION || data.v !== BRIDGE_PROTOCOL || typeof data.id !== "string") return;
+	if (!data || data.source !== FROM_EXTENSION || data.v !== BRIDGE_PROTOCOL) return;
+	if (data.type === "changed") return void syncWithExtension();
+	if (typeof data.id !== "string") return;
 	const call = pending.get(data.id);
 	if (!call) return;
 	pending.delete(data.id);
@@ -52,7 +54,7 @@ export function onExtensionStatus(listener) {
 
 export async function detectExtension() {
 	try {
-		const hello = await call("hello", null, 1_000);
+		const hello = await call("hello", null, 3_000);
 		setStatus({ installed: true, linked: Boolean(hello?.linked), browser: hello?.browser ?? null });
 	} catch {
 		setStatus({ installed: false, linked: false });

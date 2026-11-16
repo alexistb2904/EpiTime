@@ -65,10 +65,10 @@ export async function getSettings(): Promise<Settings> {
 }
 
 export async function getSession(): Promise<Session | null> {
-	return ((await browser.storage.session.get("session")).session as Session | undefined) ?? null;
+	return ((await browser.storage.local.get("session")).session as Session | undefined) ?? null;
 }
 
 export async function setSession(session: Session | null) {
-	if (session) await browser.storage.session.set({ session });
-	else await browser.storage.session.remove("session");
+	if (session) await browser.storage.local.set({ session });
+	else await browser.storage.local.remove("session");
 }

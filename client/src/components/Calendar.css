@@ -1,5 +1,3 @@
-/* App connectée : le même panneau que l'accueil, en feuilles de travail droites. */
-
 .app {
 	--drawer-w: 296px;
 	height: 100vh;
@@ -9,8 +7,6 @@
 	overflow: hidden;
 }
 
-/* Les couleurs de cours se recalculent sur chaque élément qui porte --h.
-   Carte pastel claire, bordure du même pastel en plus soutenu, texte foncé : identique dans les deux thèmes. */
 .course,
 .allday-course,
 .agenda-row {
@@ -18,14 +14,12 @@
 	--course-line: oklch(0.74 0.11 var(--h));
 	--course-soft: oklch(0.44 0.07 var(--h));
 	--course-ink: oklch(0.26 0.05 var(--h));
-	/* Surligneur du prochain cours : la couleur de la carte, en plus soutenu. */
 	--fluo: oklch(0.82 0.13 var(--h));
 	--fluo-ink: var(--course-ink);
 	--pen: #cf3f80;
 	color: var(--course-ink);
 }
 
-/* Fenêtre de détails : un papier teinté par la matière, adapté au thème. */
 .event-sheet {
 	--course-bg: oklch(0.29 0.04 var(--h));
 	--course-line: oklch(0.74 0.11 var(--h));
@@ -180,8 +174,6 @@ body.has-modal {
 	min-height: 0;
 }
 
-/* Classeur (tiroir) */
-/* Le classeur : une feuille teintée d'accent, sur toute la hauteur. */
 .drawer {
 	display: flex;
 	flex-direction: column;
@@ -580,81 +572,90 @@ body.has-modal {
 	background: color-mix(in oklab, var(--accent) 85%, var(--ink));
 }
 
-/* Bandeaux au-dessus du planning */
+/* Bandeaux au-dessus du planning : des aplats, sans ombre ni dégradé. */
 .app-notes {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: stretch;
-	gap: 1rem;
+	gap: 0.75rem;
+}
+
+/* Bandeaux bicolores : un voile de la teinte sur la feuille, la teinte pleine pour l'heure et les repères. */
+.next-up,
+.exam-note {
+	--tone: oklch(0.8 0.1 var(--h));
+	--tone-wash: 13%;
+	border: 1px solid color-mix(in oklab, var(--tone) 28%, transparent);
+	background: color-mix(in oklab, var(--tone) var(--tone-wash), var(--sheet));
+}
+
+:root[data-theme="light"] :is(.next-up, .exam-note) {
+	--tone: oklch(0.52 0.13 var(--h));
+	--tone-wash: 8%;
 }
 
 .next-up {
-	position: relative;
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	align-items: center;
-	gap: 0.15rem 1rem;
+	gap: 0 1rem;
 	min-width: min(100%, 30rem);
-	padding: 0.75rem 1.35rem;
-	border: 1px solid var(--sheet-edge);
-	border-radius: var(--r-lg);
-	background: var(--sheet);
-	box-shadow: var(--lift);
+	padding: 0.65rem 1.1rem 0.65rem 0.95rem;
+	border-radius: var(--r-xs);
 	text-align: left;
 	cursor: pointer;
-	transition: transform 220ms var(--ease);
+	transition: background-color 160ms ease-out;
 }
 
 .next-up:hover {
-	transform: translateY(-2px);
-	box-shadow: var(--lift-hover);
+	--tone-wash: 20%;
 }
 
-.next-up-label {
-	grid-column: 2;
-	grid-row: 1;
-	font-size: 0.7rem;
-	font-weight: 750;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
-	color: var(--ink-soft);
+:root[data-theme="light"] .next-up:hover {
+	--tone-wash: 13%;
 }
 
 .next-up-time {
-	grid-row: 1 / 3;
-	font-size: 1.9rem;
+	align-self: stretch;
+	display: flex;
+	align-items: center;
+	padding-right: 1rem;
+	border-right: 1px solid color-mix(in oklab, var(--tone) 35%, transparent);
+	color: var(--tone);
+	font-size: 2rem;
 	font-weight: 800;
-	font-stretch: 80%;
+	font-stretch: 75%;
 	line-height: 1;
 	font-variant-numeric: tabular-nums;
 }
 
 .next-up-main {
-	grid-column: 2;
 	display: flex;
-	align-items: baseline;
-	gap: 0.6rem;
+	flex-direction: column;
+	gap: 0.1rem;
 	min-width: 0;
 }
 
-.next-up-main strong {
-	font-size: 1.05rem;
-	font-weight: 750;
-	font-stretch: 85%;
-	line-height: 1.2;
+.next-up-main > * {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
+.next-up-main strong {
+	font-size: 1.08rem;
+	font-weight: 750;
+	font-stretch: 85%;
+	line-height: 1.2;
+}
+
 .next-up-main span {
-	font-size: 0.88rem;
+	font-size: 0.85rem;
+	font-weight: 600;
 	color: var(--ink-soft);
 }
 
 .next-up-when {
-	grid-column: 3;
-	grid-row: 1 / 3;
 	font-size: 1.3rem;
 	transform: rotate(-3deg);
 	white-space: nowrap;
@@ -666,10 +667,10 @@ body.has-modal {
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 0.5rem 0.9rem;
-	padding: 0.65rem 0.75rem 0.65rem 1.25rem;
-	border-radius: var(--r-lg);
+	padding: 0.6rem 0.75rem 0.6rem 1.1rem;
+	border: 1px solid var(--rule-strong);
+	border-radius: var(--r-xs);
 	background: var(--sheet);
-	box-shadow: var(--lift);
 	font-size: 0.92rem;
 }
 
@@ -685,10 +686,8 @@ body.has-modal {
 
 .error-note {
 	flex: 1 1 22rem;
-	background: color-mix(in srgb, var(--pen) 10%, var(--sheet));
-	box-shadow:
-		inset 0 0 0 1.5px color-mix(in srgb, var(--pen) 45%, transparent),
-		var(--lift);
+	border-color: color-mix(in srgb, var(--pen) 55%, transparent);
+	background: color-mix(in srgb, var(--pen) 12%, var(--sheet));
 }
 
 .error-note > svg {
@@ -1068,77 +1067,67 @@ body.has-modal {
 	rotate: 0deg;
 }
 
-/* Bandeau « Prochain examen » : le même bandeau, cerclé de rouge. */
-.next-up.is-exam {
-	box-shadow:
-		inset 0 0 0 1.5px var(--exam-line),
-		var(--lift);
+/* Examens : le même bandeau, teinté du rouge tampon. */
+:root :is(.next-up.is-exam, .exam-note) {
+	--tone: var(--exam-line);
 }
 
-.next-up.is-exam:hover {
-	box-shadow:
-		inset 0 0 0 1.5px var(--exam-line),
-		var(--lift-hover);
-}
-
-.next-up.is-exam .next-up-label {
-	color: var(--exam-line);
-}
-
-/* Rappel des examens de la semaine, au-dessus du planning. */
 .exam-note {
 	flex: 1 1 22rem;
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
-	gap: 0.5rem 0.9rem;
-	padding: 0.65rem 0.75rem 0.65rem 1.1rem;
-	border-radius: var(--r-lg);
-	background: color-mix(in srgb, var(--exam-line) 9%, var(--sheet));
-	box-shadow:
-		inset 0 0 0 1.5px color-mix(in srgb, var(--exam-line) 55%, transparent),
-		var(--lift);
+	gap: 0.4rem 0.8rem;
+	padding: 0.5rem 0.55rem 0.5rem 1rem;
+	border-radius: var(--r-xs);
 	font-size: 0.92rem;
 }
 
 .exam-note > svg {
 	flex: none;
-	color: var(--exam-line);
+	color: var(--tone);
 }
 
 .exam-note > strong {
-	font-size: 1.05rem;
-	font-weight: 800;
-	font-stretch: 88%;
+	color: var(--tone);
+	font-size: 0.95rem;
+	font-weight: 850;
+	font-stretch: 80%;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
 }
 
 .exam-note-list {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.4rem;
+	gap: 0.3rem;
 	min-width: 0;
 }
 
 .exam-chip {
 	display: inline-flex;
-	align-items: baseline;
-	gap: 0.45rem;
+	align-items: center;
+	gap: 0.5rem;
 	max-width: 100%;
 	min-height: 32px;
-	padding: 0.35rem 0.8rem;
-	border: 1px solid color-mix(in srgb, var(--exam-line) 40%, transparent);
-	border-radius: var(--r-pill);
-	background: var(--sheet);
+	padding: 0.35rem 0.65rem;
+	border: 0;
+	border-radius: 4px;
+	background: color-mix(in oklab, var(--tone) 14%, transparent);
 	color: var(--ink);
 	font-size: 0.85rem;
-	font-weight: 700;
+	font-weight: 650;
 	font-stretch: 88%;
 	cursor: pointer;
-	transition:
-		background-color 160ms ease-out,
-		border-color 160ms ease-out,
-		transform 200ms var(--ease);
+	transition: background-color 160ms ease-out;
+}
+
+.exam-chip time {
+	flex: none;
+	color: var(--tone);
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
 }
 
 .exam-chip > span {
@@ -1149,21 +1138,12 @@ body.has-modal {
 	white-space: nowrap;
 }
 
-.exam-chip time {
-	flex: none;
-	font-weight: 600;
-	color: var(--ink-soft);
-	font-variant-numeric: tabular-nums;
-}
-
 .exam-chip:hover {
-	border-color: var(--exam-line);
-	background: color-mix(in srgb, var(--exam-line) 12%, var(--sheet));
-	transform: translateY(-1px);
+	background: color-mix(in oklab, var(--tone) 24%, transparent);
 }
 
 .exam-note-more {
-	font-weight: 700;
+	font-weight: 750;
 	color: var(--ink-soft);
 }
 
@@ -2231,29 +2211,24 @@ button.tree-toggle:hover {
 		gap: 0 0.9rem;
 		min-width: 0;
 		width: 100%;
-		padding: 0.75rem 1.1rem;
-	}
-
-	.next-up-label {
-		display: none;
+		padding: 0.6rem 1rem 0.6rem 0.85rem;
 	}
 
 	.next-up-time {
 		grid-area: time;
 		font-size: 1.85rem;
+		padding-right: 0.9rem;
 	}
 
 	.next-up-main {
 		grid-area: main;
-		flex-wrap: wrap;
-		row-gap: 0;
 	}
 
 	.next-up-when {
 		grid-area: when;
 		justify-self: start;
 		font-size: 1.15rem;
-		margin-top: 0.15rem;
+		margin-top: 0.2rem;
 	}
 
 	.context-note {
@@ -2354,16 +2329,8 @@ button.tree-toggle:hover {
 	}
 }
 
-/* ------------------------------------------------------------------
-   Micro-interactions de l'app (keyframes communes dans App.css).
-   Uniquement à l'arrivée d'un élément, au survol ou à l'appui :
-   rien ne bouge tout seul, sauf le point « maintenant ».
-   ------------------------------------------------------------------ */
-
-/* Titre de la semaine : glisse en place quand on change de semaine. */
 .app-title-text {
 	display: inline-block;
-	/* inline-block : l'ellipsis du parent ne s'applique pas, il faut la porter ici. */
 	max-width: 100%;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -2371,14 +2338,12 @@ button.tree-toggle:hover {
 	animation: card-in 300ms var(--ease) backwards;
 }
 
-/* Cours : arrivent en cascade de gauche à droite (une colonne = 35 ms). */
 .course,
 .allday-course {
 	animation: card-in 340ms var(--ease) backwards;
 	animation-delay: calc(var(--col, 0) * 35ms);
 }
 
-/* Vue liste : cascade de haut en bas, plafonnée pour ne pas traîner. */
 .agenda-row {
 	animation: card-in 320ms var(--ease) backwards;
 	animation-delay: calc(min(var(--i, 0), 8) * 30ms);
@@ -2390,7 +2355,6 @@ button.tree-toggle:hover {
 	transition-duration: 90ms;
 }
 
-/* Prochain cours : la note arrive, puis la mention au stylo s'écrit. */
 .next-up {
 	animation: card-in 420ms var(--ease) backwards;
 }
@@ -2400,7 +2364,6 @@ button.tree-toggle:hover {
 	animation: hand-write 650ms 250ms steps(18, end) both;
 }
 
-/* Le point « maintenant » respire doucement : le seul mouvement continu de l'app. */
 .now-line::after {
 	content: "";
 	position: absolute;
@@ -2426,7 +2389,6 @@ button.tree-toggle:hover {
 	}
 }
 
-/* Classeur : chaque pastille d'action réagit à sa façon au survol. */
 .drawer-actions button > :is(svg, img) {
 	transition:
 		transform 320ms var(--spring),
@@ -2482,13 +2444,11 @@ button.tree-toggle:hover {
 	transition: transform 260ms var(--spring);
 }
 
-/* Un groupe ajouté, une liste de filtres dépliée : arrivée en douceur. */
 .drawer-groups li,
 .drawer-filter {
 	animation: card-in 260ms var(--ease) backwards;
 }
 
-/* Fenêtres : l'icône se pose avec un petit rebond, le scotch se colle juste après. */
 .modal-icon {
 	animation: pop-in 460ms var(--spring) 90ms backwards;
 }
@@ -2497,7 +2457,6 @@ button.tree-toggle:hover {
 	animation: tape-stick 380ms var(--ease) 150ms backwards;
 }
 
-/* Résultats de recherche de salle : apparaissent au lieu de surgir. */
 .room-status,
 .rooms-results {
 	animation: card-in 300ms var(--ease) backwards;

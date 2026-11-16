@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Bold, Check, Download, ImagePlus, Italic, Link2, List, ListOrdered, LoaderCircle, Paperclip, Trash2, X } from "lucide-react";
+import { Bold, Check, Download, Heading, ImagePlus, Italic, Link2, List, ListChecks, ListOrdered, LoaderCircle, Paperclip, Trash2, X } from "lucide-react";
 import { compareVV, MAX_ATTACHMENT_BYTES } from "../../../../shared/src/notes/model.ts";
 import { noteHtmlToText, sanitizeNoteHtml } from "../../../../shared/src/notes/sanitize.ts";
+import { onChecklistClick, onEditorKeyDown, toggleChecklist, toggleHeading } from "../../../../shared/src/notes/editing.ts";
 import { notesChanged, notesStore, onNotesChanged } from "../../notes/notesDb";
 
 const SAVE_DELAY_MS = 500;
-// Pas de SVG en ligne : un fichier SVG reste une pièce jointe.
 const isInlineImage = (type) => /^image\/(png|jpe?g|gif|webp|avif|bmp)$/i.test(type || "");
 const escapeHtml = (value) => value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 const formatSize = (bytes) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} Ko` : `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} Mo`);
@@ -33,10 +33,6 @@ export async function openAttachment(attachment) {
 	setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-/**
- * Éditeur d'une note. Enregistre tout seul (pas de bouton) : 500 ms après la dernière frappe, en quittant
- * l'onglet et à la fermeture. Les images collées ou déposées deviennent des pièces jointes locales.
- */
 const NoteEditor = ({ note, course, onDeleted, autoFocus = false }) => {
 	const bodyRef = useRef(null);
 	const base = useRef(note);
@@ -174,6 +170,11 @@ const NoteEditor = ({ note, course, onDeleted, autoFocus = false }) => {
 		[loadBody, onDeleted]
 	);
 
+	const format = (apply) => {
+		apply(bodyRef.current);
+		markDirty();
+	};
+
 	const exec = (command, value = null) => {
 		bodyRef.current.focus();
 		document.execCommand(command, false, value);
@@ -288,16 +289,23 @@ const NoteEditor = ({ note, course, onDeleted, autoFocus = false }) => {
 					setTitle(event.target.value);
 					markDirty();
 				}}
+				onKeyDown={(event) => {
+					if (event.key !== "Enter") return;
+					event.preventDefault();
+					bodyRef.current.focus();
+				}}
 				placeholder="Titre"
 				aria-label="Titre de la note"
 				maxLength={300}
 			/>
 
 			<div className="note-toolbar" role="toolbar" aria-label="Mise en forme">
+				{toolButton("Titre", Heading, () => format(toggleHeading))}
 				{toolButton("Gras (Ctrl+B)", Bold, () => exec("bold"))}
 				{toolButton("Italique (Ctrl+I)", Italic, () => exec("italic"))}
 				{toolButton("Liste à puces", List, () => exec("insertUnorderedList"))}
 				{toolButton("Liste numérotée", ListOrdered, () => exec("insertOrderedList"))}
+				{toolButton("Liste à cocher (Ctrl+Entrée coche)", ListChecks, () => format(toggleChecklist))}
 				<span className="note-toolbar-sep" aria-hidden="true" />
 				{toolButton("Lien", Link2, openLink)}
 				{toolButton("Image", ImagePlus, () => imageInput.current.click())}
@@ -344,9 +352,11 @@ const NoteEditor = ({ note, course, onDeleted, autoFocus = false }) => {
 				role="textbox"
 				aria-multiline="true"
 				aria-label="Contenu de la note"
-				data-placeholder="Écris ici. Colle une capture d'écran avec Ctrl+V."
+				data-placeholder="Écris ici. « - » liste, « [] » case à cocher, « # » titre, Ctrl+V colle une capture."
 				onInput={markDirty}
 				onPaste={onPaste}
+				onKeyDown={(event) => onEditorKeyDown(bodyRef.current, event.nativeEvent) && markDirty()}
+				onClick={(event) => onChecklistClick(event.nativeEvent) && markDirty()}
 				onDragOver={(event) => event.dataTransfer.types.includes("Files") && event.preventDefault()}
 				onDrop={(event) => {
 					if (!event.dataTransfer.files.length) return;
@@ -382,24 +392,26 @@ const NoteEditor = ({ note, course, onDeleted, autoFocus = false }) => {
 				</p>
 			)}
 
-			<div className="note-foot">
-				{confirmDelete ? (
-					<>
-						<span>Supprimer cette note et ses pièces jointes ?</span>
-						<button type="button" className="btn is-small is-danger" onClick={deleteNote}>
-							Supprimer
+			{persisted.current && (
+				<div className="note-foot">
+					{confirmDelete ? (
+						<>
+							<span>Supprimer cette note et ses pièces jointes ?</span>
+							<button type="button" className="btn is-small is-danger" onClick={deleteNote}>
+								Supprimer
+							</button>
+							<button type="button" className="btn is-small" onClick={() => setConfirmDelete(false)}>
+								Garder
+							</button>
+						</>
+					) : (
+						<button type="button" className="btn is-small note-delete" onClick={() => setConfirmDelete(true)}>
+							<Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
+							Supprimer la note
 						</button>
-						<button type="button" className="btn is-small" onClick={() => setConfirmDelete(false)}>
-							Garder
-						</button>
-					</>
-				) : (
-					<button type="button" className="btn is-small note-delete" onClick={() => setConfirmDelete(true)}>
-						<Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
-						Supprimer la note
-					</button>
-				)}
-			</div>
+					)}
+				</div>
+			)}
 		</div>
 	);
 };
