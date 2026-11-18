@@ -1,10 +1,11 @@
 import React from "react";
-import { AlertCircle, ArrowRight, ArrowUpRight, Check, Minus, Moon, Sun } from "lucide-react";
+import { AlertCircle, ArrowRight, ArrowUpRight, Check, Minus, Moon, Puzzle, Sun } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { trackEvent } from "../utils/analyticsTracker";
 import { androidAppDownloadUrl, iosAppDownloadUrl } from "../utils/downloadLinks";
 import { isIOSDevice } from "../utils/platform";
+import { useExtensionRelease } from "../hooks/useExtensionRelease";
 import { courseHue } from "../utils/courseColor";
 import "./Login.css";
 
@@ -89,6 +90,7 @@ const Login = () => {
 	const { login, loading, error } = useAuth();
 	const { theme, toggleTheme } = useTheme();
 	const platform = React.useMemo(detectPlatform, []);
+	const extension = useExtensionRelease();
 	const dates = React.useMemo(weekDates, []);
 	const first = dates[0];
 	const last = dates[dates.length - 1];
@@ -155,6 +157,28 @@ const Login = () => {
 	const ticketRow = (
 		<div className="tickets" data-primary={platform}>
 			{order.map((key) => tickets[key])}
+			{platform === "web" && (
+				<div className="ticket-extension">
+					<a
+						className="ticket"
+						href={extension.url}
+						target="_blank"
+						rel="noopener noreferrer"
+						onClick={() => trackEvent("extension_download_clicked", { area: "login", channel: "github_releases" })}>
+						<span className="ticket-stub">
+							<Puzzle size={20} strokeWidth={2.2} aria-hidden="true" />
+						</span>
+						<span className="ticket-text">
+							<strong>Extension navigateur</strong>
+							<small>T'es cours toujours présents · v{extension.version}</small>
+						</span>
+						<ArrowUpRight className="ticket-go" size={18} strokeWidth={2.4} aria-hidden="true" />
+					</a>
+					<span className="hand ticket-new" aria-hidden="true">
+						nouveau !
+					</span>
+				</div>
+			)}
 		</div>
 	);
 

@@ -1,54 +1,55 @@
 <div align="center">
 
+<img src="client/public/icons/app_logo.png" alt="Logo EpiTime" width="96" height="96" />
+
 # EpiTime
 
-### L'emploi du temps EPITA, mais en mieux.
+### Ton emploi du temps EPITA, enfin lisible.
 
-Une interface moderne, responsive et pensée pour le mobile afin de consulter son emploi du temps, ses notes et ses informations académiques sans subir l'interface de Zeus ou d'Auriga.
+Planning, salles libres, notes et rappels avant chaque cours, sur le web, Android, iPhone et iPad, et maintenant dans ton navigateur avec l'extension. Gratuit, open source, fait par un étudiant pour les étudiants.
 
 <br />
 
 <a href="https://epitime.epita.it">
   <img src="https://img.shields.io/badge/Ouvrir%20EpiTime-ef4444?style=for-the-badge&logo=googlecalendar&logoColor=white" alt="Ouvrir EpiTime" />
 </a>
-<a href="https://github.com/alexistb2904/EpiTime">
-  <img src="https://img.shields.io/github/stars/alexistb2904/EpiTime?style=for-the-badge&logo=github&label=Stars&labelColor=161b22&color=ef4444" alt="GitHub stars" />
+<a href="https://apps.apple.com/fr/app/epitime/id6822687222">
+  <img src="https://img.shields.io/badge/App%20Store-161b22?style=for-the-badge&logo=apple&logoColor=white" alt="Télécharger sur l'App Store" />
 </a>
-<a href="https://github.com/alexistb2904/EpiTime/blob/main/LICENSE">
-  <img src="https://img.shields.io/github/license/alexistb2904/EpiTime?style=for-the-badge&labelColor=161b22&color=ef4444" alt="Licence MIT" />
+<a href="https://github.com/alexistb2904/EpiTime/releases">
+  <img src="https://img.shields.io/badge/APK%20Android-161b22?style=for-the-badge&logo=android&logoColor=3DDC84" alt="Télécharger l'APK Android" />
+</a>
+<a href="https://github.com/alexistb2904/EpiTime/releases">
+  <img src="https://img.shields.io/badge/Extension%20navigateur-161b22?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Télécharger l'extension navigateur" />
 </a>
 
 <br /><br />
 
+<a href="https://github.com/alexistb2904/EpiTime/stargazers">
+  <img src="https://img.shields.io/github/stars/alexistb2904/EpiTime?style=flat-square&logo=github&label=Stars&labelColor=161b22&color=ef4444" alt="GitHub stars" />
+</a>
+<a href="https://github.com/alexistb2904/EpiTime/blob/main/LICENSE">
+  <img src="https://img.shields.io/github/license/alexistb2904/EpiTime?style=flat-square&labelColor=161b22&color=ef4444" alt="Licence MIT" />
+</a>
 <img src="https://img.shields.io/badge/React-161b22?style=flat-square&logo=react&logoColor=61DAFB" alt="React" />
-<img src="https://img.shields.io/badge/TypeScript-161b22?style=flat-square&logo=typescript&logoColor=3178C6" alt="TypeScript" />
 <img src="https://img.shields.io/badge/React%20Native-161b22?style=flat-square&logo=react&logoColor=61DAFB" alt="React Native" />
 <img src="https://img.shields.io/badge/Expo-161b22?style=flat-square&logo=expo&logoColor=white" alt="Expo" />
+<img src="https://img.shields.io/badge/TypeScript-161b22?style=flat-square&logo=typescript&logoColor=3178C6" alt="TypeScript" />
 <img src="https://img.shields.io/badge/Express-161b22?style=flat-square&logo=express&logoColor=white" alt="Express" />
 <img src="https://img.shields.io/badge/Docker-161b22?style=flat-square&logo=docker&logoColor=2496ED" alt="Docker" />
-<img src="https://img.shields.io/badge/Coolify-161b22?style=flat-square&logo=coolify&logoColor=6B16ED" alt="Coolify" />
 
 </div>
 
 ---
 
-## Présentation
+## Pourquoi EpiTime
 
-Zeus est pratique pour accéder aux données de scolarité, mais son interface n'est pas réellement pensée pour une utilisation quotidienne sur mobile.
+Zeus et Auriga contiennent tout ce qu'il faut, mais leurs interfaces ne sont pas faites pour être ouvertes dix fois par jour sur un téléphone. EpiTime reprend les mêmes données et les range pour être lues d'un coup d'œil : où et quand est ton prochain cours, quelle salle est libre, quelle note vient de tomber.
 
-**EpiTime** propose une expérience plus moderne pour les étudiants de l'EPITA :
-
-- interface claire et responsive
-- consultation de l'emploi du temps
-- consultation des notes
-- authentification Microsoft
-- notifications web et mobiles
-- fonctionnement sous forme de PWA
-- application native Android
-- gestion du mode hors ligne
-- statistiques d'utilisation respectueuses de la vie privée.
-
-L'objectif est simple : conserver les données utiles de Zeus et d'Auriga, tout en proposant une interface plus rapide, agréable et adaptée aux usages actuels.
+- **Compréhensible en trois secondes** : le prochain cours est surligné, la salle et l'heure sont en gros.
+- **Là où tu es** : navigateur, PWA, application Android, application iPhone et iPad, extension Chrome, Edge et Firefox.
+- **Connexion simple** : ton compte Microsoft EPITA, rien d'autre. Aucun mot de passe n'est stocké.
+- **Honnête** : open source (MIT), indépendant, mesure d'audience uniquement si tu l'acceptes.
 
 ---
 
@@ -56,11 +57,41 @@ L'objectif est simple : conserver les données utiles de Zeus et d'Auriga, tout 
 
 <div align="center">
 
-<img width="32%" alt="Vue calendrier EpiTime" src="https://github.com/user-attachments/assets/8d121cd5-324a-433e-b901-9d212a4f1b6a" />
-<img width="32%" alt="Vue détaillée EpiTime" src="https://github.com/user-attachments/assets/e143b555-98d4-4688-9a6a-8f49661b6e76" />
-<img width="32%" alt="Vue mobile EpiTime" src="https://github.com/user-attachments/assets/ff841497-1700-4dd9-8d7c-c5f7dc7a3063" />
+<img src="client/public/showcase/web.webp" alt="EpiTime dans le navigateur : la semaine en grille, le prochain cours en haut, les groupes et filtres à gauche" width="82%" />
+
+<br /><br />
+
+<img src="client/public/showcase/pwa.webp" alt="EpiTime en PWA sur téléphone" width="28%" />
+<img src="client/public/showcase/native.webp" alt="L'application mobile EpiTime : recherche de salle, détails d'un cours et agenda de la semaine" width="52%" />
+
+<sub>Captures avec des données d'exemple.</sub>
 
 </div>
+
+---
+
+## Où utiliser EpiTime
+
+| | Web et PWA | Android | iPhone et iPad | Extension |
+| --- | :---: | :---: | :---: | :---: |
+| Planning de la semaine | ✅ | ✅ | ✅ | |
+| Prochain cours en un clic | ✅ | ✅ | ✅ | ✅ |
+| Filtres groupe, salle et enseignant | ✅ | ✅ | ✅ | ✅ |
+| Salles libres | ✅ | ✅ | ✅ | |
+| Rappels avant les cours | ✅ | ✅ | ✅ | ✅ |
+| Alertes de changement de salle ou d'horaire | ✅ | ✅ | ✅ | ✅ |
+| Notes de cours | ✅ | ✅ | ✅ | ✅ |
+| Notes et syllabus Auriga | | ✅ | ✅ | |
+| Widgets d'écran d'accueil | | ✅ | | |
+| Mode hors ligne | ✅ | ✅ | ✅ | ✅ |
+| Sans installation | ✅ | | | |
+
+| Plateforme | Où la trouver |
+| --- | --- |
+| Web et PWA | [epitime.epita.it](https://epitime.epita.it) |
+| Android | APK dans les [releases GitHub](https://github.com/alexistb2904/EpiTime/releases) |
+| iPhone et iPad | [App Store](https://apps.apple.com/fr/app/epitime/id6822687222) |
+| Extension navigateur | [Releases GitHub](https://github.com/alexistb2904/EpiTime/releases), tags `x.x.x-extension` |
 
 ---
 
@@ -68,46 +99,55 @@ L'objectif est simple : conserver les données utiles de Zeus et d'Auriga, tout 
 
 ### Emploi du temps
 
-- affichage clair des cours
-- navigation par jour et par semaine
-- détails sur les horaires, salles et matières
-- interface responsive pour ordinateur, tablette et mobile
-- mise en cache pour une consultation hors ligne.
+- semaine en grille ou liste, avec une seule journée à la fois sur téléphone
+- le **prochain cours** sorti de la grille, avec le compte à rebours et la salle
+- cours annulés, salles modifiées et examens clairement signalés
+- filtres par **groupe**, **enseignant** et **salle**, avec sélection de plusieurs groupes
+- **salles libres** : trouve une salle vide pour réviser ou travailler en groupe
+- détails d'un cours : horaires, salle, enseignants, cours en ligne
+- thème clair et sombre, sombre par défaut
+- consultation hors ligne grâce au cache, le planning reste toujours accessible
 
-### Notes et données académiques
+### Notifications
 
-- consultation des notes disponibles
-- récupération des données via les services de l'EPITA
-- affichage simplifié et lisible
-- synchronisation après authentification.
+- rappels avant chaque cours
+- alertes quand une salle, un horaire ou un enseignant change, et en cas d'annulation
+- historique des changements dans l'application mobile
+- notification de cours en direct sur Android
+- Web Push sur le navigateur, Expo Push sur mobile
 
-### Expérience mobile
+### Applications mobiles (Android, iPhone et iPad)
 
-- PWA installable
-- application React Native
-- deep links d'authentification
-- prise en charge d'Android
+- **notes Auriga** par matière, avec moyennes pondérées et coefficients modifiables
+- **syllabus** consultables et exportables
+- **événements manuels** à ajouter à ton planning
+- **widgets Android** : prochain cours, aujourd'hui, cours à venir, notes du semestre et aperçu du semestre
+- notes de cours avec rappels
+- connexion Microsoft sans mot de passe stocké
 
 ### Notes de cours
 
-- notes par cours ou notes libres, depuis la fiche d'un cours ou la fenêtre « Mes notes »
+- notes liées à un cours ou notes libres, depuis la fiche d'un cours ou la fenêtre « Mes notes »
 - texte mis en forme, listes, liens, images collées et pièces jointes
 - enregistrement automatique dans le navigateur (IndexedDB), sans serveur
-- export et import d'une archive .zip
+- export et import d'une archive `.zip`
 - échange avec l'extension EpiTime quand elle est installée et associée
 
 ### Extension navigateur
 
-- prochain cours et compte à rebours en un clic
+Nouveau : EpiTime s'installe aussi dans Chrome, Edge et Firefox.
+
+- prochain cours et compte à rebours en un clic depuis la barre d'outils
 - rappels avant les cours et alertes quand une salle ou un horaire change
 - notes dans le panneau latéral, à côté d'un PDF ou d'un sujet de TP
-- détails, chargement en développement et builds : [extension/README.md](extension/README.md)
+- fréquence de synchronisation, matières suivies et thème réglables
+- téléchargement dans les [releases GitHub](https://github.com/alexistb2904/EpiTime/releases), détails de développement et de build dans [extension/README.md](extension/README.md)
 
 ### Confidentialité
 
 - mesure d'audience uniquement après consentement
-- instance Rybbit auto-hébergée
-- aucune transmission du nom, de l'adresse e-mail ou du token Microsoft
+- instance Rybbit auto-hébergée sur le même VPS
+- aucune transmission du nom, de l'adresse e-mail, du token Microsoft, des notes ou du planning personnel
 
 ---
 
@@ -115,11 +155,11 @@ L'objectif est simple : conserver les données utiles de Zeus et d'Auriga, tout 
 
 ```text
 EpiTime/
-├── client/            # Application web React / Vite
-├── clientNative/      # Application mobile React Native
+├── client/            # Application web et PWA (React, Vite)
+├── clientNative/      # Applications Android et iOS (React Native, Expo)
 ├── extension/         # Extension Chrome, Edge et Firefox (WXT, React, TypeScript)
-├── shared/            # Logique métier commune au web et à l'extension (planning, notes)
-├── server/            # API Express et services backend
+├── shared/            # Logique commune au web et à l'extension (planning, notes)
+├── server/            # API Express, notifications, mesure d'audience
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
@@ -127,17 +167,18 @@ EpiTime/
 
 ### Stack technique
 
-| Partie                | Technologies            |
-| --------------------- | ----------------------- |
-| Application web       | React, TypeScript, Vite |
-| Application mobile    | React Native, Expo      |
-| Backend               | Node.js, Express        |
-| Authentification      | Microsoft OAuth         |
-| Notifications web     | Web Push, VAPID         |
+| Partie | Technologies |
+| --- | --- |
+| Application web | React, Vite |
+| Applications mobiles | React Native, Expo, TypeScript |
+| Extension | WXT, React, TypeScript, Manifest V3 |
+| Backend | Node.js, Express |
+| Authentification | Microsoft OAuth, comptes @epita.fr |
+| Notifications web | Web Push, VAPID |
 | Notifications mobiles | Expo Push Notifications |
-| Analytics             | Rybbit auto-hébergé     |
-| Conteneurisation      | Docker, Docker Compose  |
-| Déploiement           | Coolify                 |
+| Analytics | Rybbit auto-hébergé |
+| Conteneurisation | Docker, Docker Compose |
+| Déploiement | Coolify |
 
 ---
 
@@ -171,6 +212,9 @@ npm install
 
 cd ../clientNative
 npm install
+
+cd ../shared && npm ci
+cd ../extension && npm ci
 ```
 
 ---
@@ -264,6 +308,8 @@ cd clientNative
 npm run android
 ```
 
+L'application iPhone et iPad est publiée sur l'[App Store](https://apps.apple.com/fr/app/epitime/id6822687222). Le développement iOS demande Xcode.
+
 ### Vérifications utiles
 
 ```bash
@@ -282,6 +328,21 @@ clientNative/google-services.json
 Ou, dans EAS, configure `GOOGLE_SERVICES_JSON` comme secret de type fichier. Ce fichier étant privé, il ne doit pas être versionné.
 
 S'il est absent, `npm run android` poursuit sans Firebase afin de permettre les builds locaux. Les builds de release (`npm run apk:build` et EAS) exigent toutefois un fichier valide. Le fichier est copié vers `clientNative/android/app/google-services.json` pour le build Android.
+
+---
+
+## Extension navigateur
+
+```bash
+cd extension
+npm run dev           # Chromium avec rechargement à chaud
+npm run dev:firefox   # Firefox
+npm test              # tests de la session, de l'API et de la synchronisation
+npm run build         # .output/chrome-mv3
+npm run build:firefox # .output/firefox-mv3
+```
+
+Les releases de l'extension portent un tag de la forme `x.x.x-extension`, que le site utilise pour proposer toujours la dernière version. Toutes les commandes sont détaillées dans [extension/README.md](extension/README.md).
 
 ---
 
@@ -419,24 +480,6 @@ Pour toute question liée à la confidentialité :
 ```text
 contact@alexistb.com
 ```
-
----
-
-## Pourquoi EpiTime ?
-
-Parce que consulter son emploi du temps ne devrait pas ressembler à une visite dans une interface restée bloquée dix ans en arrière.
-
-EpiTime reprend les données utiles de Zeus et d'Auriga, puis les présente dans une interface :
-
-- moderne
-- rapide
-- responsive
-- installable
-- adaptée aux mobiles
-- compatible avec les notifications
-- pensée pour un usage quotidien.
-
-Même données, meilleure expérience.
 
 ---
 

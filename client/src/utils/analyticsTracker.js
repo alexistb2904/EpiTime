@@ -47,6 +47,7 @@ const CONTROLLED_VALUES = {
 	event_details_load_failed: { result: ["failure"], source: ["event_details"], phase: ["reservation_details"] },
 	preview_opened: { preview_type: ["android", "web", "pwa"] },
 	bug_report_opened: { source: ["settings"] },
+	extension_download_clicked: { area: ["login", "sidebar", "pwa_banner"], channel: ["github_releases"] },
 };
 
 const isTrackingAllowed = () => {

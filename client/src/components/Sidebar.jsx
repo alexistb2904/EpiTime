@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactCalendar from "react-calendar";
-import { Bell, ChevronDown, Download, LogOut, Moon, Settings, Sun, X } from "lucide-react";
+import { Bell, ChevronDown, Download, LogOut, Moon, Puzzle, Settings, Sun, X } from "lucide-react";
 import { trackEvent } from "../utils/analyticsTracker";
 import { androidAppDownloadUrl, iosAppDownloadUrl } from "../utils/downloadLinks";
+import { isMobileDevice } from "../utils/platform";
+import { useExtensionRelease } from "../hooks/useExtensionRelease";
 import { filterCalendarFilterOptions } from "../utils/calendarFilters";
 
 const getRoomLabel = (room) => room.name || `Salle #${room.id}`;
@@ -79,6 +81,7 @@ const Sidebar = ({
 	setShowNotificationsModal,
 	logout,
 }) => {
+	const extension = useExtensionRelease();
 	const monthOf = (date) => new Date(date.getFullYear(), date.getMonth(), 1);
 	const [activeStart, setActiveStart] = useState(() => monthOf(currentDate));
 	useEffect(() => setActiveStart(monthOf(currentDate)), [currentDate]);
@@ -199,6 +202,12 @@ const Sidebar = ({
 						</svg>
 						App iPhone et iPad
 					</button>
+					{!isMobileDevice(navigator) && (
+						<button type="button" onClick={() => openExternal(extension.url, "extension_download_clicked", "github_releases")}>
+							<Puzzle size={18} strokeWidth={2.1} aria-hidden="true" />
+							Extension navigateur
+						</button>
+					)}
 					<button type="button" className="is-logout" onClick={logout}>
 						<LogOut size={18} strokeWidth={2.1} aria-hidden="true" />
 						Déconnexion

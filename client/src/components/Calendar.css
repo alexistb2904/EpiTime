@@ -425,6 +425,10 @@ body.has-modal {
 	--ic: 235;
 }
 
+.drawer-actions button:nth-child(6) {
+	--ic: 195;
+}
+
 /* Écart minimal avant la déconnexion quand le classeur est plein (sinon margin-top: auto la pousse en bas). */
 .drawer-actions > :nth-last-child(2) {
 	margin-bottom: 0.75rem;

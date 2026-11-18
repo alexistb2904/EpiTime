@@ -339,6 +339,20 @@
 	--stub-bg: color-mix(in oklab, var(--accent) 88%, var(--accent-ink));
 }
 
+.ticket-extension {
+	grid-column: 1 / -1;
+	position: relative;
+}
+
+.ticket-new {
+	position: absolute;
+	top: -0.95rem;
+	right: 0.9rem;
+	font-size: 1.3rem;
+	rotate: -4deg;
+	pointer-events: none;
+}
+
 .tickets > .ticket:first-child {
 	grid-column: 1 / -1;
 	min-height: 4rem;
